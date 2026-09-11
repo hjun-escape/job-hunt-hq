@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { DashboardPage } from "./DashboardPage";
+import { SettingsPage } from "../features/settings/SettingsPage";
 
 export interface PageProps {
   parts: string[];
@@ -12,5 +13,11 @@ export interface NavItem {
 }
 
 /** Later tasks push into these two registries; the key is the first hash segment. */
-export const NAV: NavItem[] = [{ key: "", to: "/", label: "Dashboard" }];
-export const PAGES: Record<string, ComponentType<PageProps>> = { "": DashboardPage };
+export const NAV: NavItem[] = [
+  { key: "", to: "/", label: "Dashboard" },
+  { key: "settings", to: "/settings", label: "Settings" },
+];
+export const PAGES: Record<string, ComponentType<PageProps>> = {
+  "": DashboardPage,
+  settings: SettingsPage,
+};
