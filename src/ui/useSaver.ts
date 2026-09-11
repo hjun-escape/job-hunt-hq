@@ -10,11 +10,14 @@ export function useSaver() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const run = useCallback(
     async (fn: () => Promise<unknown>): Promise<boolean> => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
       setStatus("saving");
       try {
         await fn();
         setStatus("saved");
-        if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => setStatus("idle"), 1500);
         return true;
       } catch (e) {
