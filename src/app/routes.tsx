@@ -1,7 +1,8 @@
 import type { ComponentType } from "react";
-import { DashboardPage } from "./DashboardPage";
+import { ApplicationsPage } from "../features/applications/ApplicationsPage";
 import { CompaniesPage } from "../features/companies/CompaniesPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
+import { DashboardPage } from "./DashboardPage";
 
 export interface PageProps {
   parts: string[];
@@ -13,14 +14,16 @@ export interface NavItem {
   label: string;
 }
 
-/** Later tasks push into these two registries; the key is the first hash segment. */
 export const NAV: NavItem[] = [
   { key: "", to: "/", label: "Dashboard" },
+  { key: "applications", to: "/applications", label: "Applications" },
   { key: "companies", to: "/companies", label: "Companies" },
   { key: "settings", to: "/settings", label: "Settings" },
 ];
+
 export const PAGES: Record<string, ComponentType<PageProps>> = {
   "": DashboardPage,
+  applications: ApplicationsPage,
   companies: CompaniesPage,
   settings: SettingsPage,
 };
