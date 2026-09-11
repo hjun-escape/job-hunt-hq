@@ -89,6 +89,7 @@ export function createFakeDb(opts: FakeDbOptions = {}): FakeDb {
   const versions = new Map<string, number>();
   const docListeners = new Map<string, Set<Listener>>();
   const collListeners = new Map<string, Set<Listener>>();
+  const snapCache = new Map<string, { version: number; snap: DocumentSnapshot }>();
   const metadata: SnapshotMetadata = { fromCache: false, hasPendingWrites: false };
 
   if (opts.persistKey && storage) {
@@ -137,9 +138,16 @@ export function createFakeDb(opts: FakeDbOptions = {}): FakeDb {
   }
 
   function snapshotOf(path: string): DocumentSnapshot {
+    const currentVersion = versions.get(path) ?? 0;
+    const cached = snapCache.get(path);
+    if (cached && cached.version === currentVersion) {
+      return cached.snap;
+    }
     const body = docs.get(path);
     const frozen = body === undefined ? undefined : deepFreeze(clone(body));
-    return { id: lastOf(path), exists: body !== undefined, data: () => frozen, metadata };
+    const snap = { id: lastOf(path), exists: body !== undefined, data: () => frozen, metadata };
+    snapCache.set(path, { version: currentVersion, snap });
+    return snap;
   }
 
   function docRef(path: string): DocumentReference {
@@ -165,7 +173,10 @@ export function createFakeDb(opts: FakeDbOptions = {}): FakeDb {
         notify(path);
       },
       async delete() {
-        if (docs.delete(path)) notify(path);
+        if (docs.delete(path)) {
+          bump(path);
+          notify(path);
+        }
       },
       async acquire({ holder, ttlMs, data }) {
         const now = Date.now();
@@ -293,11 +304,13 @@ export function createFakeDb(opts: FakeDbOptions = {}): FakeDb {
     _dump: () => Object.fromEntries([...docs].map(([k, v]) => [k, clone(v)])),
     _load: (all) => {
       docs = new Map(Object.entries(clone(all)));
+      snapCache.clear();
       notifyAll();
     },
     _reset: () => {
       docs = new Map();
       leases.clear();
+      snapCache.clear();
       notifyAll();
     },
   };

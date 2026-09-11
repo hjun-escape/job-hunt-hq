@@ -55,6 +55,15 @@ describe("documents", () => {
     await db.doc("tasks/t1").set({ x: 2 });
     expect(seen).toEqual([false, true]);
   });
+
+  it("get on unchanged document returns the same snapshot object", async () => {
+    const db = createFakeDb();
+    const ref = db.doc("tasks/t1");
+    await ref.set({ x: 1 });
+    const snap1 = await ref.get();
+    const snap2 = await ref.get();
+    expect(snap1).toBe(snap2);
+  });
 });
 
 describe("collections and queries", () => {
@@ -107,6 +116,21 @@ describe("collections and queries", () => {
     expect(events[0]).toEqual(["added:a1", "added:a2", "added:a3"]);
     expect(events[1]).toEqual(["modified:a1"]);
     expect(events[2]).toEqual(["removed:a3"]);
+  });
+
+  it("keeps the same snapshot object for documents that did not change", async () => {
+    const db = await seeded();
+    const deliveries: DocumentSnapshot[][] = [];
+    const off = db.collection("apps").onSnapshot((snap) => deliveries.push(snap.docs));
+    await tick();
+    await db.doc("apps/a1").set({ title: "changed" });
+    off();
+    const [first, second] = deliveries;
+    const byId = (list: DocumentSnapshot[], id: string) => list.find((d) => d.id === id)!;
+    expect(byId(second, "a1")).not.toBe(byId(first, "a1"));
+    expect(byId(second, "a2")).toBe(byId(first, "a2"));
+    expect(byId(second, "a3")).toBe(byId(first, "a3"));
+    expect(byId(second, "a2").data()).toBe(byId(first, "a2").data());
   });
 });
 
