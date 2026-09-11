@@ -6,3 +6,30 @@ h1, h2, h3 { margin: 0 0 8px; font-weight: 600; }
 h1 { font-size: 20px; } h2 { font-size: 16px; } h3 { font-size: 14px; }
 a { color: var(--accent); }
 .main { padding: 16px; }
+/* layout */
+.shell { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+.nav { background: var(--surface); border-right: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+.brand { font-weight: 700; padding: 8px 10px 14px; }
+.nav-item { color: var(--text); text-decoration: none; padding: 8px 10px; border-radius: var(--radius); }
+.nav-item:hover { background: var(--surface-2); }
+.nav-item.active { background: var(--accent); color: var(--accent-text); }
+.main { padding: 20px 24px; min-width: 0; }
+.boot { padding: 40px; color: var(--text-muted); }
+.empty { padding: 40px; color: var(--text-muted); text-align: center; }
+.banner { padding: 10px 14px; border-radius: var(--radius); margin-bottom: 16px; }
+.banner-warn { background: var(--chip-amber); color: var(--chip-amber-text); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.card-label { color: var(--text-muted); font-size: 12px; }
+.card-value { font-size: 24px; font-weight: 600; }
+.toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+.toast { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: var(--radius); padding: 10px 14px; max-width: 360px; }
+.toast-error { border-color: var(--danger); }
+.toast-success { border-color: var(--ok); }
+@media (max-width: 720px) {
+  .shell { grid-template-columns: 1fr; }
+  .nav { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-top: 1px solid var(--border); padding: 6px; z-index: 40; }
+  .brand { display: none; }
+  .nav-item { white-space: nowrap; font-size: 13px; }
+  .main { padding: 14px; padding-bottom: 72px; }
+}
