@@ -56,4 +56,17 @@ describe("SettingsPage", () => {
     const free = screen.getByRole("button", { name: "Delete ghosted" }) as HTMLButtonElement;
     expect(free.disabled).toBe(false);
   });
+
+  it("shows the new list's labels after switching to a list that shares an id", async () => {
+    const db = await open("#/settings");
+    const label = () => screen.getByLabelText("Label final") as HTMLInputElement;
+    expect(label().value).toBe("Final round");
+    fireEvent.change(screen.getByLabelText("List"), { target: { value: "roundTypes" } });
+    expect(label().value).toBe("Final");
+    fireEvent.blur(label());
+    await new Promise((r) => setTimeout(r, 50));
+    const s = (await db.doc("settings/main").get()).data() as unknown as Settings;
+    expect(s.pickLists.roundTypes.find((e) => e.id === "final")?.label).toBe("Final");
+    expect(s.pickLists.statuses.find((e) => e.id === "final")?.label).toBe("Final round");
+  });
 });

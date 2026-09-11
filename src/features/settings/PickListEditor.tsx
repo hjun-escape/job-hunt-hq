@@ -63,9 +63,9 @@ export function PickListEditor() {
               const s = e as StatusEntry;
               const inUse = used.has(e.id);
               return (
-                <tr key={e.id}>
+                <tr key={`${name}:${e.id}`}>
                   <td>
-                    <input aria-label={`Label ${e.id}`} defaultValue={e.label}
+                    <input key={`${name}:${e.id}:${e.label}`} aria-label={`Label ${e.id}`} defaultValue={e.label}
                       onBlur={(ev) => { const v = ev.target.value.trim(); if (v && v !== e.label) void commit(updateEntry(list, e.id, { label: v })); }} />
                   </td>
                   <td>
@@ -81,7 +81,7 @@ export function PickListEditor() {
                         </select>
                       </td>
                       <td>
-                        <input aria-label={`Rank ${e.id}`} type="number" style={{ width: 70 }} defaultValue={s.stageRank}
+                        <input key={`${name}:${e.id}:${s.stageRank}`} aria-label={`Rank ${e.id}`} type="number" style={{ width: 70 }} defaultValue={s.stageRank}
                           onBlur={(ev) => { const n = Number(ev.target.value); if (Number.isFinite(n) && n !== s.stageRank) void editStatus(e.id, { stageRank: n }); }} />
                       </td>
                     </>
