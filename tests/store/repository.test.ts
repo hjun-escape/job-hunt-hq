@@ -1,0 +1,127 @@
+import { describe, it, expect } from "vitest";
+import { createFakeDb } from "../../src/capabilities/fakeDb";
+import { buildCompany } from "../../src/domain/factories";
+import { createStore } from "../../src/store/store";
+import { startSync } from "../../src/store/sync";
+import { Repository, RepoError, stripUndefined } from "../../src/store/repository";
+
+const NOW = "2026-09-11T00:00:00.000Z";
+
+async function boot() {
+  const db = createFakeDb();
+  const store = createStore();
+  const h = startSync(db, store, { homeTz: "UTC", now: () => NOW });
+  await h.ready;
+  return { db, store, repo: new Repository(db, store, () => NOW), h };
+}
+
+describe("stripUndefined", () => {
+  it("drops undefined keys recursively", () => {
+    expect(stripUndefined({ a: 1, b: undefined, c: { d: undefined, e: "x" } })).toEqual({ a: 1, c: { e: "x" } });
+  });
+});
+
+describe("Repository", () => {
+  it("createCompany writes a document the store mirrors", async () => {
+    const { repo, store } = await boot();
+    const co = await repo.createCompany({ name: "Shopify" });
+    expect(co.id).toMatch(/^co_/);
+    expect(store.getState().companies[co.id]?.name).toBe("Shopify");
+  });
+
+  it("createApplication takes maxStageRank from its status", async () => {
+    const { repo } = await boot();
+    const app = await repo.createApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied" });
+    expect(app.maxStageRank).toBe(3);
+    expect(app.createdAt).toBe(NOW);
+  });
+
+  it("createApplication rejects an unknown status", async () => {
+    const { repo } = await boot();
+    await expect(repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "nope" })).rejects.toBeInstanceOf(RepoError);
+  });
+
+  it("update merges a patch, stamps updatedAt, and clears keys set to undefined", async () => {
+    const { repo, db } = await boot();
+    const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "saved", city: "Toronto" });
+    await repo.update("applications", app.id, { city: undefined, title: "New title" });
+    const stored = (await db.doc(`applications/${app.id}`).get()).data();
+    expect(stored).not.toHaveProperty("city");
+    expect(stored?.title).toBe("New title");
+    expect(stored?.updatedAt).toBe(NOW);
+  });
+
+  it("update of a missing record throws not_found", async () => {
+    const { repo } = await boot();
+    await expect(repo.update("companies", "co_missing", { name: "x" })).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("changeStatus appends activity, closes and reopens", async () => {
+    const { repo, store } = await boot();
+    const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "applied" });
+    await repo.changeStatus(app.id, "interviewing", "phone screen booked");
+    let cur = store.getState().applications[app.id];
+    expect(cur.statusId).toBe("interviewing");
+    expect(cur.maxStageRank).toBe(6);
+    expect(cur.activity.at(-1)).toMatchObject({ type: "status", from: "applied", to: "interviewing", text: "phone screen booked" });
+    await repo.changeStatus(app.id, "rejected");
+    cur = store.getState().applications[app.id];
+    expect(cur.closedAt).toBe(NOW);
+    await repo.changeStatus(app.id, "applied");
+    cur = store.getState().applications[app.id];
+    expect(cur.closedAt).toBeUndefined();
+    expect(cur.activity).toHaveLength(3);
+  });
+
+  it("logActivity appends a note", async () => {
+    const { repo, store } = await boot();
+    const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "saved" });
+    await repo.logActivity(app.id, { type: "note", text: "emailed recruiter" });
+    expect(store.getState().applications[app.id].activity).toEqual([{ at: NOW, type: "note", text: "emailed recruiter" }]);
+  });
+
+  it("remove deletes the record", async () => {
+    const { repo, store } = await boot();
+    const co = await repo.createCompany({ name: "Gone" });
+    await repo.remove("companies", co.id);
+    expect(store.getState().companies[co.id]).toBeUndefined();
+  });
+
+  it("saveSettings and saveProfile replace the singletons", async () => {
+    const { repo, store } = await boot();
+    await repo.saveSettings({ ...store.getState().settings!, displayCurrency: "KRW" });
+    expect(store.getState().settings?.displayCurrency).toBe("KRW");
+    await repo.saveProfile({ ...store.getState().profile!, name: "Ada" });
+    expect(store.getState().profile?.name).toBe("Ada");
+  });
+
+  it("a read-only repository rejects writes with code read_only", async () => {
+    const repo = new Repository(null, createStore());
+    expect(repo.readOnly).toBe(true);
+    await expect(repo.createCompany({ name: "x" })).rejects.toMatchObject({ code: "read_only" });
+  });
+
+  it("retries once on a transient unavailable error", async () => {
+    const db = createFakeDb();
+    let calls = 0;
+    const flaky = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: async (body: Record<string, unknown>) => { calls++; if (calls === 1) throw { code: "unavailable", message: "blip" }; return real.set(body); } };
+      },
+    } as unknown as DB;
+    const store = createStore();
+    const repo = new Repository(flaky, store, () => NOW);
+    await repo.create("companies", buildCompany({ name: "Retry" }, "co_r", NOW));
+    expect(calls).toBe(2);
+    expect((await db.doc("companies/co_r").get()).exists).toBe(true);
+  });
+
+  it("wraps a permanent error in RepoError with user text", async () => {
+    const db = createFakeDb();
+    const full = { ...db, doc: (path: string) => ({ ...db.doc(path), set: async () => { throw { code: "quota_exceeded", message: "cap" }; } }) } as unknown as DB;
+    const repo = new Repository(full, createStore(), () => NOW);
+    await expect(repo.create("companies", buildCompany({ name: "x" }, "co_x", NOW))).rejects.toMatchObject({ code: "quota_exceeded", message: expect.stringMatching(/full/i) });
+  });
+});
