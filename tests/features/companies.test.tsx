@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { Company } from "../../src/domain/types";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
@@ -53,5 +54,19 @@ describe("Companies", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(async () => expect((await db.doc("companies/co_2").get()).exists).toBe(false));
     expect(window.location.hash).toBe("#/companies");
+  });
+
+  it("keeps a country's sponsorship policy when only its note is edited", async () => {
+    const db = await open("#/companies/co_3", async (d) => {
+      await d.doc("companies/co_3").set(buildCompany({ name: "Sponsor Co" }, "co_3", NOW) as unknown as Record<string, unknown>);
+    });
+    await screen.findByRole("dialog");
+    const stored = async () => (await db.doc("companies/co_3").get()).data() as unknown as Company;
+    fireEvent.change(screen.getByLabelText("Canada sponsorship"), { target: { value: "yes" } });
+    await waitFor(async () => expect((await stored()).sponsorship.CA?.policy).toBe("yes"));
+    const note = screen.getByLabelText("Canada note");
+    fireEvent.change(note, { target: { value: "LMIA in the past" } });
+    fireEvent.blur(note);
+    await waitFor(async () => expect((await stored()).sponsorship.CA).toEqual({ policy: "yes", note: "LMIA in the past" }));
   });
 });

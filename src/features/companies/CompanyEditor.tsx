@@ -26,8 +26,10 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
 
   const linked = Object.values(state.applications).filter((a) => a.companyId === id);
   const patch = (p: Partial<Company>) => void run(() => repo.update("companies", id, p));
-  const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) =>
-    patch({ sponsorship: { ...company.sponsorship, [countryId]: { ...company.sponsorship[countryId], policy: "unknown", ...p } } });
+  const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) => {
+    const existing: SponsorshipPolicy = company.sponsorship[countryId] ?? { policy: "unknown" };
+    patch({ sponsorship: { ...company.sponsorship, [countryId]: { ...existing, ...p } } });
+  };
   const remove = async () => {
     if (linked.length) return;
     const ok = await confirm({ title: `Delete ${company.name}?`, message: "Notes and sponsorship info on this company are removed. This cannot be undone.", confirmLabel: "Delete" });
