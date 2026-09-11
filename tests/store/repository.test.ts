@@ -36,6 +36,12 @@ describe("Repository", () => {
     expect(app.createdAt).toBe(NOW);
   });
 
+  it("createApplication ignores a caller-supplied maxStageRank", async () => {
+    const { repo } = await boot();
+    const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "applied", maxStageRank: 9 });
+    expect(app.maxStageRank).toBe(3);
+  });
+
   it("createApplication rejects an unknown status", async () => {
     const { repo } = await boot();
     await expect(repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "nope" })).rejects.toBeInstanceOf(RepoError);

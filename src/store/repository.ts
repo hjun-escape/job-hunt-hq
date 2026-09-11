@@ -111,7 +111,7 @@ export class Repository {
   async createApplication(input: NewApplication): Promise<Application> {
     const status = findStatus(this.requireSettings(), input.statusId);
     if (!status) throw new RepoError("invalid", `Unknown status ${input.statusId}.`);
-    const doc = buildApplication({ maxStageRank: status.stageRank, ...input }, newId(ID_PREFIX.applications), this.now());
+    const doc = buildApplication({ ...input, maxStageRank: status.stageRank }, newId(ID_PREFIX.applications), this.now());
     return this.create("applications", doc);
   }
 
