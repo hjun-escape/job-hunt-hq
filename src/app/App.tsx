@@ -6,6 +6,7 @@ import { AppContext, type AppServices } from "../store/context";
 import { Repository } from "../store/repository";
 import { createStore } from "../store/store";
 import { startSync, type SyncHandle } from "../store/sync";
+import { ConfirmProvider } from "../ui/Confirm";
 import { ToastProvider } from "../ui/Toast";
 import { Shell } from "./Shell";
 
@@ -37,7 +38,9 @@ export function App({ capabilities }: { capabilities: Capabilities }) {
   return (
     <AppContext.Provider value={services}>
       <ToastProvider>
-        <Shell />
+        <ConfirmProvider>
+          <Shell />
+        </ConfirmProvider>
       </ToastProvider>
     </AppContext.Provider>
   );
