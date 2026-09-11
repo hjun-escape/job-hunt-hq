@@ -175,10 +175,12 @@ export default defineConfig({
   esbuild: { jsx: "automatic" },
   test: {
     environment: "jsdom",
+    globals: true,
     include: ["tests/**/*.test.{ts,tsx}"],
   },
 });
 ```
+(`globals: true` lets Testing Library register its automatic cleanup between tests; test files still import `describe`/`it`/`expect` explicitly.)
 
 `.gitignore`:
 ```
@@ -3052,7 +3054,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 8: Shared UI kit: fields, chips, table, drawer, confirm, autosave
 
 **Files:**
-- Create: `src/ui/fields.tsx`, `src/ui/Chip.tsx`, `src/ui/sortRows.ts`, `src/ui/Table.tsx`, `src/ui/Drawer.tsx`, `src/ui/Confirm.tsx`, `src/ui/useSaver.ts`
+- Create: `src/ui/fields.tsx`, `src/ui/Chip.tsx`, `src/ui/sortRows.ts`, `src/ui/Table.tsx`, `src/ui/Drawer.tsx`, `src/ui/Confirm.tsx`, `src/ui/useSaver.ts`, `src/ui/SaveIndicator.tsx`
 - Modify: `src/app/App.tsx` (wrap in `ConfirmProvider`), `src/styles/app.css` (append)
 - Test: `tests/ui/sortRows.test.ts`, `tests/ui/fields.test.tsx`, `tests/ui/Confirm.test.tsx`
 
@@ -3209,7 +3211,7 @@ Expected: FAIL, modules not found.
 
 `src/ui/fields.tsx`:
 ```tsx
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PickEntry, Rating } from "../domain/types";
 
 export function Field({ label, children, hint, htmlFor }: { label: string; children: ReactNode; hint?: string; htmlFor?: string }) {
@@ -3233,9 +3235,16 @@ interface TextProps {
 export function TextField({ label, value, onCommit, placeholder, type = "text", disabled }: TextProps) {
   const id = useId();
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  const last = useRef(value); // last committed value: Enter then blur commits once
+  useEffect(() => {
+    setDraft(value);
+    last.current = value;
+  }, [value]);
   const commit = () => {
-    if (draft !== value) onCommit(draft);
+    if (draft !== last.current) {
+      last.current = draft;
+      onCommit(draft);
+    }
   };
   return (
     <Field label={label} htmlFor={id}>
@@ -3248,7 +3257,7 @@ export function TextField({ label, value, onCommit, placeholder, type = "text", 
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Enter") commit();
         }}
       />
     </Field>
@@ -3266,7 +3275,11 @@ interface TextAreaProps {
 export function TextArea({ label, value, onCommit, rows = 4, placeholder, disabled }: TextAreaProps) {
   const id = useId();
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  const last = useRef(value);
+  useEffect(() => {
+    setDraft(value);
+    last.current = value;
+  }, [value]);
   return (
     <Field label={label} htmlFor={id}>
       <textarea
@@ -3277,7 +3290,10 @@ export function TextArea({ label, value, onCommit, rows = 4, placeholder, disabl
         disabled={disabled}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
-          if (draft !== value) onCommit(draft);
+          if (draft !== last.current) {
+            last.current = draft;
+            onCommit(draft);
+          }
         }}
       />
     </Field>
@@ -3296,18 +3312,25 @@ interface NumberProps {
 export function NumberField({ label, value, onCommit, min, max, step, disabled }: NumberProps) {
   const id = useId();
   const [draft, setDraft] = useState(value == null ? "" : String(value));
-  useEffect(() => setDraft(value == null ? "" : String(value)), [value]);
+  const last = useRef<number | null>(value);
+  useEffect(() => {
+    setDraft(value == null ? "" : String(value));
+    last.current = value;
+  }, [value]);
   const commit = () => {
     const trimmed = draft.trim();
     const next = trimmed === "" ? null : Number(trimmed);
     if (next !== null && Number.isNaN(next)) return;
-    if (next !== value) onCommit(next);
+    if (next !== last.current) {
+      last.current = next;
+      onCommit(next);
+    }
   };
   return (
     <Field label={label} htmlFor={id}>
       <input id={id} type="number" inputMode="decimal" value={draft} min={min} max={max} step={step} disabled={disabled}
         onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+        onKeyDown={(e) => { if (e.key === "Enter") commit(); }} />
     </Field>
   );
 }
@@ -3505,9 +3528,9 @@ export function Table<T extends { id: string }>({ rows, columns, sortKey, sortDi
         <thead>
           <tr>
             {columns.map((c) => (
-              <th key={c.key} style={{ width: c.width, textAlign: c.align ?? "left" }}>
+              <th key={c.key} style={{ width: c.width, textAlign: c.align ?? "left" }} aria-sort={sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}>
                 {c.sortValue && onSort ? (
-                  <button type="button" className="th-sort" onClick={() => onSort(c.key)} aria-sort={sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}>
+                  <button type="button" className="th-sort" onClick={() => onSort(c.key)}>
                     {c.header}{sortKey === c.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                   </button>
                 ) : c.header}
@@ -3672,7 +3695,7 @@ export function saveLabel(status: SaveStatus): string {
 }
 ```
 
-Add to `src/ui/Confirm.tsx`'s sibling, a tiny component in `src/ui/useSaver.ts` is not possible (it is .ts); create `src/ui/SaveIndicator.tsx`:
+`src/ui/SaveIndicator.tsx`:
 ```tsx
 import { saveLabel, type SaveStatus } from "./useSaver";
 
@@ -3777,7 +3800,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `src/domain/pickLists.ts`, `src/ui/timeZones.ts`, `src/features/settings/SettingsPage.tsx`, `src/features/settings/PickListEditor.tsx`
-- Modify: `src/app/routes.tsx` (register `settings`), `vitest.config.ts` (add `globals: true` so Testing Library auto-cleans between tests)
+- Modify: `src/app/routes.tsx` (register `settings`)
 - Test: `tests/domain/pickLists.test.ts`, `tests/features/settings.test.tsx`
 
 **Interfaces:**
@@ -3910,20 +3933,6 @@ Run: `npx vitest run tests/domain/pickLists.test.ts tests/features/settings.test
 Expected: FAIL, modules not found.
 
 - [ ] **Step 3: Implement**
-
-`vitest.config.ts` (replace):
-```ts
-import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-  esbuild: { jsx: "automatic" },
-  test: {
-    environment: "jsdom",
-    globals: true,
-    include: ["tests/**/*.test.{ts,tsx}"],
-  },
-});
-```
 
 `src/domain/pickLists.ts`:
 ```ts
@@ -4648,19 +4657,18 @@ describe("Applications", () => {
     fireEvent.click(screen.getByRole("button", { name: "New application" }));
     fireEvent.change(await screen.findByLabelText("Role title"), { target: { value: "Backend Engineer" } });
     fireEvent.change(screen.getByLabelText("Company"), { target: { value: "Shopify" } });
-    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "CA" } });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(async () => expect((await db.collection("applications").get()).size).toBe(1));
     expect((await db.collection("companies").get()).docs[0].data()?.name).toBe("Shopify");
     expect(window.location.hash).toMatch(/^#\/applications\/app_/);
-    expect(await screen.findByText("Backend Engineer")).toBeTruthy();
+    expect((await screen.findAllByText("Backend Engineer")).length).toBeGreaterThan(0);
   });
 
   it("filters rows by text", async () => {
     const db = await open("#/applications");
     await db.doc("companies/co_1").set({ id: "co_1", name: "Shopify", cities: [], techStack: [], sponsorship: {}, interviewProcess: "", sources: [], notes: "", createdAt: NOW, updatedAt: NOW });
     await db.doc("applications/app_1").set({ id: "app_1", companyId: "co_1", title: "Backend Engineer", countryId: "CA", channelId: "linkedin", statusId: "applied", tier: null, desire: null, fit: null, likelihood: null, needsSponsorship: null, sponsorshipOffered: null, answerIds: [], tags: [], notes: "", activity: [], maxStageRank: 3, createdAt: NOW, updatedAt: NOW });
-    expect(await screen.findByText("Backend Engineer")).toBeTruthy();
+    expect((await screen.findAllByText("Backend Engineer")).length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzz" } });
     expect(await screen.findByText(/No applications match/)).toBeTruthy();
   });
@@ -5001,7 +5009,7 @@ async function open() {
 describe("ApplicationDetail", () => {
   it("changes status from the header and shows it in the activity tab", async () => {
     const { stored } = await open();
-    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "interviewing" } });
+    fireEvent.change(screen.getByLabelText("Application status"), { target: { value: "interviewing" } });
     await waitFor(async () => expect((await stored())?.statusId).toBe("interviewing"));
     fireEvent.click(screen.getByRole("tab", { name: "Activity" }));
     expect(await screen.findByText(/Applied → Interviewing/)).toBeTruthy();
@@ -5350,13 +5358,13 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
       <div className="row" style={{ marginBottom: 12 }}>
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">Status</span>
-          <select aria-label="Status" value={app.statusId} onChange={(e) => void run(() => repo.changeStatus(id, e.target.value))}>
+          <select aria-label="Application status" value={app.statusId} onChange={(e) => void run(() => repo.changeStatus(id, e.target.value))}>
             {settings.pickLists.statuses.filter((s) => !s.archived || s.id === app.statusId).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">Tier</span>
-          <select aria-label="Tier" value={app.tier ?? ""} onChange={(e) => void patch({ tier: (e.target.value || null) as Tier | null })}>
+          <select aria-label="Application tier" value={app.tier ?? ""} onChange={(e) => void patch({ tier: (e.target.value || null) as Tier | null })}>
             <option value="">—</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
           </select>
         </label>
