@@ -38,10 +38,11 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       return { sponsorship: { ...cur.sponsorship, [countryId]: { ...existing, ...p } } };
     });
   const remove = async () => {
-    if (linked.length) return;
+    if (linked.length || contacts.length) return;
     const ok = await confirm({ title: `Delete ${company.name}?`, message: "Notes and sponsorship info on this company are removed. This cannot be undone.", confirmLabel: "Delete" });
     if (ok && (await run(() => repo.remove("companies", id)))) onClose();
   };
+  const deleteBlockedBy = [linked.length ? "applications" : null, contacts.length ? "contacts" : null].filter(Boolean).join(" and ");
 
   return (
     <Drawer
@@ -51,8 +52,8 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       footer={
         <>
           <SaveIndicator status={status} />
-          <button type="button" className="btn danger" disabled={linked.length > 0 || repo.readOnly}
-            title={linked.length ? "Reassign or delete its applications first" : undefined} onClick={() => void remove()}>
+          <button type="button" className="btn danger" disabled={linked.length > 0 || contacts.length > 0 || repo.readOnly}
+            title={deleteBlockedBy ? `Reassign or delete its ${deleteBlockedBy} first` : undefined} onClick={() => void remove()}>
             Delete company
           </button>
         </>

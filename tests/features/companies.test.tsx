@@ -5,7 +5,7 @@ import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
-import { buildApplication, buildCompany } from "../../src/domain/factories";
+import { buildApplication, buildCompany, buildContact } from "../../src/domain/factories";
 import { Repository } from "../../src/store/repository";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -119,5 +119,15 @@ describe("Companies", () => {
     } finally {
       modifySpy.mockRestore();
     }
+  });
+
+  it("blocks deleting a company that a contact still points at, even with no applications", async () => {
+    await open("#/companies/co_5", async (d) => {
+      await put(d, "companies/co_5", buildCompany({ name: "Contact Co" }, "co_5", NOW));
+      await put(d, "contacts/ct_5", buildContact({ name: "Dana Kim", relationshipId: "recruiter", companyId: "co_5" }, "ct_5", NOW));
+    });
+    await screen.findByRole("dialog");
+    const del = screen.getByRole("button", { name: "Delete company" }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
   });
 });
