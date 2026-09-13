@@ -34,11 +34,16 @@ export function PickListEditor() {
       return;
     }
     setAddError(null);
-    const id = slugId(text, list);
-    const entry = isStatus
-      ? { id, label: text, color: "gray" as const, group: "open" as const, stageRank: Math.max(0, ...(list as StatusEntry[]).filter((s) => s.group === "open").map((s) => s.stageRank)) + 1 }
-      : { id, label: text, color: "gray" as const };
-    void commit((curList) => addEntry(curList, entry as PickEntry));
+    // slugId/stageRank are computed inside the updater, from the list as it stands at write
+    // time -- not the rendered `list` -- so two concurrent adds never generate the same id
+    // or stageRank from a copy of the list read before the other's write settled.
+    void commit((curList) => {
+      const id = slugId(text, curList);
+      const entry = isStatus
+        ? { id, label: text, color: "gray" as const, group: "open" as const, stageRank: Math.max(0, ...(curList as StatusEntry[]).filter((s) => s.group === "open").map((s) => s.stageRank)) + 1 }
+        : { id, label: text, color: "gray" as const };
+      return addEntry(curList, entry as PickEntry);
+    });
     setLabel("");
   };
 
@@ -98,8 +103,12 @@ export function PickListEditor() {
                   ) : null}
                   <td><input type="checkbox" aria-label={`Archive ${e.id}`} checked={!!e.archived} onChange={(ev) => void commit((curList) => updateEntry(curList, e.id, { archived: ev.target.checked }))} /></td>
                   <td>
-                    <button type="button" className="btn ghost" aria-label={`Move up ${e.id}`} disabled={i === 0} onClick={() => void commit((curList) => moveEntry(curList, i, -1))}>↑</button>
-                    <button type="button" className="btn ghost" aria-label={`Move down ${e.id}`} disabled={i === list.length - 1} onClick={() => void commit((curList) => moveEntry(curList, i, 1))}>↓</button>
+                    {/* Locate the entry by id inside the updater, not by its rendered index `i`:
+                        a click applied after a sibling move already shifted this list would
+                        otherwise swap whatever now sits at index `i`, silently undoing or
+                        misapplying the move. */}
+                    <button type="button" className="btn ghost" aria-label={`Move up ${e.id}`} disabled={i === 0} onClick={() => void commit((curList) => moveEntry(curList, curList.findIndex((x) => x.id === e.id), -1))}>↑</button>
+                    <button type="button" className="btn ghost" aria-label={`Move down ${e.id}`} disabled={i === list.length - 1} onClick={() => void commit((curList) => moveEntry(curList, curList.findIndex((x) => x.id === e.id), 1))}>↓</button>
                   </td>
                   <td>
                     <button type="button" className="btn ghost" aria-label={`Delete ${e.id}`} disabled={inUse || repo.readOnly}

@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildApplication } from "../../src/domain/factories";
+import { Repository } from "../../src/store/repository";
 import type { Settings } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -77,5 +78,42 @@ describe("SettingsPage", () => {
     expect(await screen.findByRole("alert", { name: /rate/i })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByRole("alert", { name: /label/i })).toBeTruthy();
+  });
+
+  it("moves the last pick-list entry by identity, not by its rendered index", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modifySettings");
+    try {
+      const db = await open("#/settings");
+      const base = defaultSettings("America/Toronto", NOW);
+      const originalIndex = base.pickLists.statuses.findIndex((s) => s.id === "ghosted");
+
+      fireEvent.click(screen.getByRole("button", { name: "Move up ghosted" }));
+      expect(modifySpy).toHaveBeenCalledTimes(1);
+      const updater = modifySpy.mock.calls[0][0] as (cur: Settings) => Partial<Settings>;
+
+      // Simulate a document that already reflects one prior "move up" for ghosted -- e.g. a
+      // fast double-click on the same button whose first write already landed. Ghosted now
+      // sits one position higher than the list this test's click was rendered from.
+      const statuses = [...base.pickLists.statuses];
+      [statuses[originalIndex - 1], statuses[originalIndex]] = [statuses[originalIndex], statuses[originalIndex - 1]];
+      const cur: Settings = { ...base, pickLists: { ...base.pickLists, statuses } };
+
+      const patch = updater(cur);
+      const nextStatuses = patch.pickLists?.statuses ?? [];
+      const newIndex = nextStatuses.findIndex((s) => s.id === "ghosted");
+      // Applied on top of the already-moved list, a second "move up" for the same entry
+      // should land it two positions above where it started -- not swap it back to where
+      // it began, which is what happens when the update re-uses the stale rendered index.
+      expect(newIndex).toBe(originalIndex - 2);
+
+      // Let the real click's write (against the actual current settings, untouched by the
+      // simulated `cur` above) settle so no state update escapes this test unflushed.
+      await waitFor(async () => {
+        const s = (await db.doc("settings/main").get()).data() as unknown as Settings;
+        expect(s.pickLists.statuses.findIndex((x) => x.id === "ghosted")).toBe(originalIndex - 1);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
   });
 });
