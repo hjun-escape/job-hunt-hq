@@ -69,7 +69,7 @@ export function sampleErrorOf(e: unknown): SampleFailure {
 
 export function classifySampleError(code: string): SampleOutcome {
   switch (code) {
-    case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed": return "hidden";
+    case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed": case "queue_overflow": return "hidden";
     case "rate_limited": return "retry_later";
     case "cancelled": return "quiet";
     default: return "message";

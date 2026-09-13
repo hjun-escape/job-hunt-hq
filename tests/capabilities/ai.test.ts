@@ -45,6 +45,7 @@ describe("ai prompts", () => {
   it("classifies error codes per spec §6 and normalizes unknown shapes", () => {
     expect(classifySampleError("not_granted")).toBe("hidden");
     expect(classifySampleError("sampling_disabled")).toBe("hidden");
+    expect(classifySampleError("queue_overflow")).toBe("hidden");
     expect(classifySampleError("rate_limited")).toBe("retry_later");
     expect(classifySampleError("cancelled")).toBe("quiet");
     expect(classifySampleError("refused")).toBe("message");

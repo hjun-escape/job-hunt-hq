@@ -1,9 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createFakeSample } from "../../src/capabilities/fakeSample";
-import { useSample } from "../../src/features/ai/useSample";
+import { resetSamplePolicy, useSample } from "../../src/features/ai/useSample";
 
 describe("useSample", () => {
+  beforeEach(resetSamplePolicy);
+
   it("is unavailable while pending or absent", () => {
     expect(renderHook(() => useSample(undefined)).result.current.available).toBe(false);
     expect(renderHook(() => useSample(null)).result.current.available).toBe(false);
@@ -65,5 +67,27 @@ describe("useSample", () => {
     await act(async () => { none = await b.result.current.runJson("q"); });
     expect(none).toBeNull();
     expect(b.result.current.error).toMatch(/could not be read/i);
+  });
+
+  it("hides for every later hook instance after a hide-class error", async () => {
+    const denied = createFakeSample({ error: { code: "not_granted", message: "" } });
+    const h1 = renderHook(() => useSample(denied));
+    await act(async () => { await h1.result.current.run("q"); });
+    expect(h1.result.current.available).toBe(false);
+
+    const working = createFakeSample({ reply: () => "hello" });
+    const h2 = renderHook(() => useSample(working));
+    expect(h2.result.current.available).toBe(false);
+  });
+
+  it("keeps the rate-limit window across instances", async () => {
+    const limited = createFakeSample({ error: { code: "rate_limited", message: "" } });
+    const h1 = renderHook(() => useSample(limited));
+    await act(async () => { await h1.result.current.run("q"); });
+    expect(h1.result.current.disabledUntil).toBeGreaterThan(Date.now());
+
+    const working = createFakeSample({ reply: () => "hello" });
+    const h2 = renderHook(() => useSample(working));
+    expect(h2.result.current.disabledUntil).toBeGreaterThan(Date.now());
   });
 });

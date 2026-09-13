@@ -1,18 +1,44 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { classifySampleError, describeSampleError, RATE_LIMIT_MS, sampleErrorOf } from "../../capabilities/ai";
 import type { SampleLike } from "../../capabilities/types";
 
 export type SamplePhase = "idle" | "thinking" | "streaming" | "done" | "error";
 type Options = Omit<Claude.sample.SampleOptions, "onText" | "signal">;
 
+/** Spec §6: a hide-class error or a rate limit applies for the rest of the page load, not just
+ * to the panel that triggered it -- so this lives at module scope, shared by every hook instance. */
+interface SamplePolicy { hidden: boolean; disabledUntil: number }
+let policy: SamplePolicy = { hidden: false, disabledUntil: 0 };
+const policyListeners = new Set<() => void>();
+function setPolicy(patch: Partial<SamplePolicy>): void {
+  policy = { ...policy, ...patch };
+  policyListeners.forEach((l) => l());
+}
+function subscribePolicy(listener: () => void): () => void {
+  policyListeners.add(listener);
+  return () => policyListeners.delete(listener);
+}
+function getPolicySnapshot(): SamplePolicy {
+  return policy;
+}
+
+/** Current page-load-wide sample policy, for parents that need to hide their own trigger button. */
+export function useSamplePolicy(): SamplePolicy {
+  return useSyncExternalStore(subscribePolicy, getPolicySnapshot);
+}
+
+/** Test-only: clears the page-load-wide policy between tests. */
+export function resetSamplePolicy(): void {
+  setPolicy({ hidden: false, disabledUntil: 0 });
+}
+
 /** One in-flight call at a time, one AbortController per call, spec §6 error policy. */
 export function useSample(sample: SampleLike | null | undefined) {
+  const { hidden, disabledUntil } = useSamplePolicy();
   const [phase, setPhase] = useState<SamplePhase>("idle");
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
-  const [hidden, setHidden] = useState(false);
-  const [disabledUntil, setDisabledUntil] = useState(0);
   const ctl = useRef<AbortController | null>(null);
   const live = useRef(true);
   useEffect(() => () => { live.current = false; ctl.current?.abort(); }, []);
@@ -22,9 +48,9 @@ export function useSample(sample: SampleLike | null | undefined) {
     if (!live.current) return;
     if (err.text) setText(err.text);
     switch (classifySampleError(err.code)) {
-      case "hidden": setHidden(true); setPhase("idle"); setError(null); break;
+      case "hidden": setPolicy({ hidden: true }); setPhase("idle"); setError(null); break;
       case "quiet": setPhase("idle"); setError(null); break;
-      case "retry_later": setDisabledUntil(Date.now() + RATE_LIMIT_MS); setPhase("error"); setError(describeSampleError(err.code)); break;
+      case "retry_later": setPolicy({ disabledUntil: Date.now() + RATE_LIMIT_MS }); setPhase("error"); setError(describeSampleError(err.code)); break;
       default: setPhase("error"); setError(describeSampleError(err.code));
     }
   }, []);

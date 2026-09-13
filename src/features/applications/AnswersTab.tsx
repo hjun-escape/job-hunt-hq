@@ -7,6 +7,7 @@ import { copyText } from "../../ui/copyText";
 import { Field } from "../../ui/fields";
 import { useToast } from "../../ui/Toast";
 import { DraftPanel } from "../ai/DraftPanel";
+import { useSamplePolicy } from "../ai/useSample";
 import type { AppPatch } from "./ApplicationDetail";
 
 export function AnswersTab({ app, patch }: { app: Application; patch: (p: AppPatch) => Promise<boolean> }) {
@@ -15,6 +16,7 @@ export function AnswersTab({ app, patch }: { app: Application; patch: (p: AppPat
   const settings = useSettings();
   const toast = useToast();
   const sampleCap = useCapability(caps.sample);
+  const samplePolicy = useSamplePolicy();
   const [drafting, setDrafting] = useState(false);
   const [pick, setPick] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function AnswersTab({ app, patch }: { app: Application; patch: (p: AppPat
         </Field>
         <button type="button" className="btn primary" disabled={!pick || repo.readOnly} onClick={() => { void patch((cur) => ({ answerIds: [...cur.answerIds, pick] })); setPick(""); }}>Attach</button>
         <a href="#/answers" className="muted">Manage the bank</a>
-        {sampleCap ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}
+        {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}
       </div>
       {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} /> : null}
       {attached.length === 0 ? <p className="muted">No answers attached. Attach the ones you used or plan to use for this application.</p> : (

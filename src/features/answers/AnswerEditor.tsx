@@ -13,6 +13,7 @@ import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useToast } from "../../ui/Toast";
 import { useSaver } from "../../ui/useSaver";
 import { DraftPanel } from "../ai/DraftPanel";
+import { useSamplePolicy } from "../ai/useSample";
 
 const LANGUAGES = [{ id: "en", label: "English" }, { id: "ko", label: "한국어" }, { id: "other", label: "Other" }];
 
@@ -24,6 +25,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
   const confirm = useConfirm();
   const toast = useToast();
   const sampleCap = useCapability(caps.sample);
+  const samplePolicy = useSamplePolicy();
   const [preview, setPreview] = useState(false);
   const [copied, setCopied] = useState(false);
   const [tailoring, setTailoring] = useState(false);
@@ -62,7 +64,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
         </div>
         <div className="row">
           <button type="button" className="btn" onClick={() => void copy()}>Copy</button>
-          {sampleCap ? <button type="button" className="btn" onClick={() => setTailoring(true)}>Tailor with Claude</button> : null}
+          {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" onClick={() => setTailoring(true)}>Tailor with Claude</button> : null}
           {copied ? <span className="muted">Copied</span> : null}
         </div>
       </div>
