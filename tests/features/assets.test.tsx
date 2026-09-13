@@ -13,9 +13,9 @@ const NOW = "2026-09-11T00:00:00.000Z";
 type Db = ReturnType<typeof createFakeDb>;
 const put = (db: Db, path: string, doc: object) => db.doc(path).set(doc as unknown as Record<string, unknown>);
 
-async function open(hash: string, seed?: (db: Db) => Promise<void>, heading = "Assets", seedAssets?: (assets: ReturnType<typeof createFakeAssets>) => Promise<void>) {
+async function open(hash: string, seed?: (db: Db) => Promise<void>, heading = "Assets", seedAssets?: (assets: ReturnType<typeof createFakeAssets>) => Promise<void>, assetsInstance?: ReturnType<typeof createFakeAssets>) {
   const db = createFakeDb();
-  const assets = createFakeAssets();
+  const assets = assetsInstance ?? createFakeAssets();
   if (seedAssets) await seedAssets(assets);
   await put(db, "settings/main", defaultSettings("America/Toronto", NOW));
   if (seed) await seed(db);
@@ -127,5 +127,20 @@ describe("Assets", () => {
     });
     await screen.findByRole("dialog");
     expect(screen.getByText("Screen-rate 50%: 1 of 2 applications using this resume reached Screening.")).toBeTruthy();
+  });
+
+  it("deletes the record before the stored file", async () => {
+    let recordGoneFirst: boolean | null = null;
+    const assets = createFakeAssets();
+    const { db } = await open("#/assets/as_1", async (d) => {
+      const up = await assets.upload(new Blob(["%PDF-1.4"], { type: "application/pdf" }), { type: "application/pdf" });
+      await d.doc("assets/as_1").set(buildAsset({ kindId: "resume", name: "Doomed", file: { assetId: up.id, fileName: "d.pdf", sizeBytes: 8, contentType: "application/pdf", uploadedAt: NOW } }, "as_1", NOW) as unknown as Record<string, unknown>);
+    }, "Assets", undefined, assets);
+    const realDelete = assets.delete.bind(assets);
+    assets.delete = async (id: string) => { recordGoneFirst = !(await db.doc("assets/as_1").get()).exists; return realDelete(id); };
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "Delete asset" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(recordGoneFirst).toBe(true));
   });
 });

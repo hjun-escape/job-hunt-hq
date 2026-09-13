@@ -3,6 +3,7 @@ import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { defaultSettings } from "../../src/domain/defaults";
 import { createStore } from "../../src/store/store";
 import { retryOnce, startSync } from "../../src/store/sync";
+import type { Settings } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
 
@@ -119,6 +120,45 @@ describe("startSync", () => {
     expect(store.getState().readOnly).toBe(true);
     expect(errors).toEqual(["revoked"]);
     h.stop();
+  });
+
+  it("writes a settings migration once even when two syncs start on the same document", async () => {
+    const db = createFakeDb();
+    const s = defaultSettings("America/Toronto", NOW);
+    await db.doc("settings/main").set({ ...s, schemaVersion: 0 } as unknown as Record<string, unknown>);
+    const bump = [{ to: 1, apply: (x: Settings) => ({ ...x, followUpCadenceDays: x.followUpCadenceDays + 1 }) }];
+    const a = startSync(db, createStore(), { homeTz: "America/Toronto", now: () => NOW, migrations: bump });
+    const b = startSync(db, createStore(), { homeTz: "America/Toronto", now: () => NOW, migrations: bump });
+    await Promise.all([a.ready, b.ready]);
+    await new Promise((r) => setTimeout(r, 20));
+    const stored = (await db.doc("settings/main").get()).data() as unknown as Settings;
+    expect(stored.schemaVersion).toBe(1);
+    expect(stored.followUpCadenceDays).toBe(8);
+    a.stop(); b.stop();
+  });
+
+  it("does not seed defaults from a cache-only miss, only from a definitive one", async () => {
+    const db = createFakeDb();
+    let acquires = 0;
+    const cacheMiss: DocumentSnapshot = { id: "main", exists: false, data: () => undefined, metadata: { fromCache: true, hasPendingWrites: false } };
+    const wrapped = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        if (path !== "settings/main") return real;
+        return {
+          ...real,
+          acquire: async (o: AcquireOptions) => { acquires++; return real.acquire(o); },
+          onSnapshot: (next: (s: DocumentSnapshot) => void, error?: (e: DbError) => void) => { next(cacheMiss); return real.onSnapshot(next, error); },
+        };
+      },
+    } as unknown as DB;
+    const store = createStore();
+    const handle = startSync(wrapped, store, { homeTz: "America/Toronto", now: () => NOW });
+    await handle.ready;
+    expect(acquires).toBe(1); // the definitive miss seeded; the cache-only miss did not
+    expect(store.getState().settings?.schemaVersion).toBeTypeOf("number");
+    handle.stop();
   });
 });
 

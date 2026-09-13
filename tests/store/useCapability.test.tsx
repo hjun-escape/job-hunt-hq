@@ -12,7 +12,9 @@ describe("useCapability", () => {
   });
 
   it("resolves to null when the promise rejects", async () => {
-    const { result } = renderHook(() => useCapability(Promise.reject(new Error("x"))));
+    const rejected = Promise.reject(new Error("x"));
+    rejected.catch(() => {});
+    const { result } = renderHook(() => useCapability(rejected));
     await waitFor(() => expect(result.current).toBeNull());
   });
 

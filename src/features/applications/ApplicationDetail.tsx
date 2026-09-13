@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { priorityScore, suggestedTier } from "../../domain/scoring";
-import type { Application, Tier } from "../../domain/types";
+import type { Tier } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useConfirm } from "../../ui/Confirm";
 import { Drawer } from "../../ui/Drawer";
@@ -11,11 +11,9 @@ import { AnswersTab } from "./AnswersTab";
 import { InterviewsTab } from "./InterviewsTab";
 import { NotesTab } from "./NotesTab";
 import { OverviewTab } from "./OverviewTab";
+import type { AppPatch } from "./types";
 
-/** A patch either replaces fields directly, or is computed from the current record --
- * required for any nested object/array (e.g. answerIds) so a stale render never clobbers
- * a concurrent change. See Repository.modify. */
-export type AppPatch = Partial<Application> | ((current: Application) => Partial<Application>);
+export type { AppPatch } from "./types";
 
 type Tab = "overview" | "interviews" | "answers" | "activity" | "notes";
 const TABS: { id: Tab; label: string }[] = [

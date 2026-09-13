@@ -67,13 +67,17 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
     if (referenced) return;
     const ok = await confirm({ title: `Delete ${asset.name}?`, message: asset.file ? "Its file is deleted from storage too. This cannot be undone." : "This cannot be undone.", confirmLabel: "Delete" });
     if (!ok) return;
-    if (asset.file) { try { await assets?.delete(asset.file.assetId); } catch { /* record delete still proceeds; storage housekeeping can prune it */ } }
-    if (await run(() => repo.remove("assets", id))) onClose();
+    const file = asset.file;
+    if (!(await run(() => repo.remove("assets", id)))) return;
+    if (file) {
+      try { await assets?.delete(file.assetId); } catch { toast.show("The record was deleted but storage could not delete its file yet.", "error"); }
+    }
+    onClose();
   };
 
   return (
     <Drawer open title={asset.name} onClose={onClose}
-      footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" disabled={referenced || ro} title={referenced ? "Unlink it from applications first" : undefined} onClick={() => void removeRecord()}>Delete asset</button></>}>
+      footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" disabled={referenced || ro || (!!asset.file && assets === undefined)} title={referenced ? "Unlink it from applications first" : undefined} onClick={() => void removeRecord()}>Delete asset</button></>}>
       <div className="grid-2">
         <SelectField label="Kind" value={asset.kindId} options={pl.assetKinds} onChange={(v) => { if (v) void patch({ kindId: v }); }} allowEmpty={false} disabled={ro} />
         <TextField label="Name" value={asset.name} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} disabled={ro} />

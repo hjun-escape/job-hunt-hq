@@ -1,7 +1,7 @@
 import type { DbLike } from "../capabilities/types";
 import { defaultProfile, defaultSettings } from "../domain/defaults";
 import { nowIso } from "../domain/ids";
-import { migrateSettings } from "../domain/migrate";
+import { migrateSettings, type Migration } from "../domain/migrate";
 import { COLLECTIONS, type Profile, type Settings } from "../domain/types";
 import type { Store, StoreState } from "./store";
 
@@ -9,6 +9,7 @@ export interface SyncOptions {
   homeTz: string;
   now?: () => string;
   onError?: (e: DbError) => void;
+  migrations?: Migration[];
 }
 export interface SyncHandle {
   stop(): void;
@@ -107,19 +108,32 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
     if (!seeded) await ref.set(build());
   }
 
+  /** Spec §2: a migration runs once, guarded by a lease on settings/main; the loser waits for the winner's write to arrive. */
+  async function migrateWithLease(targetVersion: number): Promise<void> {
+    const ref = db.doc(SETTINGS_PATH);
+    const lease = await ref.acquire({ holder: `migrate-${Math.random().toString(36).slice(2)}`, ttlMs: 5000 });
+    if (!lease.acquired) return;
+    const fresh = await ref.get();
+    const data = fresh.data() as unknown as Settings | undefined;
+    if (!fresh.exists || !data || typeof data.schemaVersion !== "number" || data.schemaVersion >= targetVersion) return;
+    await ref.set(migrateSettings(data, opts.migrations) as unknown as Record<string, unknown>);
+  }
+
   unsubs.push(
     retryOnce(
       (onError) =>
         db.doc(SETTINGS_PATH).onSnapshot((snap) => {
           if (stopped) return;
           if (!hasSchema(snap)) {
+            // A cache-only miss is not proof the document is absent; the definitive snapshot follows on its own.
+            if (snap.metadata.fromCache) return;
             void seed(SETTINGS_PATH, () => defaultSettings(opts.homeTz, now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
           const raw = snap.data() as unknown as Settings;
-          const migrated = migrateSettings(raw);
+          const migrated = migrateSettings(raw, opts.migrations);
           store.setState({ settings: migrated });
-          if (migrated !== raw) void db.doc(SETTINGS_PATH).set(migrated as unknown as Record<string, unknown>).catch(fail);
+          if (migrated !== raw) void migrateWithLease(migrated.schemaVersion).catch(fail);
           markReady("settings");
         }, onError),
       { isStopped: () => stopped, fail },
@@ -132,6 +146,7 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
         db.doc(PROFILE_PATH).onSnapshot((snap) => {
           if (stopped) return;
           if (!hasUpdatedAt(snap)) {
+            if (snap.metadata.fromCache) return;
             void seed(PROFILE_PATH, () => defaultProfile(now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }

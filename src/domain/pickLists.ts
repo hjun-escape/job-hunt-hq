@@ -1,4 +1,4 @@
-import type { PickEntry, PickListName, RecordSets } from "./types";
+import type { PickEntry, PickListName, Profile, RecordSets } from "./types";
 
 export const PICK_LIST_LABELS: Record<PickListName, string> = {
   statuses: "Statuses",
@@ -50,7 +50,7 @@ export function removeEntry<T extends PickEntry>(list: T[], id: string): T[] {
   return list.filter((e) => e.id !== id);
 }
 
-type Records = RecordSets;
+type Records = RecordSets & { profile?: Profile | null };
 
 /** Ids of a pick list that existing records point at. Such entries may be archived but not deleted. */
 export function referencedPickIds(records: Records, name: PickListName): Set<string> {
@@ -68,6 +68,11 @@ export function referencedPickIds(records: Records, name: PickListName): Set<str
       apps.forEach((a) => add(a.countryId));
       assets.forEach((x) => add(x.targetCountryIds));
       Object.values(records.companies).forEach((c) => add(Object.keys(c.sponsorship)));
+      if (records.profile) {
+        records.profile.addresses.forEach((a) => add(a.countryId));
+        add(Object.keys(records.profile.salaryExpectations));
+        add(Object.keys(records.profile.workAuth));
+      }
       break;
     case "workModes": apps.forEach((a) => add(a.workModeId)); break;
     case "employmentTypes": apps.forEach((a) => add(a.employmentTypeId)); break;
