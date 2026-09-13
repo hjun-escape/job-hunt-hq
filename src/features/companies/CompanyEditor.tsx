@@ -29,10 +29,14 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
   const linked = Object.values(state.applications).filter((a) => a.companyId === id);
   const contacts = Object.values(state.contacts).filter((c) => c.companyId === id).sort((a, b) => a.name.localeCompare(b.name));
   const patch = (p: Partial<Company>) => run(() => repo.update("companies", id, p));
-  const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) => {
-    const existing: SponsorshipPolicy = company.sponsorship[countryId] ?? { policy: "unknown" };
-    return patch({ sponsorship: { ...company.sponsorship, [countryId]: { ...existing, ...p } } });
-  };
+  /** Reads the company at write time, inside its own write chain -- so the sponsorship matrix
+   * and sources list never clobber a sibling field that a concurrent write just set. */
+  const modify = (fn: (current: Company) => Partial<Company>) => run(() => repo.modify("companies", id, fn));
+  const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) =>
+    modify((cur) => {
+      const existing: SponsorshipPolicy = cur.sponsorship[countryId] ?? { policy: "unknown" };
+      return { sponsorship: { ...cur.sponsorship, [countryId]: { ...existing, ...p } } };
+    });
   const remove = async () => {
     if (linked.length) return;
     const ok = await confirm({ title: `Delete ${company.name}?`, message: "Notes and sponsorship info on this company are removed. This cannot be undone.", confirmLabel: "Delete" });
@@ -90,7 +94,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
           {company.sources.map((s, i) => (
             <li key={`${s.url}-${i}`}>
               {isSafeUrl(s.url) ? <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a> : <span>{s.label || s.url}</span>}{" "}
-              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void patch({ sources: company.sources.filter((_, j) => j !== i) })}>×</button>
+              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((_, j) => j !== i) }))}>×</button>
             </li>
           ))}
         </ul>
@@ -100,7 +104,8 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         <input placeholder="https://" aria-label="Source URL" value={newSource.url} onChange={(e) => setNewSource({ ...newSource, url: e.target.value })} />
         <button type="button" className="btn" onClick={() => {
           if (!newSource.url.trim()) return;
-          void patch({ sources: [...company.sources, { label: newSource.label.trim(), url: newSource.url.trim() }] });
+          const toAdd = { label: newSource.label.trim(), url: newSource.url.trim() };
+          void modify((cur) => ({ sources: [...cur.sources, toAdd] }));
           setNewSource({ label: "", url: "" });
         }}>Add source</button>
       </div>

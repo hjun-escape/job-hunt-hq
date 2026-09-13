@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Company } from "../../src/domain/types";
 import { App } from "../../src/app/App";
@@ -6,6 +6,7 @@ import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
+import { Repository } from "../../src/store/repository";
 
 const NOW = "2026-09-11T00:00:00.000Z";
 const put = (db: ReturnType<typeof createFakeDb>, path: string, doc: object) => db.doc(path).set(doc as unknown as Record<string, unknown>);
@@ -100,5 +101,23 @@ describe("Companies", () => {
     expect(screen.getByRole("link", { name: "Blind" }).getAttribute("href")).toBe("https://teamblind.com/x");
     expect(screen.queryByRole("link", { name: "Bad" })).toBeNull();
     expect(screen.getByText("Bad")).toBeTruthy();
+  });
+
+  it("computes the sponsorship policy write from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      await open("#/companies/co_4", async (d) => {
+        await put(d, "companies/co_4", buildCompany({ name: "Spy Co" }, "co_4", NOW));
+      });
+      await screen.findByRole("dialog");
+      fireEvent.change(screen.getByLabelText("Canada sponsorship"), { target: { value: "yes" } });
+      await waitFor(() => {
+        const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "companies" && docId === "co_4");
+        expect(call).toBeTruthy();
+        expect(typeof call?.[2]).toBe("function");
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
   });
 });

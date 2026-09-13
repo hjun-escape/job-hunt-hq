@@ -3,6 +3,7 @@ import { formatMoney, normalizeAmount } from "../../domain/money";
 import type { Application, Comp, Rating, Settings } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { DateField, NumberField, RatingField, SelectField, TagInput, TextArea, TextField, TriStateField } from "../../ui/fields";
+import type { AppPatch } from "./ApplicationDetail";
 import { DeadlineField } from "./DeadlineField";
 
 const PERIODS = [{ id: "year", label: "per year" }, { id: "month", label: "per month" }, { id: "hour", label: "per hour" }];
@@ -16,7 +17,7 @@ function normalizedText(comp: Comp, settings: Settings): string | null {
   return `${f(lo)} – ${f(hi)}`;
 }
 
-export function OverviewTab({ app, patch }: { app: Application; patch: (p: Partial<Application>) => Promise<boolean> }) {
+export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPatch) => Promise<boolean> }) {
   const state = useAppState();
   const settings = useSettings();
   const { repo } = useApp();
@@ -29,8 +30,9 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: Parti
     .sort((a, b) => Number(b.companyId === app.companyId) - Number(a.companyId === app.companyId) || a.name.localeCompare(b.name))
     .map((c) => ({ id: c.id, label: c.companyId && c.companyId !== app.companyId ? `${c.name} (${state.companies[c.companyId]?.name ?? "?"})` : c.name }));
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
-  const comp: Comp = app.comp ?? { currency: settings.displayCurrency, period: "year" };
-  const setComp = (p: Partial<Comp>) => patch({ comp: { ...comp, ...p } });
+  const defaultComp = (): Comp => ({ currency: settings.displayCurrency, period: "year" });
+  const comp: Comp = app.comp ?? defaultComp();
+  const setComp = (p: Partial<Comp>) => patch((cur) => ({ comp: { ...(cur.comp ?? defaultComp()), ...p } }));
   const closed = pl.statuses.find((s) => s.id === app.statusId)?.group !== "open";
   const hasAmounts = comp.min != null || comp.max != null;
   const normalized = normalizedText(comp, settings);

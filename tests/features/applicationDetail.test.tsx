@@ -1,10 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultProfile, defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
+import type { AppPatch } from "../../src/features/applications/ApplicationDetail";
+import { OverviewTab } from "../../src/features/applications/OverviewTab";
+import { Repository } from "../../src/store/repository";
+import { createStore } from "../../src/store/store";
+import { AppContext } from "../../src/store/context";
 import type { Application } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -75,5 +80,47 @@ describe("ApplicationDetail", () => {
     expect(screen.getByLabelText("Channel")).toBeTruthy();
     expect(screen.getByLabelText("Filter by country")).toBeTruthy();
     expect(screen.getByLabelText("Filter by status")).toBeTruthy();
+  });
+});
+
+describe("OverviewTab compensation patch", () => {
+  it("computes the comp patch from the current record, not the one it rendered", () => {
+    const app = buildApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied" }, "app_1", NOW);
+    app.comp = { currency: "CAD", period: "year", note: "rendered note" };
+    const settings = defaultSettings("America/Toronto", NOW);
+    const store = createStore({
+      ready: true,
+      readOnly: false,
+      settings,
+      profile: null,
+      applications: { [app.id]: app },
+      companies: {},
+      contacts: {},
+      assets: {},
+      answers: {},
+      interviews: {},
+      prep: {},
+    });
+    const repo = new Repository(null, store);
+    const patch = vi.fn<(p: AppPatch) => Promise<boolean>>().mockResolvedValue(true);
+
+    render(
+      <AppContext.Provider value={{ store, repo, caps: absentCapabilities() }}>
+        <OverviewTab app={app} patch={patch} />
+      </AppContext.Provider>,
+    );
+    const min = screen.getByLabelText("Min");
+    fireEvent.change(min, { target: { value: "100000" } });
+    fireEvent.blur(min);
+
+    expect(patch).toHaveBeenCalledTimes(1);
+    const arg = patch.mock.calls[0][0];
+    expect(typeof arg).toBe("function");
+
+    // A sibling write landed between render and this commit: `cur.comp` now differs from the
+    // `app.comp` this tab rendered. The patch must be built from `cur`, not from that stale render.
+    const cur: Application = { ...app, comp: { currency: "USD", period: "month", note: "current note" } };
+    const result = (arg as (c: Application) => Partial<Application>)(cur);
+    expect(result.comp).toMatchObject({ currency: "USD", period: "month", note: "current note", min: 100000 });
   });
 });
