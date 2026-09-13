@@ -35,8 +35,6 @@ a { color: var(--accent); }
   /* The fixed bottom nav (z-index: 40 above) would otherwise paint over a drawer's footer
      buttons (Create / Delete); lift the backdrop above it and keep the footer clear of the
      home-indicator safe area on notched phones. */
-  .drawer-backdrop { z-index: 45; }
-  .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
 /* controls */
 input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 9px; width: 100%; }
@@ -103,3 +101,8 @@ textarea { resize: vertical; }
 @media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 .activity { list-style: none; padding: 0; margin: 0; }
 .activity li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+/* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
+@media (max-width: 720px) {
+  .drawer-backdrop { z-index: 45; }
+  .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
