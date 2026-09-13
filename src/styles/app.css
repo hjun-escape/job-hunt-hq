@@ -121,9 +121,9 @@ textarea { resize: vertical; }
 .checklist { list-style: none; margin: 0 0 8px; padding: 0; }
 .checklist li { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); }
 .checklist .done { text-decoration: line-through; color: var(--text-muted); }
-@media (max-width: 720px) { .slot { grid-template-columns: 1fr; } }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .drawer-backdrop { z-index: 45; }
   .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .slot { grid-template-columns: 1fr; }
 }
