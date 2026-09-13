@@ -16,10 +16,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<{ req: ConfirmRequest; resolve: (v: boolean) => void } | null>(null);
   const [typed, setTyped] = useState("");
   const confirm = useCallback<ConfirmFn>((req) => new Promise((resolve) => { setTyped(""); setPending({ req, resolve }); }), []);
-  const finish = (v: boolean) => {
+  const finish = useCallback((v: boolean) => {
     pending?.resolve(v);
     setPending(null);
-  };
+  }, [pending]);
   const value = useMemo(() => confirm, [confirm]);
   const locked = !!pending?.req.typed && typed !== pending.req.typed;
   useEffect(() => {
@@ -27,7 +27,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") finish(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [pending, finish]);
   return (
     <ConfirmContext.Provider value={value}>
       {children}
@@ -43,7 +43,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               </label>
             ) : null}
             <div className="modal-actions">
-              <button type="button" className="btn" onClick={() => finish(false)} autoFocus>Cancel</button>
+              <button type="button" className="btn" onClick={() => finish(false)} autoFocus={!pending.req.typed}>Cancel</button>
               <button type="button" className={pending.req.danger === false ? "btn primary" : "btn danger"} disabled={locked} onClick={() => finish(true)}>
                 {pending.req.confirmLabel ?? "Confirm"}
               </button>
