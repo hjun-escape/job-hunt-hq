@@ -26,16 +26,6 @@ a { color: var(--accent); }
 .toast { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: var(--radius); padding: 10px 14px; max-width: 360px; }
 .toast-error { border-color: var(--danger); }
 .toast-success { border-color: var(--ok); }
-@media (max-width: 720px) {
-  .shell { grid-template-columns: 1fr; }
-  .nav { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-top: 1px solid var(--border); padding: 6px; z-index: 40; }
-  .brand { display: none; }
-  .nav-item { white-space: nowrap; font-size: 13px; }
-  .main { padding: 14px; padding-bottom: 72px; }
-  /* The fixed bottom nav (z-index: 40 above) would otherwise paint over a drawer's footer
-     buttons (Create / Delete); lift the backdrop above it and keep the footer clear of the
-     home-indicator safe area on notched phones. */
-}
 /* controls */
 input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 9px; width: 100%; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -99,17 +89,11 @@ textarea { resize: vertical; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
 .tab { font: inherit; background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 8px 10px; cursor: pointer; color: var(--text-muted); }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-@media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 .activity { list-style: none; padding: 0; margin: 0; }
 .activity li { padding: 6px 0; border-bottom: 1px solid var(--border); }
 .chip-toggle { font: inherit; cursor: pointer; border: 1px solid transparent; }
 .chip-toggle[aria-pressed="true"] { border-color: var(--accent); }
 .chip-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
-/* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
-@media (max-width: 720px) {
-  .drawer-backdrop { z-index: 45; }
-  .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-}
 .danger-text { color: var(--danger); }
 .markdown p { margin: 0 0 10px; max-width: 65ch; }
 .markdown ul { margin: 0 0 10px 18px; padding: 0; }
@@ -128,6 +112,12 @@ textarea { resize: vertical; }
 .zoned-row > select { flex: 2 1 170px; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
+  .shell { grid-template-columns: 1fr; }
+  .nav { position: fixed; top: auto; bottom: 0; left: 0; right: 0; height: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-top: 1px solid var(--border); padding: 6px; z-index: 40; }
+  .brand { display: none; }
+  .nav-item { white-space: nowrap; font-size: 13px; }
+  .main { padding: 14px; padding-bottom: 72px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .drawer-backdrop { z-index: 45; }
   .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
   .slot { grid-template-columns: 1fr; }

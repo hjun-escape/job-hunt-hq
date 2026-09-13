@@ -27,4 +27,15 @@ describe("src/styles/app.css mobile drawer overrides", () => {
     expect(override).toBeGreaterThan(base);
     expect(tail).toContain(".drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }");
   });
+
+  it("keeps exactly one mobile breakpoint block, as the last rule in the file", () => {
+    const occurrences = css.split("@media (max-width: 720px)").length - 1;
+    expect(occurrences).toBe(1);
+    expect(lastMediaStart).toBeGreaterThan(-1);
+    // Nothing but the block's own rules (and trailing whitespace) may follow its opening --
+    // i.e. its closing brace is the last non-whitespace character in the file.
+    const closeIdx = tail.lastIndexOf("}");
+    expect(closeIdx).toBeGreaterThan(-1);
+    expect(tail.slice(closeIdx + 1).trim()).toBe("");
+  });
 });
