@@ -24,9 +24,15 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const locked = !!pending?.req.typed && typed !== pending.req.typed;
   useEffect(() => {
     if (!pending) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") finish(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture phase, plus stopPropagation: a Drawer beneath this confirm also listens for
+    // Escape (bubble phase) to close itself, and one keypress must not do both.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      finish(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [pending, finish]);
   return (
     <ConfirmContext.Provider value={value}>
