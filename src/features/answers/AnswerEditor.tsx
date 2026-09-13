@@ -66,7 +66,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
         </div>
         <div className="row">
           <button type="button" className="btn" onClick={() => void copy()}>Copy</button>
-          {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" onClick={() => setTailoring(true)}>Tailor with Claude</button> : null}
+          {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" disabled={ro} onClick={() => setTailoring(true)}>Tailor with Claude</button> : null}
           {copied ? <span className="muted">Copied</span> : null}
         </div>
       </div>
