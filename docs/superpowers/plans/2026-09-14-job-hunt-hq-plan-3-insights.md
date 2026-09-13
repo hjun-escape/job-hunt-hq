@@ -1514,7 +1514,7 @@ export function BackupSection() {
       </div>
 ```
 
-`src/styles/app.css` (above the mobile block): `.problems { margin: 8px 0; padding-left: 18px; color: var(--danger-text); background: var(--chip-red); border-radius: var(--radius); padding: 8px 8px 8px 26px; }`
+`src/styles/app.css` (above the mobile block): `.problems { margin: 8px 0; padding-left: 18px; color: var(--chip-red-text); background: var(--chip-red); border-radius: var(--radius); padding: 8px 8px 8px 26px; }`
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
