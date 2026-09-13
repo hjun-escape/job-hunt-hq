@@ -115,13 +115,13 @@ All collections are top-level so filters scan one collection. IDs are client-gen
 - **Priority score:** `score = 100 × (w.desire×desire + w.fit×fit + w.likelihood×likelihood) / (5 × (w.desire + w.fit + w.likelihood))`, rounded to an integer; `null` when any input is null. Tier stays manual; the app shows a suggested tier (A ≥ 75, B ≥ 50, else C).
 - **Status change:** append an activity entry, set `closedAt` when moving into a `won`/`lost` status and clear it when moving back to `open`, and set `maxStageRank = max(maxStageRank, newStatus.stageRank)`.
 - **Funnel:** for a set of applications, count how many reached each open stage using `maxStageRank ≥ stageRank`; conversion between consecutive stages is `reached[n+1] / reached[n]`. Grouped by channel and by resume version. Never counts lost statuses as stages.
-- **Due this week:** items whose date falls in `[startOfToday, startOfToday + 7 days)` in `homeTz`: application deadlines, `nextActionDue`, interview `scheduledAt`. Items are merged into one list sorted by time.
+- **Due this week:** items whose date falls in `[startOfToday, startOfToday + 7 days)` in `homeTz`: deadlines and `nextActionDue` of open applications, and pending interviews' `scheduledAt`. Items are merged into one list sorted by time.
 - **Overdue:** open applications with `nextActionDue < today` (home tz), and open applications whose deadline has passed while `appliedAt` is still empty.
 - **Follow-up flags:** contacts linked as referrer or recruiter to an open application whose `lastContactedAt` is older than their cadence (the contact's own `followUpEveryDays`, else the settings default) or who have never been contacted.
 - **Timezones:** all instants stored as ISO UTC with the source IANA zone. Display in `homeTz`; when the source zone differs, show the source time beside it. Date-only deadlines never shift dates when rendered.
 - **Money:** `normalized = amount × fxRates[currency]` when `currency ≠ displayCurrency` and a rate exists; otherwise the normalized column shows a dash and a "set rate in Settings" hint.
 - **CSV:** top-level scalar fields as columns; arrays joined with `"; "`; nested objects serialized as JSON; RFC 4180 quoting; UTF-8 with BOM so Excel opens Korean text correctly.
-- **Backup validation:** a backup is accepted when `schemaVersion ≤ current`, every collection is an array of objects with string `id`, and referenced pick-list ids exist in the backup's settings; otherwise a list of human-readable problems is returned and nothing is written.
+- **Backup validation:** a backup is accepted when `schemaVersion ≤ current`, `settings.pickLists` carries every list as an array of `{id, label}` entries (statuses also `group` and `stageRank`), `profile` carries its list and map fields, every collection is an array of objects with string `id`, and referenced pick-list ids exist in the backup's settings; otherwise a list of human-readable problems is returned and nothing is written. Restore still normalizes every document through its factory so absent optional fields get defaults.
 
 ## 5. Screens
 
@@ -148,7 +148,7 @@ Two actions, one mechanism:
 1. **Draft answer** (Application → Answers tab, and Answer editor "Tailor"): the page assembles the prompt from the target question, the application's `jobDescription`, the company name and role, the answers/stories the user ticks from the bank, an optional profile summary (employment summaries and links only, never contact details or sensitive notes), the output language (en/ko), and a target length. Output streams into an editable textarea via `onText`. Buttons: "Save as new answer", "Attach to application", "Discard".
 2. **Extract requirements** (Application → Overview): sends the `jobDescription` and asks for a JSON list of must-have and nice-to-have requirements via `sample.json`; the result is shown as a checklist the user can copy into notes or the interview prep checklist.
 
-Error handling: `not_granted`/`sampling_disabled`/`not_declared` hide the feature for the page load; `rate_limited` shows a toast and disables the button for 30 s; `refused`/`empty_completion` show a message; on any failure partial text already streamed is kept in the textarea. A `signal` lets the user cancel.
+Error handling: `not_granted`/`sampling_disabled`/`not_declared`/`capability_disabled`/`capability_removed`/`queue_overflow` hide the feature for the rest of the page load (a page-wide flag, not per panel); `rate_limited` shows a toast and disables the button for 30 s; `refused`/`empty_completion` show a message; on any failure partial text already streamed is kept in the textarea. A `signal` lets the user cancel.
 
 ## 7. Files (`assets`)
 
@@ -162,7 +162,7 @@ Error handling: `not_granted`/`sampling_disabled`/`not_declared` hide the featur
 
 - **Backup JSON:** `{app: "job-hunt-hq", schemaVersion, exportedAt, settings, profile, applications[], companies[], contacts[], assets[], answers[], interviews[], prep[]}`. Uploaded files are not included; their ids are.
 - **CSV:** one file per collection, from the same flattening rules as the domain CSV function.
-- **Restore:** file picker → validate (section 4) → choose Merge (upsert by id) or Replace (delete all then write). Writes proceed sequentially with a progress bar; `resource_exhausted` backs off and continues; `quota_exceeded` stops and reports how many documents were written.
+- **Restore:** file picker → validate (section 4) → choose Merge (upsert by id) or Replace (delete all then write). Settings and profile always come from the file; in Merge, pick-list entries added since the backup are kept (union by id, the file's entries first). Writes proceed sequentially with a progress bar; `resource_exhausted` backs off and continues; `quota_exceeded` stops and reports how many documents were written.
 - A blank tracker for another person is the app itself with an empty store; a "Reset to defaults" action in Settings rewrites `settings/main` from defaults.
 
 ## 9. Degraded modes and errors
