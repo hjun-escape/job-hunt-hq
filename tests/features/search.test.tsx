@@ -9,7 +9,7 @@ import { buildAnswer, buildApplication, buildCompany, buildContact } from "../..
 const NOW = "2026-09-11T00:00:00.000Z";
 const put = (db: ReturnType<typeof createFakeDb>, path: string, doc: object) => db.doc(path).set(doc as unknown as Record<string, unknown>);
 
-async function open(hash: string) {
+async function open(hash: string, heading: string) {
   const db = createFakeDb();
   await put(db, "settings/main", defaultSettings("America/Toronto", NOW));
   await put(db, "companies/co_1", buildCompany({ name: "Shopify" }, "co_1", NOW));
@@ -18,13 +18,13 @@ async function open(hash: string) {
   await put(db, "answers/an_1", buildAnswer({ kindId: "answer", title: "Why Shopify" }, "an_1", NOW));
   window.location.hash = hash;
   render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
+  await screen.findByRole("heading", { name: heading });
   return db;
 }
 
 describe("Global search", () => {
   it("submits the search box to the results route and lists grouped hits with links", async () => {
-    await open("#/applications");
-    await screen.findByRole("heading", { name: "Applications" });
+    await open("#/applications", "Applications");
     const box = screen.getByRole("searchbox", { name: "Search everything" });
     fireEvent.change(box, { target: { value: "shop" } });
     fireEvent.submit(box.closest("form") as HTMLFormElement);
@@ -38,8 +38,7 @@ describe("Global search", () => {
   });
 
   it("shows an empty state and keeps the query in the box when nothing matches", async () => {
-    await open("#/search?q=zzz");
-    await screen.findByRole("heading", { name: "Search results" });
+    await open("#/search?q=zzz", "Search results");
     expect(screen.getByText("No matches for “zzz”.")).toBeTruthy();
     expect((screen.getByRole("searchbox", { name: "Search everything" }) as HTMLInputElement).value).toBe("zzz");
   });
