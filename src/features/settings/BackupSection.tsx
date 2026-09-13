@@ -75,7 +75,7 @@ export function BackupSection() {
       if (!ok) return;
     }
     const steps = planRestore(pending.backup, store.getState(), mode);
-    const writes = steps.filter((s) => s.kind === "write").length;
+    const writes = steps.filter((s) => s.kind !== "delete").length;
     setBusy(true);
     setProgress({ done: 0, total: steps.length });
     try {

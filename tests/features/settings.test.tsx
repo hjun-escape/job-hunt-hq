@@ -165,4 +165,39 @@ describe("SettingsPage", () => {
     await waitFor(async () => expect((await db.doc("companies/co_old").get()).exists).toBe(false));
     expect((await db.doc("companies/co_imp").get()).exists).toBe(true);
   });
+
+  it("counts settings, profile and record writes -- not just document creates -- in the quota toast", async () => {
+    const inner = createFakeDb();
+    let thrown = false;
+    const db: ReturnType<typeof createFakeDb> = {
+      ...inner,
+      doc: (path: string) => {
+        const ref = inner.doc(path);
+        if (path.startsWith("applications/") && !thrown) {
+          thrown = true;
+          return { ...ref, set: async () => { throw { code: "quota_exceeded" }; } };
+        }
+        return ref;
+      },
+    };
+    await db.doc("settings/main").set(defaultSettings("America/Toronto", NOW) as unknown as Record<string, unknown>);
+    window.location.hash = "#/settings";
+    render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
+    await screen.findByRole("heading", { name: "Settings" });
+
+    const backup = buildBackup(
+      {
+        settings: defaultSettings("America/Toronto", NOW),
+        profile: defaultProfile(NOW),
+        applications: { app_1: buildApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied" }, "app_1", NOW) },
+        companies: { co_1: buildCompany({ name: "Shopify" }, "co_1", NOW) },
+        contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {},
+      },
+      NOW,
+    );
+    fireEvent.change(screen.getByLabelText("Restore from backup"), { target: { files: [new File([JSON.stringify(backup)], "good.json", { type: "application/json" })] } });
+    await screen.findByText(/good\.json/);
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect(await screen.findByText("Storage is full: wrote 3 of 4 documents before stopping.")).toBeTruthy();
+  });
 });
