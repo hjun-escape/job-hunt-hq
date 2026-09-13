@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { ApplicationsPage } from "../features/applications/ApplicationsPage";
 import { CompaniesPage } from "../features/companies/CompaniesPage";
 import { ContactsPage } from "../features/contacts/ContactsPage";
+import { InterviewsPage } from "../features/interviews/InterviewsPage";
 import { AssetsPage } from "../features/assets/AssetsPage";
 import { AnswersPage } from "../features/answers/AnswersPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
@@ -22,6 +23,7 @@ export const NAV: NavItem[] = [
   { key: "applications", to: "/applications", label: "Applications" },
   { key: "companies", to: "/companies", label: "Companies" },
   { key: "contacts", to: "/contacts", label: "Contacts" },
+  { key: "interviews", to: "/interviews", label: "Interviews" },
   { key: "assets", to: "/assets", label: "Assets" },
   { key: "answers", to: "/answers", label: "Answers" },
   { key: "settings", to: "/settings", label: "Settings" },
@@ -32,6 +34,7 @@ export const PAGES: Record<string, ComponentType<PageProps>> = {
   applications: ApplicationsPage,
   companies: CompaniesPage,
   contacts: ContactsPage,
+  interviews: InterviewsPage,
   assets: AssetsPage,
   answers: AnswersPage,
   settings: SettingsPage,
