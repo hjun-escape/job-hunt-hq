@@ -75,6 +75,11 @@ describe("ApplicationDetail", () => {
     expect(window.location.hash).toBe("#/applications");
   });
 
+  it("keeps the job description placeholder current with the shipped AI features", async () => {
+    await open();
+    expect(screen.getByLabelText("Job description").getAttribute("placeholder")).toContain("Claude uses it");
+  });
+
   it("keeps Overview field labels unique while the toolbar is visible", async () => {
     await open();
     expect(screen.getByLabelText("Country")).toBeTruthy();
