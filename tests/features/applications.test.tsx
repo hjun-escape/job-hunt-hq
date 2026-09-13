@@ -36,6 +36,19 @@ describe("Applications", () => {
     expect((await screen.findAllByText("Backend Engineer")).length).toBeGreaterThan(0);
   });
 
+  it("opens a row from the keyboard", async () => {
+    const db = await open("#/applications");
+    await act(async () => {
+      await db.doc("companies/co_1").set({ id: "co_1", name: "Shopify", cities: [], techStack: [], sponsorship: {}, interviewProcess: "", sources: [], notes: "", createdAt: NOW, updatedAt: NOW });
+      await db.doc("applications/app_1").set({ id: "app_1", companyId: "co_1", title: "Backend Engineer", countryId: "CA", channelId: "linkedin", statusId: "applied", tier: null, desire: null, fit: null, likelihood: null, needsSponsorship: null, sponsorshipOffered: null, answerIds: [], tags: [], notes: "", activity: [], maxStageRank: 3, createdAt: NOW, updatedAt: NOW });
+    });
+    const row = (await screen.findByText("Backend Engineer")).closest("tr") as HTMLTableRowElement;
+    row.focus();
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(window.location.hash).toBe("#/applications/app_1");
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
   it("filters rows by text", async () => {
     const db = await open("#/applications");
     await act(async () => {

@@ -34,7 +34,16 @@ export function Table<T extends { id: string }>({ rows, columns, sortKey, sortDi
           {sorted.length === 0 ? (
             <tr><td colSpan={columns.length} className="empty">{emptyText}</td></tr>
           ) : sorted.map((row) => (
-            <tr key={row.id} className={[onRowClick ? "clickable" : "", selectedId === row.id ? "selected" : ""].join(" ").trim()} onClick={onRowClick ? () => onRowClick(row) : undefined}>
+            <tr
+              key={row.id}
+              className={[onRowClick ? "clickable" : "", selectedId === row.id ? "selected" : ""].join(" ").trim()}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              onKeyDown={onRowClick ? (e) => {
+                if (e.key === "Enter") onRowClick(row);
+                else if (e.key === " ") { e.preventDefault(); onRowClick(row); }
+              } : undefined}
+            >
               {columns.map((c) => (
                 <td key={c.key} style={{ textAlign: c.align ?? "left" }}>{c.render(row)}</td>
               ))}
