@@ -3,6 +3,7 @@ import { ApplicationsPage } from "../features/applications/ApplicationsPage";
 import { CompaniesPage } from "../features/companies/CompaniesPage";
 import { ContactsPage } from "../features/contacts/ContactsPage";
 import { AssetsPage } from "../features/assets/AssetsPage";
+import { AnswersPage } from "../features/answers/AnswersPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { DashboardPage } from "./DashboardPage";
 
@@ -22,6 +23,7 @@ export const NAV: NavItem[] = [
   { key: "companies", to: "/companies", label: "Companies" },
   { key: "contacts", to: "/contacts", label: "Contacts" },
   { key: "assets", to: "/assets", label: "Assets" },
+  { key: "answers", to: "/answers", label: "Answers" },
   { key: "settings", to: "/settings", label: "Settings" },
 ];
 
@@ -31,5 +33,6 @@ export const PAGES: Record<string, ComponentType<PageProps>> = {
   companies: CompaniesPage,
   contacts: ContactsPage,
   assets: AssetsPage,
+  answers: AnswersPage,
   settings: SettingsPage,
 };
