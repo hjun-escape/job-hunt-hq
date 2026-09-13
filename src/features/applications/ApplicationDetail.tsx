@@ -31,6 +31,7 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
   const { status, run } = useSaver();
   const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>("overview");
+  const [draftDirty, setDraftDirty] = useState(false);
   const app = state.applications[id];
 
   if (!app) {
@@ -51,6 +52,7 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
 
   return (
     <Drawer open wide onClose={onClose}
+      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard" })}
       title={<span>{company?.name ?? "?"} <span className="muted">·</span> {app.title}</span>}
       footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" onClick={() => void remove()} disabled={repo.readOnly}>Delete application</button></>}>
       <div className="row" style={{ marginBottom: 12 }}>
@@ -87,7 +89,7 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "overview" ? <OverviewTab app={app} patch={patch} />
           : tab === "interviews" ? <InterviewsTab app={app} />
-          : tab === "answers" ? <AnswersTab app={app} patch={patch} />
+          : tab === "answers" ? <AnswersTab app={app} patch={patch} onDraftDirty={setDraftDirty} />
           : tab === "activity" ? <ActivityTab app={app} />
           : <NotesTab app={app} patch={patch} />}
       </div>

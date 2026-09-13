@@ -91,6 +91,32 @@ describe("AI draft assist", () => {
     expect((await db.doc("applications/app_1").get()).data()?.notes).toContain("- [ ] (nice) Kubernetes");
   });
 
+  it("asks before closing the drawer while a draft is in progress", async () => {
+    const sample = createFakeSample({ reply: () => "stuck mid-stream", pace: () => new Promise<void>(() => {}) });
+    await open("#/applications/app_1", { sample: Promise.resolve(sample) });
+    await openTab("Answers");
+    fireEvent.click(await screen.findByRole("button", { name: "Draft with Claude" }));
+    const panel = screen.getByRole("region", { name: "Draft with Claude" });
+    fireEvent.change(within(panel).getByRole("textbox", { name: "Question to answer" }), { target: { value: "Why Shopify?" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Draft" }));
+    await waitFor(() => expect(within(panel).getByRole("button", { name: "Stop" })).toBeTruthy());
+
+    // Escape on the panel itself while a draft is busy: swallowed, the drawer stays, no confirm.
+    fireEvent.keyDown(panel, { key: "Escape" });
+    await act(async () => {});
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    // The explicit ✕ button goes through the drawer's close guard, which asks to confirm.
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toMatch(/Discard the draft\?/);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Draft with Claude" })).toBeTruthy();
+  });
+
   it("tailors an existing answer from its editor and saves the result as a new answer", async () => {
     const sample = createFakeSample({ reply: () => "Tailored version." });
     const db = await open("#/answers/an_2", { sample: Promise.resolve(sample) });

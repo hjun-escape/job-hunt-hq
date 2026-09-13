@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { buildDraftPrompt, profileSummary } from "../../capabilities/ai";
 import type { SampleLike } from "../../capabilities/types";
 import type { Answer, Application } from "../../domain/types";
@@ -13,10 +13,12 @@ interface Props {
   answer?: Answer;
   sample: SampleLike | null | undefined;
   onClose: () => void;
+  /** Reports whether the panel currently holds work (streaming or unsaved text) a close would discard. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /** Spec §6 "Draft answer": explicit click, streamed into an editable textarea, save/attach/discard. Inline so no dialog nests inside a drawer. */
-export function DraftPanel({ app, answer, sample: sampleCapability, onClose }: Props) {
+export function DraftPanel({ app, answer, sample: sampleCapability, onClose, onDirtyChange }: Props) {
   const { repo } = useApp();
   const state = useAppState();
   const profile = useProfile();
@@ -33,6 +35,12 @@ export function DraftPanel({ app, answer, sample: sampleCapability, onClose }: P
   const bank = Object.values(state.answers).sort((a, b) => a.title.localeCompare(b.title));
   const busy = sample.phase === "thinking" || sample.phase === "streaming";
   const rateLimited = sample.disabledUntil > Date.now();
+  const dirty = busy || sample.text.trim().length > 0;
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
 
   if (!sample.available) {
     return <section className="section ai-panel" aria-label="Draft with Claude"><p className="muted">Claude drafting is not available in this view.</p><button type="button" className="btn" onClick={onClose}>Close</button></section>;
@@ -55,7 +63,7 @@ export function DraftPanel({ app, answer, sample: sampleCapability, onClose }: P
   });
 
   return (
-    <section className="section ai-panel" aria-label="Draft with Claude">
+    <section className="section ai-panel" aria-label="Draft with Claude" onKeyDown={(e) => { if (e.key === "Escape" && dirty) e.stopPropagation(); }}>
       <div className="row" style={{ justifyContent: "space-between" }}><h3>Draft with Claude</h3><span className="muted">Uses your own Claude usage; nothing is sent until you click Draft.</span></div>
       <Field label="Question to answer" htmlFor="ai-question">
         <input id="ai-question" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Why do you want to work here?" disabled={busy} />

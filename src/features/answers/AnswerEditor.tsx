@@ -29,6 +29,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
   const [preview, setPreview] = useState(false);
   const [copied, setCopied] = useState(false);
   const [tailoring, setTailoring] = useState(false);
+  const [draftDirty, setDraftDirty] = useState(false);
   const answer = state.answers[id];
   if (!answer) return <Drawer open title="Answer not found" onClose={onClose}><p className="muted">This answer no longer exists.</p></Drawer>;
   const used = answerUsage(id, Object.values(state.applications));
@@ -48,6 +49,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
   };
   return (
     <Drawer open wide title={answer.title} onClose={onClose}
+      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard" })}
       footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" disabled={used.length > 0 || ro} title={used.length ? "Detach it from applications first" : undefined} onClick={() => void remove()}>Delete answer</button></>}>
       <div className="grid-2">
         <SelectField label="Kind" value={answer.kindId} options={pl.answerKinds} onChange={(v) => { if (v) void patch({ kindId: v }); }} allowEmpty={false} disabled={ro} />
@@ -71,7 +73,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
       {preview ? <div className="section"><Markdown text={answer.body} /></div> : (
         <TextArea label="Body" rows={14} value={answer.body} onCommit={(v) => patch({ body: v })} placeholder="Markdown works: **bold**, - bullets, [links](https://…)" disabled={ro} />
       )}
-      {tailoring ? <DraftPanel sample={sampleCap} answer={answer} onClose={() => setTailoring(false)} /> : null}
+      {tailoring ? <DraftPanel sample={sampleCap} answer={answer} onClose={() => setTailoring(false)} onDirtyChange={setDraftDirty} /> : null}
       <h3>Used in {used.length} application{used.length === 1 ? "" : "s"}</h3>
       {used.length ? <ul>{used.map((a) => <li key={a.id}><a href={`#/applications/${a.id}`}>{state.companies[a.companyId]?.name ?? "?"} · {a.title}</a></li>)}</ul> : <p className="muted">Attach it from an application's Answers tab.</p>}
     </Drawer>

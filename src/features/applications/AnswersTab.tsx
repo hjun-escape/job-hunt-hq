@@ -10,7 +10,7 @@ import { DraftPanel } from "../ai/DraftPanel";
 import { useSamplePolicy } from "../ai/useSample";
 import type { AppPatch } from "./ApplicationDetail";
 
-export function AnswersTab({ app, patch }: { app: Application; patch: (p: AppPatch) => Promise<boolean> }) {
+export function AnswersTab({ app, patch, onDraftDirty }: { app: Application; patch: (p: AppPatch) => Promise<boolean>; onDraftDirty?: (d: boolean) => void }) {
   const { repo, caps } = useApp();
   const state = useAppState();
   const settings = useSettings();
@@ -38,7 +38,7 @@ export function AnswersTab({ app, patch }: { app: Application; patch: (p: AppPat
         <a href="#/answers" className="muted">Manage the bank</a>
         {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}
       </div>
-      {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} /> : null}
+      {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} onDirtyChange={onDraftDirty} /> : null}
       {attached.length === 0 ? <p className="muted">No answers attached. Attach the ones you used or plan to use for this application.</p> : (
         <ul className="activity">
           {attached.map((a) => (
