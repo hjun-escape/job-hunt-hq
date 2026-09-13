@@ -22,7 +22,7 @@ Qualities required by the user: editable, useful, configurable, reusable, servic
 
 ## 3. Data model
 
-All collections are top-level so filters scan one collection. IDs are client-generated: a type prefix plus base36 timestamp plus 6 random chars (`app_l8x2k1_a9f3q2`). Every document carries `id`, `createdAt`, `updatedAt` (ISO UTC).
+All collections are top-level so filters scan one collection. IDs are client-generated: a type prefix plus base36 timestamp plus 6 random chars (`app_l8x2k1_a9f3q2`). Every collection record carries `id`, `createdAt`, `updatedAt` (ISO UTC). The two singleton documents at fixed paths (`settings/main`, `profile/main`) carry only `updatedAt`: their path is their identity and nothing depends on when they were first created.
 
 ### 3.1 `settings/main` (single document)
 - `schemaVersion: number`
