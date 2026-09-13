@@ -22,14 +22,14 @@ export function ChecklistEditor({ items, onChange, disabled }: Props) {
       <span className="field-label">Prep checklist</span>
       {items.length ? (
         <ul className="checklist">
-          {items.map((it) => (
+          {items.map((it, i) => (
             <li key={it.id}>
               <label className="row">
                 <input type="checkbox" checked={it.done} disabled={disabled}
                   onChange={(e) => { const checked = e.target.checked; onChange((current) => current.map((x) => (x.id === it.id ? { ...x, done: checked } : x))); }} />
                 <span className={it.done ? "done" : undefined}>{it.text}</span>
               </label>
-              <button type="button" className="btn ghost" aria-label={`Remove ${it.text}`} disabled={disabled} onClick={() => onChange((current) => current.filter((x) => x.id !== it.id))}>×</button>
+              <button type="button" className="btn ghost" aria-label={`Remove ${it.text} (item ${i + 1})`} disabled={disabled} onClick={() => onChange((current) => current.filter((x) => x.id !== it.id))}>×</button>
             </li>
           ))}
         </ul>

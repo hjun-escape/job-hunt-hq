@@ -129,6 +129,21 @@ describe("Assets", () => {
     expect(screen.getByText("Screen-rate 50%: 1 of 2 applications using this resume reached Screening.")).toBeTruthy();
   });
 
+  it("keeps the Open file link visible and flags a missing file after a HEAD 404", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => ({ status: 404 }) as Response) as unknown as typeof fetch;
+    try {
+      await open("#/assets/as_1", async (db) => {
+        await db.doc("assets/as_1").set(buildAsset({ kindId: "resume", name: "Backend resume", file: { assetId: "a".repeat(32), fileName: "r.pdf", sizeBytes: 10, contentType: "application/pdf", uploadedAt: NOW } }, "as_1", NOW) as unknown as Record<string, unknown>);
+      });
+      await screen.findByRole("dialog");
+      expect(await screen.findByText("file missing")).toBeTruthy();
+      expect(screen.getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(`/_blob/${"a".repeat(32)}`);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
   it("deletes the record before the stored file", async () => {
     let recordGoneFirst: boolean | null = null;
     const assets = createFakeAssets();

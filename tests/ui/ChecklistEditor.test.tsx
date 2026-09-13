@@ -43,7 +43,7 @@ describe("ChecklistEditor", () => {
   it("removes by item id against the current list, not by rendered position", () => {
     const onChange = vi.fn();
     render(<ChecklistEditor items={items} onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "Remove Review consistent hashing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Review consistent hashing (item 1)" }));
     expect(onChange).toHaveBeenCalledTimes(1);
     const remove = onChange.mock.calls[0][0] as (c: ChecklistItem[]) => ChecklistItem[];
     // A sibling write already prepended a new item -- removing "by position 0" would drop the
@@ -58,7 +58,13 @@ describe("ChecklistEditor", () => {
     // exercised here -- this mirrors the pattern the existing TagInput disabled test uses.
     const onChange = vi.fn();
     render(<ChecklistEditor items={items} onChange={onChange} disabled />);
-    fireEvent.click(screen.getByRole("button", { name: "Remove Review consistent hashing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Review consistent hashing (item 1)" }));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("names remove buttons uniquely even for duplicate texts", () => {
+    render(<ChecklistEditor items={[{ id: "a", text: "Same", done: false }, { id: "b", text: "Same", done: false }]} onChange={() => {}} />);
+    expect(screen.getByRole("button", { name: "Remove Same (item 1)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove Same (item 2)" })).toBeTruthy();
   });
 });

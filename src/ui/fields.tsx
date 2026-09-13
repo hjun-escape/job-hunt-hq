@@ -73,6 +73,18 @@ export function TextField({ label, value, onCommit, placeholder, type = "text", 
   );
 }
 
+const SAFE_URL = /^https?:\/\//i;
+/** A url TextField plus an "Open <label>" link, shown only for http(s) values. */
+export function UrlField({ label, value, onCommit, placeholder, disabled }: Omit<TextProps, "type">) {
+  const safe = SAFE_URL.test(value.trim());
+  return (
+    <div className="url-field">
+      <TextField label={label} value={value} onCommit={onCommit} placeholder={placeholder} type="url" disabled={disabled} />
+      {safe ? <a className="btn ghost url-open" href={value.trim()} target="_blank" rel="noreferrer" aria-label={`Open ${label}`}>Open</a> : null}
+    </div>
+  );
+}
+
 interface TextAreaProps {
   label: string;
   value: string;
@@ -227,7 +239,7 @@ export function TagInput({ label, value, onChange, placeholder = "Add and press 
     if (disabled) return;
     const tag = draft.trim();
     setDraft("");
-    if (!tag || value.includes(tag)) return; // fast path: skip an obviously-redundant write
+    if (!tag) return;
     // Re-checked against `current` at write time, so a tag a concurrent write already added
     // is never duplicated.
     onChange((current) => (current.includes(tag) ? current : [...current, tag]));

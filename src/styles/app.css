@@ -144,6 +144,8 @@ textarea { resize: vertical; }
 .ai-panel fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; }
 .ai-panel legend { padding: 0 4px; }
 .ai-panel h4 { margin: 10px 0 4px; }
+.url-field { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: end; }
+.url-open { margin-bottom: 12px; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }

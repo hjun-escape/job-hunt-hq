@@ -1,23 +1,14 @@
 import { assetsOfKind } from "../../domain/assets";
-import { formatMoney, normalizeAmount } from "../../domain/money";
-import type { Application, Comp, Rating, Settings } from "../../domain/types";
+import { formatNormalizedRange } from "../../domain/money";
+import type { Application, Comp, Rating } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useCapability } from "../../store/useCapability";
-import { DateField, NumberField, RatingField, SelectField, TagInput, TextArea, TextField, TriStateField } from "../../ui/fields";
+import { DateField, NumberField, RatingField, SelectField, TagInput, TextArea, TextField, TriStateField, UrlField } from "../../ui/fields";
 import { RequirementsPanel } from "../ai/RequirementsPanel";
 import type { AppPatch } from "./ApplicationDetail";
 import { DeadlineField } from "./DeadlineField";
 
 const PERIODS = [{ id: "year", label: "per year" }, { id: "month", label: "per month" }, { id: "hour", label: "per hour" }];
-
-function normalizedText(comp: Comp, settings: Settings): string | null {
-  if (comp.currency === settings.displayCurrency) return null;
-  const lo = comp.min != null ? normalizeAmount(comp.min, comp.currency, settings) : null;
-  const hi = comp.max != null ? normalizeAmount(comp.max, comp.currency, settings) : null;
-  if (lo == null && hi == null) return null;
-  const f = (n: number | null) => (n == null ? "?" : formatMoney(n, settings.displayCurrency));
-  return `${f(lo)} – ${f(hi)}`;
-}
 
 export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPatch) => Promise<boolean> }) {
   const state = useAppState();
@@ -38,7 +29,7 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPa
   const setComp = (p: Partial<Comp>) => patch((cur) => ({ comp: { ...(cur.comp ?? defaultComp()), ...p } }));
   const closed = pl.statuses.find((s) => s.id === app.statusId)?.group !== "open";
   const hasAmounts = comp.min != null || comp.max != null;
-  const normalized = normalizedText(comp, settings);
+  const normalized = formatNormalizedRange(comp, settings);
 
   return (
     <div>
@@ -48,7 +39,7 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPa
           <SelectField label="Company" value={app.companyId} options={companies} onChange={(v) => { if (v) patch({ companyId: v }); }} allowEmpty={false} />
           <TextField label="Title" value={app.title} onCommit={(v) => (v.trim() ? patch({ title: v.trim() }) : false)} />
           <TextField label="Req ID" value={app.reqId ?? ""} onCommit={(v) => patch({ reqId: opt(v) })} />
-          <TextField label="Posting URL" type="url" value={app.url ?? ""} onCommit={(v) => patch({ url: opt(v) })} />
+          <UrlField label="Posting URL" value={app.url ?? ""} onCommit={(v) => patch({ url: opt(v) })} />
           <TextField label="Team" value={app.team ?? ""} onCommit={(v) => patch({ team: opt(v) })} />
           <SelectField label="Level" value={app.levelId ?? ""} options={pl.levels} onChange={(v) => patch({ levelId: opt(v) })} />
           <SelectField label="Role family" value={app.roleFamilyId ?? ""} options={pl.roleFamilies} onChange={(v) => patch({ roleFamilyId: opt(v) })} />

@@ -101,6 +101,21 @@ describe("ApplicationDetail", () => {
       modifySpy.mockRestore();
     }
   });
+
+  it("wires tabs to panels and moves between them with arrow keys", async () => {
+    await open(); // the file's existing helper: seeds an application and opens its detail on the Overview tab
+    const overview = screen.getByRole("tab", { name: "Overview" });
+    const panel = screen.getByRole("tabpanel");
+    expect(overview.getAttribute("aria-controls")).toBe(panel.id);
+    expect(panel.getAttribute("aria-labelledby")).toBe(overview.id);
+    overview.focus();
+    fireEvent.keyDown(overview, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Interviews" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Interviews" }));
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "End" });
+    expect(screen.getByRole("tab", { name: "Notes" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("tabindex")).toBe("-1");
+  });
 });
 
 describe("OverviewTab compensation patch", () => {

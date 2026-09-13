@@ -6,7 +6,7 @@ import { useApp, useAppState, useSettings } from "../../store/context";
 import { useConfirm } from "../../ui/Confirm";
 import { Drawer } from "../../ui/Drawer";
 import { Markdown } from "../../ui/Markdown";
-import { RatingField, SelectField, TagInput, TextArea, TextField } from "../../ui/fields";
+import { RatingField, SelectField, TagInput, TextArea, TextField, UrlField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 
@@ -35,7 +35,7 @@ export function PrepEditor({ id, onClose }: { id: string; onClose: () => void })
       <div className="grid-2">
         <SelectField label="Kind" value={item.kindId} options={settings.pickLists.prepKinds} onChange={(v) => { if (v) void patch({ kindId: v }); }} allowEmpty={false} disabled={ro} />
         <TextField label="Title" value={item.title} onCommit={(v) => (v.trim() ? patch({ title: v.trim() }) : false)} disabled={ro} />
-        <TextField label="Source URL" type="url" value={item.sourceUrl ?? ""} onCommit={(v) => patch({ sourceUrl: opt(v) })} placeholder="https://leetcode.com/problems/…" disabled={ro} />
+        <UrlField label="Source URL" value={item.sourceUrl ?? ""} onCommit={(v) => patch({ sourceUrl: opt(v) })} placeholder="https://leetcode.com/problems/…" disabled={ro} />
         <SelectField label="Difficulty" value={item.difficulty ?? ""} options={DIFFICULTIES} onChange={(v) => void patch({ difficulty: (v || null) as PrepItem["difficulty"] })} disabled={ro} />
       </div>
       <TagInput label="Patterns" value={item.patterns} onChange={(fn) => void patch((cur) => ({ patterns: fn(cur.patterns) }))} suggestions={allPatterns(Object.values(state.prep))} placeholder="two pointers, BFS, consistent hashing…" disabled={ro} />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeAmount, formatMoney, formatCompRange } from "../../src/domain/money";
+import { normalizeAmount, formatMoney, formatCompRange, formatNormalizedRange } from "../../src/domain/money";
 
 const settings = { displayCurrency: "CAD", fxRates: { USD: 1.36, KRW: 0.001 } };
 
@@ -31,5 +31,14 @@ describe("formatCompRange", () => {
   it("renders min–max with currency and period", () => {
     expect(formatCompRange({ min: 90000, max: 110000, currency: "CAD", period: "year" })).toMatch(/90,000.*110,000.*\/ year/);
     expect(formatCompRange({ min: 50, currency: "USD", period: "hour" })).toMatch(/50.*\/ hour/);
+  });
+  it("renders one-sided ranges as from/up to, raw and normalized", () => {
+    expect(formatCompRange({ min: 100000, currency: "CAD", period: "year" })).toMatch(/^from CA?\$?100,000 \/ year$/);
+    expect(formatCompRange({ max: 90000, currency: "CAD", period: "year" })).toMatch(/^up to CA?\$?90,000 \/ year$/);
+    const usdOnly = { displayCurrency: "CAD", fxRates: { USD: 1.36 } };
+    expect(formatNormalizedRange({ min: 100000, currency: "USD", period: "year" }, usdOnly)).toMatch(/^from CA?\$?136,000$/);
+    expect(formatNormalizedRange({ min: 100000, max: 120000, currency: "USD", period: "year" }, usdOnly)).toMatch(/136,000.*163,200/);
+    expect(formatNormalizedRange({ min: 1, currency: "KRW", period: "year" }, usdOnly)).toBeNull();
+    expect(formatNormalizedRange({ currency: "USD", period: "year" }, usdOnly)).toBeNull();
   });
 });

@@ -91,7 +91,8 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
         {asset.file ? (
           <div className="row">
             <span>{asset.file.fileName} <span className="muted">· {formatBytes(asset.file.sizeBytes)} · uploaded {asset.file.uploadedAt.slice(0, 10)}</span></span>
-            {fileStatus === "missing" ? <span className="chip chip-red">file missing</span> : <a className="btn" href={blobUrl(asset.file.assetId)} target="_blank" rel="noreferrer">Open file</a>}
+            <a className="btn" href={blobUrl(asset.file.assetId)} target="_blank" rel="noreferrer">Open file</a>
+            {fileStatus === "missing" ? <span className="chip chip-red">file missing</span> : null}
             {assets ? <button type="button" className="btn ghost" onClick={() => void removeFile()} disabled={ro}>Remove file</button> : null}
           </div>
         ) : assets === null ? (

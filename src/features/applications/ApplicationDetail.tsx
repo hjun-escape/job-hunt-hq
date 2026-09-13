@@ -71,12 +71,20 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
           <span>{score ?? "—"}{score != null ? <span className="muted"> (suggests {suggestedTier(score)})</span> : null}</span>
         </div>
       </div>
-      <div className="tabs" role="tablist">
+      <div className="tabs" role="tablist" onKeyDown={(e) => {
+        const idx = TABS.findIndex((t) => t.id === tab);
+        const go = (n: number) => { const next = TABS[(n + TABS.length) % TABS.length]; setTab(next.id); document.getElementById(`tab-${next.id}`)?.focus(); e.preventDefault(); };
+        if (e.key === "ArrowRight") go(idx + 1);
+        else if (e.key === "ArrowLeft") go(idx - 1);
+        else if (e.key === "Home") go(0);
+        else if (e.key === "End") go(TABS.length - 1);
+      }}>
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "tab active" : "tab"} onClick={() => setTab(t.id)}>{t.label}</button>
+          <button key={t.id} id={`tab-${t.id}`} type="button" role="tab" aria-selected={tab === t.id} aria-controls={`panel-${t.id}`} tabIndex={tab === t.id ? 0 : -1}
+            className={tab === t.id ? "tab active" : "tab"} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
-      <div role="tabpanel">
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "overview" ? <OverviewTab app={app} patch={patch} />
           : tab === "interviews" ? <InterviewsTab app={app} />
           : tab === "answers" ? <AnswersTab app={app} patch={patch} />
