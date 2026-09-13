@@ -122,7 +122,7 @@ textarea { resize: vertical; }
 .funnel-bar { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
 .funnel-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .funnel-group h3 { margin: 12px 0 6px; }
-.problems { margin: 8px 0; padding-left: 18px; color: var(--danger-text); background: var(--chip-red); border-radius: var(--radius); padding: 8px 8px 8px 26px; }
+.problems { margin: 8px 0; padding-left: 18px; color: var(--chip-red-text); background: var(--chip-red); border-radius: var(--radius); padding: 8px 8px 8px 26px; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }
