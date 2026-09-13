@@ -1,4 +1,5 @@
 import type { Capabilities } from "./types";
+import { createFakeAssets } from "./fakeAssets";
 import { createFakeDb } from "./fakeDb";
 import { createAnchorDownloads } from "./fakeDownloads";
 
@@ -17,7 +18,7 @@ export function createCapabilities(): Capabilities {
   }
   return {
     db: Promise.resolve(createFakeDb({ persistKey: DEV_PERSIST_KEY })),
-    assets: Promise.resolve(null),
+    assets: Promise.resolve(createFakeAssets()),
     downloads: Promise.resolve(createAnchorDownloads()),
     sample: Promise.resolve(null),
   };

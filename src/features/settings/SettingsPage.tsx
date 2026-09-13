@@ -9,6 +9,7 @@ import { SaveIndicator } from "../../ui/SaveIndicator";
 import { allTimeZones } from "../../ui/timeZones";
 import { useSaver } from "../../ui/useSaver";
 import { PickListEditor } from "./PickListEditor";
+import { StorageMeter } from "./StorageMeter";
 
 export function SettingsPage() {
   const { repo } = useApp();
@@ -91,6 +92,11 @@ export function SettingsPage() {
         <h2>Pick lists</h2>
         <p className="muted">Rename freely: records reference entries by id. Archive an entry to hide it from new selections. Entries in use cannot be deleted.</p>
         <PickListEditor />
+      </div>
+
+      <div className="section">
+        <h2>Files</h2>
+        <StorageMeter />
       </div>
 
       <div className="section">

@@ -109,3 +109,4 @@ textarea { resize: vertical; }
   .drawer-backdrop { z-index: 45; }
   .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
+.danger-text { color: var(--danger); }

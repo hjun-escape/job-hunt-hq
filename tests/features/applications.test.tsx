@@ -21,7 +21,7 @@ describe("Applications", () => {
     await open("#/applications");
     const nav = screen.getByRole("navigation", { name: "Main" });
     const labels = Array.from(nav.querySelectorAll("a")).map((a) => a.textContent);
-    expect(labels).toEqual(["Dashboard", "Applications", "Companies", "Contacts", "Settings"]);
+    expect(labels).toEqual(["Dashboard", "Applications", "Companies", "Contacts", "Assets", "Settings"]);
   });
 
   it("quick-adds an application, creating the company, and opens it", async () => {
