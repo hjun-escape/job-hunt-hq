@@ -2662,19 +2662,19 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `src/features/ai/DraftPanel.tsx`, `src/features/ai/RequirementsPanel.tsx`
-- Modify: `src/features/applications/AnswersTab.tsx` (button "Draft with Claude" + panel), `src/features/answers/AnswerEditor.tsx` (button "Tailor with Claude" + panel), `src/features/applications/OverviewTab.tsx` (`RequirementsPanel` under the job description), `src/styles/app.css` (`.ai-panel`)
-- Test: `tests/features/ai.test.tsx`
+- Modify: `src/features/applications/AnswersTab.tsx` (button "Draft with Claude" + panel), `src/features/answers/AnswerEditor.tsx` (button "Tailor with Claude" + panel), `src/features/applications/OverviewTab.tsx` (`RequirementsPanel` under the job description), `src/styles/app.css` (`.ai-panel`), `src/store/useCapability.ts` (store a function-valued capability with `setValue(() => v)` — React treats a bare function as an updater), `tests/features/applicationDetail.test.tsx` (the standalone OverviewTab render gets a `ToastProvider` and, right after `render`, `await act(async () => {})` so the capability resolution lands inside act)
+- Test: `tests/features/ai.test.tsx`, `tests/store/useCapability.test.tsx` (callable capability kept as a value; rejection and null resolve to null)
 
 **Interfaces:**
 - Consumes: Task 7 (`useSample`, `buildDraftPrompt`, `buildRequirementsPrompt`, `profileSummary`, `parseRequirements`, `createFakeSample`), `useCapability`, `repo.createAnswer`, `repo.modify`, `copyText`, `AppPatch`.
-- Produces: `DraftPanel({ app?, answer?, onClose })` — an inline `<section aria-label="Draft with Claude">` with textbox "Question to answer", selects "Output language" / "Target length", checkboxes "Include job description" (only when the application has one), "Include background summary", one "Use <answer title>" checkbox per bank answer, buttons "Draft", "Stop", textarea "Draft", footer buttons "Save as new answer", "Attach to application" (only with `app`), "Discard"; `RequirementsPanel({ app, patch })` — button "Extract requirements", lists under headings "Must have" / "Nice to have" with one checkbox per requirement, buttons "Copy as checklist", "Append to notes". Both render nothing while the `sample` capability is pending or absent.
+- Produces: `DraftPanel({ sample, app?, answer?, onClose })` (the parent passes the capability it resolved) — an inline `<section aria-label="Draft with Claude">` with textbox "Question to answer", selects "Output language" / "Target length", checkboxes "Include job description" (only when the application has one), "Include background summary", one "Use <answer title>" checkbox per bank answer, buttons "Draft", "Stop", textarea "Draft", footer buttons "Save as new answer", "Attach to application" (only with `app`), "Discard"; `RequirementsPanel({ app, patch })` — button "Extract requirements", lists under headings "Must have" / "Nice to have" with one checkbox per requirement, buttons "Copy as checklist", "Append to notes". Both render nothing while the `sample` capability is pending or absent.
 
 - [ ] **Step 1: Write the failing tests**
 
 `tests/features/ai.test.tsx`:
 ```tsx
 import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { createFakeSample } from "../../src/capabilities/fakeSample";
@@ -2696,12 +2696,11 @@ async function open(hash: string, extra: Partial<Capabilities> = {}, jd = "We ne
   await put(db, "answers/an_2", buildAnswer({ kindId: "answer", title: "Why Shopify", question: "Why Shopify?", body: "Commerce at scale." }, "an_2", NOW));
   window.location.hash = hash;
   render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db), ...extra }} />);
+  await screen.findByRole("dialog"); // every scenario opens a detail or editor; awaiting here keeps capability resolution inside act
   return db;
 }
-const openTab = async (name: string) => {
-  await screen.findByRole("dialog");
-  fireEvent.click(screen.getByRole("tab", { name }));
-};
+/** Switching tabs mounts a fresh tab whose capability hook settles on a microtask; flush it inside act. */
+const openTab = async (name: string) => { fireEvent.click(screen.getByRole("tab", { name })); await act(async () => {}); };
 
 describe("AI draft assist", () => {
   it("drafts an answer from the Answers tab, streaming into an editable textarea, and attaches it to the application", async () => {
@@ -2736,7 +2735,7 @@ describe("AI draft assist", () => {
     await open("#/applications/app_1");
     await openTab("Answers");
     expect(screen.queryByRole("button", { name: "Draft with Claude" })).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: "Overview" }));
+    await openTab("Overview");
     expect(screen.queryByRole("button", { name: "Extract requirements" })).toBeNull();
   });
 
@@ -2755,7 +2754,6 @@ describe("AI draft assist", () => {
   it("extracts requirements from the job description into a checklist and appends it to the notes", async () => {
     const sample = createFakeSample({ json: () => ({ must: ["Go", "gRPC"], nice: ["Kubernetes"] }) });
     const db = await open("#/applications/app_1", { sample: Promise.resolve(sample) });
-    await screen.findByRole("dialog");
     fireEvent.click(await screen.findByRole("button", { name: "Extract requirements" }));
     expect(await screen.findByRole("checkbox", { name: "Go" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "Kubernetes" })).toBeTruthy();
@@ -2769,7 +2767,6 @@ describe("AI draft assist", () => {
   it("tailors an existing answer from its editor and saves the result as a new answer", async () => {
     const sample = createFakeSample({ reply: () => "Tailored version." });
     const db = await open("#/answers/an_2", { sample: Promise.resolve(sample) });
-    await screen.findByRole("dialog");
     fireEvent.click(await screen.findByRole("button", { name: "Tailor with Claude" }));
     const panel = screen.getByRole("region", { name: "Draft with Claude" });
     expect((within(panel).getByRole("textbox", { name: "Question to answer" }) as HTMLInputElement).value).toBe("Why Shopify?");
@@ -2793,26 +2790,28 @@ Run: `npx vitest run tests/features/ai.test.tsx` — the first, third, fourth an
 ```tsx
 import { useState } from "react";
 import { buildDraftPrompt, profileSummary } from "../../capabilities/ai";
+import type { SampleLike } from "../../capabilities/types";
 import type { Answer, Application } from "../../domain/types";
 import { useApp, useAppState, useProfile } from "../../store/context";
-import { useCapability } from "../../store/useCapability";
 import { Field } from "../../ui/fields";
 import { useToast } from "../../ui/Toast";
 import { useSaver } from "../../ui/useSaver";
 import { useSample } from "./useSample";
 
 interface Props {
+  /** The capability the parent already resolved (it only shows the trigger when it is a function). */
+  sample: SampleLike | null | undefined;
   app?: Application;
   answer?: Answer;
   onClose: () => void;
 }
 
 /** Spec §6 "Draft answer": explicit click, streamed into an editable textarea, save/attach/discard. Inline so no dialog nests inside a drawer. */
-export function DraftPanel({ app, answer, onClose }: Props) {
-  const { repo, caps } = useApp();
+export function DraftPanel({ sample: capability, app, answer, onClose }: Props) {
+  const { repo } = useApp();
   const state = useAppState();
   const profile = useProfile();
-  const sample = useSample(useCapability(caps.sample));
+  const sample = useSample(capability);
   const toast = useToast();
   const { status, run } = useSaver();
   const company = app ? (state.companies[app.companyId]?.name ?? "the company") : "the company";
@@ -2963,9 +2962,9 @@ export function RequirementsPanel({ app, patch }: { app: Application; patch: (p:
 ```
 
 Wiring:
-- `src/features/applications/AnswersTab.tsx`: add `const sampleCap = useCapability(caps.sample);` (take `caps` from `useApp()`), `const [drafting, setDrafting] = useState(false);` and, in the top row after "Manage the bank": `{sampleCap ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}`; render `{drafting ? <DraftPanel app={app} onClose={() => setDrafting(false)} /> : null}` above the attached list.
-- `src/features/answers/AnswerEditor.tsx`: same pattern with `<button … onClick={() => setTailoring(true)}>Tailor with Claude</button>` next to "Copy", and `{tailoring ? <DraftPanel answer={answer} onClose={() => setTailoring(false)} /> : null}` after the body field.
-- `src/features/applications/OverviewTab.tsx`: under the "Job description" `TextArea` render `<RequirementsPanel app={app} patch={patch} />`.
+- `src/features/applications/AnswersTab.tsx`: add `const sampleCap = useCapability(caps.sample);` (take `caps` from `useApp()`), `const [drafting, setDrafting] = useState(false);` and, in the top row after "Manage the bank": `{sampleCap ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}`; render `{drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} /> : null}` above the attached list.
+- `src/features/answers/AnswerEditor.tsx`: same pattern with `<button … onClick={() => setTailoring(true)}>Tailor with Claude</button>` next to "Copy", and `{tailoring ? <DraftPanel sample={sampleCap} answer={answer} onClose={() => setTailoring(false)} /> : null}` after the body field.
+- `src/features/applications/OverviewTab.tsx`: resolve the capability once (`const sampleCap = useCapability(caps.sample)` with `caps` from `useApp()`) and, under the "Job description" `TextArea`, render `<RequirementsPanel sample={sampleCap} app={app} patch={patch} />`; `RequirementsPanel` takes `sample: SampleLike | null | undefined` as a prop and calls `useSample(sample)` instead of resolving the capability itself.
 - `src/styles/app.css` (above the mobile block): `.ai-panel { margin-top: 10px; } .ai-panel fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; } .ai-panel legend { padding: 0 4px; } .ai-panel h4 { margin: 10px 0 4px; }`.
 
 - [ ] **Step 4: Run the tests to verify they pass**
