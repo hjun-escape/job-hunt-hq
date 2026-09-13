@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
@@ -38,8 +38,10 @@ describe("Applications", () => {
 
   it("filters rows by text", async () => {
     const db = await open("#/applications");
-    await db.doc("companies/co_1").set({ id: "co_1", name: "Shopify", cities: [], techStack: [], sponsorship: {}, interviewProcess: "", sources: [], notes: "", createdAt: NOW, updatedAt: NOW });
-    await db.doc("applications/app_1").set({ id: "app_1", companyId: "co_1", title: "Backend Engineer", countryId: "CA", channelId: "linkedin", statusId: "applied", tier: null, desire: null, fit: null, likelihood: null, needsSponsorship: null, sponsorshipOffered: null, answerIds: [], tags: [], notes: "", activity: [], maxStageRank: 3, createdAt: NOW, updatedAt: NOW });
+    await act(async () => {
+      await db.doc("companies/co_1").set({ id: "co_1", name: "Shopify", cities: [], techStack: [], sponsorship: {}, interviewProcess: "", sources: [], notes: "", createdAt: NOW, updatedAt: NOW });
+      await db.doc("applications/app_1").set({ id: "app_1", companyId: "co_1", title: "Backend Engineer", countryId: "CA", channelId: "linkedin", statusId: "applied", tier: null, desire: null, fit: null, likelihood: null, needsSponsorship: null, sponsorshipOffered: null, answerIds: [], tags: [], notes: "", activity: [], maxStageRank: 3, createdAt: NOW, updatedAt: NOW });
+    });
     expect((await screen.findAllByText("Backend Engineer")).length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzz" } });
     expect(await screen.findByText(/No applications match/)).toBeTruthy();
