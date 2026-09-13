@@ -4,7 +4,7 @@ import { buildApplication, buildCompany, type NewApplication, type NewCompany } 
 import { ID_PREFIX, newId, nowIso } from "../domain/ids";
 import { appendActivity, applyStatusChange, findStatus } from "../domain/status";
 import type { ActivityEntry, Application, CollectionName, Company, EntityMap, Profile, Settings } from "../domain/types";
-import type { Store } from "./store";
+import type { Store, StoreState } from "./store";
 import { PROFILE_PATH, SETTINGS_PATH } from "./sync";
 
 export class RepoError extends Error {
@@ -27,6 +27,10 @@ function toRepoError(e: unknown): RepoError {
 }
 
 export class Repository {
+  /** One promise chain per document path, so a read-modify-write never reads a copy of the
+   * store that is stale because an earlier write to the same document is still in flight. */
+  private readonly writeChains = new Map<string, Promise<unknown>>();
+
   constructor(
     private readonly db: DbLike | null,
     private readonly store: Store,
@@ -65,10 +69,25 @@ export class Repository {
     }
   }
 
+  /** Runs `fn` after every earlier write queued for `path` has settled -- the real platform
+   * confirms a write before its subscription echoes it back, so a caller that reads the
+   * store right after a sibling write's promise resolves can otherwise still see stale data. */
+  private serialize<T>(path: string, fn: () => Promise<T>): Promise<T> {
+    const prior = this.writeChains.get(path) ?? Promise.resolve();
+    const result = prior.then(fn, fn);
+    this.writeChains.set(path, result.catch(() => undefined));
+    return result;
+  }
+
   private async write<K extends CollectionName>(collection: K, doc: EntityMap[K]): Promise<EntityMap[K]> {
     const db = this.requireDb();
     const clean = stripUndefined(doc);
     await this.guard(() => db.doc(`${collection}/${doc.id}`).set(clean as unknown as Record<string, unknown>));
+    // Echo the write into the store ourselves instead of waiting for the subscription: on the
+    // real platform that echo arrives asynchronously, so the next serialized write could
+    // otherwise read a copy of this document that doesn't yet reflect what we just saved.
+    const current = this.store.getState()[collection] as Record<string, EntityMap[K]>;
+    this.store.setState({ [collection]: { ...current, [doc.id]: clean } } as unknown as Partial<StoreState>);
     return clean;
   }
 
@@ -81,10 +100,12 @@ export class Repository {
   }
 
   async update<K extends CollectionName>(collection: K, id: string, patch: Partial<EntityMap[K]>): Promise<EntityMap[K]> {
-    const current = this.get(collection, id);
-    if (!current) throw new RepoError("not_found", `No ${collection} record ${id}.`);
-    const next = { ...current, ...patch, updatedAt: this.now() } as EntityMap[K];
-    return this.write(collection, next);
+    return this.serialize(`${collection}/${id}`, async () => {
+      const current = this.get(collection, id);
+      if (!current) throw new RepoError("not_found", `No ${collection} record ${id}.`);
+      const next = { ...current, ...patch, updatedAt: this.now() } as EntityMap[K];
+      return this.write(collection, next);
+    });
   }
 
   async remove(collection: CollectionName, id: string): Promise<void> {
@@ -116,18 +137,22 @@ export class Repository {
   }
 
   async changeStatus(appId: string, statusId: string, note?: string): Promise<Application> {
-    const app = this.get("applications", appId);
-    if (!app) throw new RepoError("not_found", `No application ${appId}.`);
-    const status = findStatus(this.requireSettings(), statusId);
-    if (!status) throw new RepoError("invalid", `Unknown status ${statusId}.`);
-    const next = applyStatusChange(app, status, this.now(), note);
-    if (next === app) return app;
-    return this.write("applications", next);
+    return this.serialize(`applications/${appId}`, async () => {
+      const app = this.get("applications", appId);
+      if (!app) throw new RepoError("not_found", `No application ${appId}.`);
+      const status = findStatus(this.requireSettings(), statusId);
+      if (!status) throw new RepoError("invalid", `Unknown status ${statusId}.`);
+      const next = applyStatusChange(app, status, this.now(), note);
+      if (next === app) return app;
+      return this.write("applications", next);
+    });
   }
 
   async logActivity(appId: string, entry: Omit<ActivityEntry, "at">): Promise<Application> {
-    const app = this.get("applications", appId);
-    if (!app) throw new RepoError("not_found", `No application ${appId}.`);
-    return this.write("applications", appendActivity(app, entry, this.now()));
+    return this.serialize(`applications/${appId}`, async () => {
+      const app = this.get("applications", appId);
+      if (!app) throw new RepoError("not_found", `No application ${appId}.`);
+      return this.write("applications", appendActivity(app, entry, this.now()));
+    });
   }
 }

@@ -130,4 +130,37 @@ describe("Repository", () => {
     const repo = new Repository(full, createStore(), () => NOW);
     await expect(repo.create("companies", buildCompany({ name: "x" }, "co_x", NOW))).rejects.toMatchObject({ code: "quota_exceeded", message: expect.stringMatching(/full/i) });
   });
+
+  it("serializes concurrent updates to the same document so a slow echo can't drop the first write", async () => {
+    const { repo, db, store } = await boot();
+    const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "saved" });
+
+    // The real platform confirms a write before its own subscription echoes it back into the
+    // store -- unlike the fake, which notifies synchronously inside `set`. Simulate that lag:
+    // the write resolves immediately, but the document actually changes 20ms later.
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return {
+          ...real,
+          set: (body: Record<string, unknown>) =>
+            new Promise<void>((resolve) => {
+              resolve();
+              setTimeout(() => void real.set(body), 20);
+            }),
+        };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+
+    const p1 = slowRepo.update("applications", app.id, { city: "A" });
+    const p2 = slowRepo.update("applications", app.id, { team: "B" });
+    await Promise.all([p1, p2]);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const stored = (await db.doc(`applications/${app.id}`).get()).data();
+    expect(stored?.city).toBe("A");
+    expect(stored?.team).toBe("B");
+  });
 });
