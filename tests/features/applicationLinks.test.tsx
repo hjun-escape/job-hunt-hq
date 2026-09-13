@@ -74,7 +74,10 @@ describe("Application links", () => {
     render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
     await screen.findByRole("dialog");
     fireEvent.click(screen.getByRole("tab", { name: "Interviews" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add round" }));
+    await waitFor(async () => expect((await db.collection("interviews").get()).size).toBe(1));
     const openTypes = s.pickLists.roundTypes.filter((r) => !r.archived);
-    expect((screen.getByLabelText("Round type to add") as HTMLSelectElement).value).toBe(openTypes[0].id);
+    const added = (await db.collection("interviews").get()).docs.map((d) => d.data() as unknown as Interview)[0];
+    expect(added.roundTypeId).toBe(openTypes[0].id);
   });
 });
