@@ -140,7 +140,7 @@ export class Repository {
     const db = this.requireDb();
     return this.serialize(SETTINGS_PATH, async () => {
       const current = this.store.getState().settings;
-      if (!current) throw new RepoError("not_found", "Settings are not loaded yet.");
+      if (!current) throw new RepoError("not_ready", "Settings are not loaded yet.");
       const next = stripUndefined({ ...current, ...fn(current), updatedAt: this.now() });
       await this.guard(() => db.doc(SETTINGS_PATH).set(next as unknown as Record<string, unknown>));
       this.store.setState({ settings: next });
@@ -165,7 +165,7 @@ export class Repository {
     const db = this.requireDb();
     return this.serialize(PROFILE_PATH, async () => {
       const current = this.store.getState().profile;
-      if (!current) throw new RepoError("not_found", "Profile is not loaded yet.");
+      if (!current) throw new RepoError("not_ready", "Profile is not loaded yet.");
       const next = stripUndefined({ ...current, ...fn(current), updatedAt: this.now() });
       await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
       this.store.setState({ profile: next });

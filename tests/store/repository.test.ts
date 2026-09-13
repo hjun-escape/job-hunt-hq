@@ -281,4 +281,18 @@ describe("Repository", () => {
     expect((await db.doc("settings/main").get()).data()).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
     expect(base.displayCurrency).not.toBe("KRW");
   });
+
+  it("modifyProfile reports not_ready, like every other profile/settings read, while the profile is not loaded yet", async () => {
+    const db = createFakeDb();
+    const store = createStore(); // profile/settings default to null before sync ever runs
+    const repo = new Repository(db, store, () => NOW);
+    await expect(repo.modifyProfile(() => ({ name: "x" }))).rejects.toMatchObject({ code: "not_ready" });
+  });
+
+  it("modifySettings reports not_ready, like requireSettings, while settings are not loaded yet", async () => {
+    const db = createFakeDb();
+    const store = createStore();
+    const repo = new Repository(db, store, () => NOW);
+    await expect(repo.modifySettings(() => ({ displayCurrency: "KRW" }))).rejects.toMatchObject({ code: "not_ready" });
+  });
 });
