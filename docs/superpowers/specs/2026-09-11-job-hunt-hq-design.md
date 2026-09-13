@@ -117,7 +117,7 @@ All collections are top-level so filters scan one collection. IDs are client-gen
 - **Funnel:** for a set of applications, count how many reached each open stage using `maxStageRank ≥ stageRank`; conversion between consecutive stages is `reached[n+1] / reached[n]`. Grouped by channel and by resume version. Never counts lost statuses as stages.
 - **Due this week:** items whose date falls in `[startOfToday, startOfToday + 7 days)` in `homeTz`: application deadlines, `nextActionDue`, interview `scheduledAt`. Items are merged into one list sorted by time.
 - **Overdue:** open applications with `nextActionDue < today` (home tz), and open applications whose deadline has passed while `appliedAt` is still empty.
-- **Follow-up flags:** contacts whose `lastContactedAt` is older than their cadence and who are linked to an open application.
+- **Follow-up flags:** contacts linked as referrer or recruiter to an open application whose `lastContactedAt` is older than their cadence (the contact's own `followUpEveryDays`, else the settings default) or who have never been contacted.
 - **Timezones:** all instants stored as ISO UTC with the source IANA zone. Display in `homeTz`; when the source zone differs, show the source time beside it. Date-only deadlines never shift dates when rendered.
 - **Money:** `normalized = amount × fxRates[currency]` when `currency ≠ displayCurrency` and a rate exists; otherwise the normalized column shows a dash and a "set rate in Settings" hint.
 - **CSV:** top-level scalar fields as columns; arrays joined with `"; "`; nested objects serialized as JSON; RFC 4180 quoting; UTF-8 with BOM so Excel opens Korean text correctly.
@@ -125,7 +125,7 @@ All collections are top-level so filters scan one collection. IDs are client-gen
 
 ## 5. Screens
 
-Navigation: left rail (collapses to a bottom bar under 720 px) with Dashboard, Applications, Companies, Contacts, Assets, Answers, Interviews, Prep, Profile, Settings. Global search box matches company, title, contact name, answer title.
+Navigation: left rail (collapses to a bottom bar under 720 px) with Dashboard, Applications, Companies, Contacts, Interviews, Assets, Answers, Prep, Profile, Settings. Global search box matches company, title, contact name, answer title.
 
 - **Dashboard:** "Due this week" list; "Overdue" list; pipeline count per open status; funnel chart (reached-stage bars) with a toggle for grouping by channel or by resume version; upcoming interviews in home tz; follow-up flags.
 - **Applications:** table view with column chooser, sort, and filters (country, status, tier, channel, sponsorship, tag, text). Kanban view grouped by status with drag-to-move (moving triggers the status-change rule). Quick-add form: URL, title, company (creates the company if new), country; files under Saved. Detail panel with tabs: Overview (all fields), Interviews (rounds for this application, add round), Answers (attach from bank, draft with AI), Activity (log plus manual note), Notes.
