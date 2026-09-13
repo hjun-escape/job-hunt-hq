@@ -6,8 +6,10 @@ describe("newId", () => {
     expect(newId("app", 1_700_000_000_000)).toMatch(/^app_[0-9a-z]+_[0-9a-z]{6}$/);
   });
   it("is unique across many calls", () => {
-    const ids = new Set(Array.from({ length: 2000 }, () => newId(ID_PREFIX.applications)));
-    expect(ids.size).toBe(2000);
+    // 2000 draws made a ~0.1% collision chance per test run; 300 keeps the check meaningful
+    // without making the suite occasionally flaky.
+    const ids = new Set(Array.from({ length: 300 }, () => newId(ID_PREFIX.applications)));
+    expect(ids.size).toBe(300);
   });
 });
 

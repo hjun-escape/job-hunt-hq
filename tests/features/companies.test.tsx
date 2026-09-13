@@ -69,4 +69,16 @@ describe("Companies", () => {
     fireEvent.blur(note);
     await waitFor(async () => expect((await stored()).sponsorship.CA).toEqual({ policy: "yes", note: "LMIA in the past" }));
   });
+
+  it("filters rows by search", async () => {
+    await open("#/companies", async (d) => {
+      await d.doc("companies/co_shop").set(buildCompany({ name: "Shopify" }, "co_shop", NOW) as unknown as Record<string, unknown>);
+      await d.doc("companies/co_kakao").set(buildCompany({ name: "Kakao" }, "co_kakao", NOW) as unknown as Record<string, unknown>);
+    });
+    expect(screen.getByText("Shopify")).toBeTruthy();
+    expect(screen.getByText("Kakao")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "shop" } });
+    expect(screen.getByText("Shopify")).toBeTruthy();
+    expect(screen.queryByText("Kakao")).toBeNull();
+  });
 });
