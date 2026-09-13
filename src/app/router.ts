@@ -6,10 +6,18 @@ export interface Route {
   query: URLSearchParams;
 }
 
+function decode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment; // a malformed escape must not blank the page
+  }
+}
+
 export function parseHash(hash: string): Route {
   const raw = hash.replace(/^#\/?/, "");
   const [pathPart, queryPart = ""] = raw.split("?");
-  const parts = pathPart.split("/").filter(Boolean).map(decodeURIComponent);
+  const parts = pathPart.split("/").filter(Boolean).map(decode);
   return { path: "/" + parts.join("/"), parts, query: new URLSearchParams(queryPart) };
 }
 

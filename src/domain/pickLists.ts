@@ -1,5 +1,4 @@
-import type { StoreState } from "../store/store";
-import type { PickEntry, PickListName } from "./types";
+import type { PickEntry, PickListName, RecordSets } from "./types";
 
 export const PICK_LIST_LABELS: Record<PickListName, string> = {
   statuses: "Statuses",
@@ -51,7 +50,7 @@ export function removeEntry<T extends PickEntry>(list: T[], id: string): T[] {
   return list.filter((e) => e.id !== id);
 }
 
-type Records = Pick<StoreState, "applications" | "companies" | "contacts" | "assets" | "answers" | "interviews" | "prep">;
+type Records = RecordSets;
 
 /** Ids of a pick list that existing records point at. Such entries may be archived but not deleted. */
 export function referencedPickIds(records: Records, name: PickListName): Set<string> {

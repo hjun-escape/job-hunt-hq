@@ -30,4 +30,8 @@ describe("filterApplications", () => {
     expect(filterApplications(apps, { ...emptyFilter(), tier: "A" }, ctx).map((a) => a.id)).toEqual(["a1"]);
     expect(filterApplications(apps, { ...emptyFilter(), channelId: "referral" }, ctx).map((a) => a.id)).toEqual(["a3"]);
   });
+  it("matches the requisition id in text search", () => {
+    const withReq = [buildApplication({ companyId: "co_1", title: "SRE", countryId: "CA", channelId: "linkedin", statusId: "applied", reqId: "REQ-4471" }, "a9", NOW)];
+    expect(filterApplications(withReq, { ...emptyFilter(), text: "4471" }, ctx).map((a) => a.id)).toEqual(["a9"]);
+  });
 });

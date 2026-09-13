@@ -1,7 +1,9 @@
+import { assetsOfKind } from "../../domain/assets";
 import { formatMoney, normalizeAmount } from "../../domain/money";
 import type { Application, Comp, Rating, Settings } from "../../domain/types";
-import { useAppState, useSettings } from "../../store/context";
+import { useApp, useAppState, useSettings } from "../../store/context";
 import { DateField, NumberField, RatingField, SelectField, TagInput, TextArea, TextField, TriStateField } from "../../ui/fields";
+import type { AppPatch } from "./ApplicationDetail";
 import { DeadlineField } from "./DeadlineField";
 
 const PERIODS = [{ id: "year", label: "per year" }, { id: "month", label: "per month" }, { id: "hour", label: "per hour" }];
@@ -15,14 +17,22 @@ function normalizedText(comp: Comp, settings: Settings): string | null {
   return `${f(lo)} – ${f(hi)}`;
 }
 
-export function OverviewTab({ app, patch }: { app: Application; patch: (p: Partial<Application>) => Promise<boolean> }) {
+export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPatch) => Promise<boolean> }) {
   const state = useAppState();
   const settings = useSettings();
+  const { repo } = useApp();
   const pl = settings.pickLists;
   const companies = Object.values(state.companies).map((c) => ({ id: c.id, label: c.name }));
+  const allAssets = Object.values(state.assets);
+  const resumeOptions = assetsOfKind(allAssets, ["resume", "cv"]).map((a) => ({ id: a.id, label: `${a.name} (${a.version})` }));
+  const coverOptions = assetsOfKind(allAssets, ["cover-letter"]).map((a) => ({ id: a.id, label: `${a.name} (${a.version})` }));
+  const contactOptions = Object.values(state.contacts)
+    .sort((a, b) => Number(b.companyId === app.companyId) - Number(a.companyId === app.companyId) || a.name.localeCompare(b.name))
+    .map((c) => ({ id: c.id, label: c.companyId && c.companyId !== app.companyId ? `${c.name} (${state.companies[c.companyId]?.name ?? "?"})` : c.name }));
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
-  const comp: Comp = app.comp ?? { currency: settings.displayCurrency, period: "year" };
-  const setComp = (p: Partial<Comp>) => patch({ comp: { ...comp, ...p } });
+  const defaultComp = (): Comp => ({ currency: settings.displayCurrency, period: "year" });
+  const comp: Comp = app.comp ?? defaultComp();
+  const setComp = (p: Partial<Comp>) => patch((cur) => ({ comp: { ...(cur.comp ?? defaultComp()), ...p } }));
   const closed = pl.statuses.find((s) => s.id === app.statusId)?.group !== "open";
   const hasAmounts = comp.min != null || comp.max != null;
   const normalized = normalizedText(comp, settings);
@@ -56,8 +66,19 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: Parti
       </div>
 
       <div className="section">
+        <h3>Documents and people</h3>
+        <div className="grid-2">
+          <SelectField label="Resume version" value={app.resumeAssetId ?? ""} options={resumeOptions} onChange={(v) => patch({ resumeAssetId: opt(v) })} emptyLabel="None yet" />
+          <SelectField label="Cover letter" value={app.coverLetterAssetId ?? ""} options={coverOptions} onChange={(v) => patch({ coverLetterAssetId: opt(v) })} emptyLabel="None yet" />
+          <SelectField label="Referrer" value={app.referrerContactId ?? ""} options={contactOptions} onChange={(v) => patch({ referrerContactId: opt(v) })} emptyLabel="No referrer" />
+          <SelectField label="Recruiter" value={app.recruiterContactId ?? ""} options={contactOptions} onChange={(v) => patch({ recruiterContactId: opt(v) })} emptyLabel="No recruiter" />
+        </div>
+        <p className="field-hint">Manage files under <a href="#/assets">Assets</a> and people under <a href="#/contacts">Contacts</a>.</p>
+      </div>
+
+      <div className="section">
         <h3>Timeline</h3>
-        <DeadlineField value={app.deadline} homeTz={settings.homeTz} onCommit={(d) => patch({ deadline: d })} />
+        <DeadlineField value={app.deadline} homeTz={settings.homeTz} onCommit={(d) => patch({ deadline: d })} disabled={repo.readOnly} />
         <div className="grid-3">
           <DateField label="Applied on" value={app.appliedAt ?? ""} onCommit={(v) => patch({ appliedAt: opt(v) })} />
           <TextField label="Next action" value={app.nextAction ?? ""} onCommit={(v) => patch({ nextAction: opt(v) })} placeholder="Follow up with recruiter" />
@@ -107,7 +128,7 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: Parti
 
       <div className="section">
         <h3>Tags and job description</h3>
-        <TagInput label="Tags" value={app.tags} onChange={(v) => patch({ tags: v })} />
+        <TagInput label="Tags" value={app.tags} onChange={(fn) => patch((cur) => ({ tags: fn(cur.tags) }))} />
         <TextArea label="Job description" rows={10} value={app.jobDescription ?? ""} onCommit={(v) => patch({ jobDescription: opt(v) })}
           placeholder="Paste the posting here. AI drafting and requirement extraction use it in a later plan." />
       </div>

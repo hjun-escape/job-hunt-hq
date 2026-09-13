@@ -101,6 +101,44 @@ describe("Repository", () => {
     expect(store.getState().profile?.name).toBe("Ada");
   });
 
+  it("saveProfile echoes into the store so a follow-up save built from the store keeps the first change", async () => {
+    const { db, store } = await boot();
+    const base = store.getState().profile!;
+    // Like the real platform, the write confirms before the subscription echoes it back: the fake
+    // notifies synchronously inside `set`, so delay the real write by 20ms to reproduce that lag.
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    await slowRepo.saveProfile({ ...base, name: "Ada" });
+    await slowRepo.saveProfile({ ...store.getState().profile!, email: "me@example.com" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().profile).toMatchObject({ name: "Ada", email: "me@example.com" });
+    expect((await db.doc("profile/main").get()).data()).toMatchObject({ name: "Ada", email: "me@example.com" });
+  });
+
+  it("saveSettings echoes into the store so a follow-up save built from the store keeps the first change", async () => {
+    const { db, store } = await boot();
+    const base = store.getState().settings!;
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    await slowRepo.saveSettings({ ...base, displayCurrency: "KRW" });
+    await slowRepo.saveSettings({ ...store.getState().settings!, followUpCadenceDays: 14 });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().settings).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
+    expect((await db.doc("settings/main").get()).data()).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
+  });
+
   it("a read-only repository rejects writes with code read_only", async () => {
     const repo = new Repository(null, createStore());
     expect(repo.readOnly).toBe(true);
@@ -162,5 +200,99 @@ describe("Repository", () => {
     const stored = (await db.doc(`applications/${app.id}`).get()).data();
     expect(stored?.city).toBe("A");
     expect(stored?.team).toBe("B");
+  });
+
+  it("creates the five record types with prefixed ids and factory defaults", async () => {
+    const { repo, store } = await boot();
+    const contact = await repo.createContact({ name: "Dana", relationshipId: "recruiter" });
+    const asset = await repo.createAsset({ kindId: "resume", name: "Backend resume" });
+    const answer = await repo.createAnswer({ kindId: "answer", title: "Why us" });
+    const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "saved" });
+    const interview = await repo.createInterview({ applicationId: app.id, roundTypeId: "coding" });
+    const prep = await repo.createPrep({ kindId: "coding", title: "Two Sum" });
+    expect(contact.id).toMatch(/^ct_/); expect(contact.notes).toBe("");
+    expect(asset.id).toMatch(/^as_/); expect(asset.version).toBe("v1");
+    expect(answer.id).toMatch(/^an_/); expect(answer.language).toBe("en");
+    expect(interview.id).toMatch(/^iv_/); expect(interview.outcome).toBe("pending");
+    expect(prep.id).toMatch(/^pr_/); expect(prep.attempts).toBe(0);
+    const s = store.getState();
+    expect(s.contacts[contact.id] && s.assets[asset.id] && s.answers[answer.id] && s.interviews[interview.id] && s.prep[prep.id]).toBeTruthy();
+  });
+
+  it("createInterview rejects an unknown application", async () => {
+    const { repo } = await boot();
+    await expect(repo.createInterview({ applicationId: "app_missing", roundTypeId: "coding" })).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("readOnly reflects a store that was marked read-only after a terminal error", async () => {
+    const { repo, store } = await boot();
+    expect(repo.readOnly).toBe(false);
+    store.setState({ readOnly: true });
+    expect(repo.readOnly).toBe(true);
+  });
+
+  it("modify reads the document at write time so un-awaited nested patches both land", async () => {
+    const { repo, store } = await boot();
+    const c = await repo.createContact({ name: "Prof", relationshipId: "reference" });
+    const p1 = repo.modify("contacts", c.id, (cur) => ({ reference: { ...(cur.reference ?? { usedInApplicationIds: [] }), consentAt: "2026-09-01" } }));
+    const p2 = repo.modify("contacts", c.id, (cur) => ({ reference: { ...(cur.reference ?? { usedInApplicationIds: [] }), usedInApplicationIds: ["app_1"] } }));
+    await Promise.all([p1, p2]);
+    expect(store.getState().contacts[c.id].reference).toEqual({ consentAt: "2026-09-01", usedInApplicationIds: ["app_1"] });
+  });
+
+  it("modifyProfile reads the singleton at write time so two un-awaited saves both land", async () => {
+    const { db, store } = await boot();
+    const base = store.getState().profile!;
+    // Same lag as the saveProfile echo test above: the write resolves immediately, but the
+    // document (and therefore a naive re-read) only reflects it 20ms later.
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    const p1 = slowRepo.modifyProfile(() => ({ name: "Ada" }));
+    const p2 = slowRepo.modifyProfile(() => ({ email: "me@example.com" }));
+    await Promise.all([p1, p2]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().profile).toMatchObject({ name: "Ada", email: "me@example.com" });
+    expect((await db.doc("profile/main").get()).data()).toMatchObject({ name: "Ada", email: "me@example.com" });
+    expect(base.name).not.toBe("Ada");
+  });
+
+  it("modifySettings reads the singleton at write time so two un-awaited saves both land", async () => {
+    const { db, store } = await boot();
+    const base = store.getState().settings!;
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    const p1 = slowRepo.modifySettings(() => ({ displayCurrency: "KRW" }));
+    const p2 = slowRepo.modifySettings(() => ({ followUpCadenceDays: 14 }));
+    await Promise.all([p1, p2]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().settings).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
+    expect((await db.doc("settings/main").get()).data()).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
+    expect(base.displayCurrency).not.toBe("KRW");
+  });
+
+  it("modifyProfile reports not_ready, like every other profile/settings read, while the profile is not loaded yet", async () => {
+    const db = createFakeDb();
+    const store = createStore(); // profile/settings default to null before sync ever runs
+    const repo = new Repository(db, store, () => NOW);
+    await expect(repo.modifyProfile(() => ({ name: "x" }))).rejects.toMatchObject({ code: "not_ready" });
+  });
+
+  it("modifySettings reports not_ready, like requireSettings, while settings are not loaded yet", async () => {
+    const db = createFakeDb();
+    const store = createStore();
+    const repo = new Repository(db, store, () => NOW);
+    await expect(repo.modifySettings(() => ({ displayCurrency: "KRW" }))).rejects.toMatchObject({ code: "not_ready" });
   });
 });

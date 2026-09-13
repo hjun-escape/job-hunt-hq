@@ -19,4 +19,13 @@ describe("App", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText("Interviewing")).toBeTruthy();
   });
+
+  it("marks the active nav item with aria-current", async () => {
+    const caps = { ...absentCapabilities(), db: Promise.resolve(createFakeDb()) };
+    window.location.hash = "#/";
+    render(<App capabilities={caps} />);
+    await screen.findByText("Total");
+    expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Applications" }).getAttribute("aria-current")).toBeNull();
+  });
 });

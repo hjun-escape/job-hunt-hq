@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export interface ConfirmRequest {
   title: string;
@@ -16,12 +16,24 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<{ req: ConfirmRequest; resolve: (v: boolean) => void } | null>(null);
   const [typed, setTyped] = useState("");
   const confirm = useCallback<ConfirmFn>((req) => new Promise((resolve) => { setTyped(""); setPending({ req, resolve }); }), []);
-  const finish = (v: boolean) => {
+  const finish = useCallback((v: boolean) => {
     pending?.resolve(v);
     setPending(null);
-  };
+  }, [pending]);
   const value = useMemo(() => confirm, [confirm]);
   const locked = !!pending?.req.typed && typed !== pending.req.typed;
+  useEffect(() => {
+    if (!pending) return;
+    // Capture phase, plus stopPropagation: a Drawer beneath this confirm also listens for
+    // Escape (bubble phase) to close itself, and one keypress must not do both.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      finish(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [pending, finish]);
   return (
     <ConfirmContext.Provider value={value}>
       {children}
@@ -37,7 +49,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               </label>
             ) : null}
             <div className="modal-actions">
-              <button type="button" className="btn" onClick={() => finish(false)}>Cancel</button>
+              <button type="button" className="btn" onClick={() => finish(false)} autoFocus={!pending.req.typed}>Cancel</button>
               <button type="button" className={pending.req.danger === false ? "btn primary" : "btn danger"} disabled={locked} onClick={() => finish(true)}>
                 {pending.req.confirmLabel ?? "Confirm"}
               </button>

@@ -1,9 +1,9 @@
 import { describeDbError, errorCode, isTransient } from "../capabilities/errors";
 import type { DbLike } from "../capabilities/types";
-import { buildApplication, buildCompany, type NewApplication, type NewCompany } from "../domain/factories";
+import { buildAnswer, buildApplication, buildAsset, buildCompany, buildContact, buildInterview, buildPrep, type NewAnswer, type NewApplication, type NewAsset, type NewCompany, type NewContact, type NewInterview, type NewPrep } from "../domain/factories";
 import { ID_PREFIX, newId, nowIso } from "../domain/ids";
 import { appendActivity, applyStatusChange, findStatus } from "../domain/status";
-import type { ActivityEntry, Application, CollectionName, Company, EntityMap, Profile, Settings } from "../domain/types";
+import type { ActivityEntry, Answer, Application, AssetDoc, CollectionName, Company, Contact, EntityMap, Interview, PrepItem, Profile, Settings } from "../domain/types";
 import type { Store, StoreState } from "./store";
 import { PROFILE_PATH, SETTINGS_PATH } from "./sync";
 
@@ -37,8 +37,9 @@ export class Repository {
     private readonly now: () => string = nowIso,
   ) {}
 
+  /** No database in this view, or the sync layer switched the store to read-only after a terminal error. */
   get readOnly(): boolean {
-    return this.db === null;
+    return this.db === null || this.store.getState().readOnly;
   }
 
   private requireDb(): DbLike {
@@ -108,6 +109,18 @@ export class Repository {
     });
   }
 
+  /** Read-modify-write inside the per-document chain: `fn` sees the document as it is at write
+   * time, so a nested-object patch built while an earlier write is still in flight never
+   * clobbers the sibling field that write just set. Use it whenever a patch spreads a nested object. */
+  async modify<K extends CollectionName>(collection: K, id: string, fn: (current: EntityMap[K]) => Partial<EntityMap[K]>): Promise<EntityMap[K]> {
+    return this.serialize(`${collection}/${id}`, async () => {
+      const current = this.get(collection, id);
+      if (!current) throw new RepoError("not_found", `No ${collection} record ${id}.`);
+      const next = { ...current, ...fn(current), updatedAt: this.now() } as EntityMap[K];
+      return this.write(collection, next);
+    });
+  }
+
   async remove(collection: CollectionName, id: string): Promise<void> {
     const db = this.requireDb();
     await this.guard(() => db.doc(`${collection}/${id}`).delete());
@@ -115,14 +128,49 @@ export class Repository {
 
   async saveSettings(settings: Settings): Promise<void> {
     const db = this.requireDb();
-    const next = stripUndefined({ ...settings, updatedAt: this.now() });
-    await this.guard(() => db.doc(SETTINGS_PATH).set(next as unknown as Record<string, unknown>));
+    await this.serialize(SETTINGS_PATH, async () => {
+      const next = stripUndefined({ ...settings, updatedAt: this.now() });
+      await this.guard(() => db.doc(SETTINGS_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ settings: next });
+    });
+  }
+
+  /** Read-modify-write the settings singleton inside its own write chain. See modifyProfile. */
+  async modifySettings(fn: (current: Settings) => Partial<Settings>): Promise<Settings> {
+    const db = this.requireDb();
+    return this.serialize(SETTINGS_PATH, async () => {
+      const current = this.store.getState().settings;
+      if (!current) throw new RepoError("not_ready", "Settings are not loaded yet.");
+      const next = stripUndefined({ ...current, ...fn(current), updatedAt: this.now() });
+      await this.guard(() => db.doc(SETTINGS_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ settings: next });
+      return next;
+    });
   }
 
   async saveProfile(profile: Profile): Promise<void> {
     const db = this.requireDb();
-    const next = stripUndefined({ ...profile, updatedAt: this.now() });
-    await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
+    await this.serialize(PROFILE_PATH, async () => {
+      const next = stripUndefined({ ...profile, updatedAt: this.now() });
+      await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ profile: next });
+    });
+  }
+
+  /** Read-modify-write the singleton inside its own write chain -- like `modify`, but for the
+   * one-per-app profile/settings documents. `fn` sees the document as it is at write time, so two
+   * un-awaited calls (each patching a different field) both land instead of the second clobbering
+   * the first with a copy of the document read before either write settled. */
+  async modifyProfile(fn: (current: Profile) => Partial<Profile>): Promise<Profile> {
+    const db = this.requireDb();
+    return this.serialize(PROFILE_PATH, async () => {
+      const current = this.store.getState().profile;
+      if (!current) throw new RepoError("not_ready", "Profile is not loaded yet.");
+      const next = stripUndefined({ ...current, ...fn(current), updatedAt: this.now() });
+      await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ profile: next });
+      return next;
+    });
   }
 
   async createCompany(input: NewCompany): Promise<Company> {
@@ -134,6 +182,27 @@ export class Repository {
     if (!status) throw new RepoError("invalid", `Unknown status ${input.statusId}.`);
     const doc = buildApplication({ ...input, maxStageRank: status.stageRank }, newId(ID_PREFIX.applications), this.now());
     return this.create("applications", doc);
+  }
+
+  async createContact(input: NewContact): Promise<Contact> {
+    return this.create("contacts", buildContact(input, newId(ID_PREFIX.contacts), this.now()));
+  }
+
+  async createAsset(input: NewAsset): Promise<AssetDoc> {
+    return this.create("assets", buildAsset(input, newId(ID_PREFIX.assets), this.now()));
+  }
+
+  async createAnswer(input: NewAnswer): Promise<Answer> {
+    return this.create("answers", buildAnswer(input, newId(ID_PREFIX.answers), this.now()));
+  }
+
+  async createInterview(input: NewInterview): Promise<Interview> {
+    if (!this.get("applications", input.applicationId)) throw new RepoError("not_found", `No application ${input.applicationId}.`);
+    return this.create("interviews", buildInterview(input, newId(ID_PREFIX.interviews), this.now()));
+  }
+
+  async createPrep(input: NewPrep): Promise<PrepItem> {
+    return this.create("prep", buildPrep(input, newId(ID_PREFIX.prep), this.now()));
   }
 
   async changeStatus(appId: string, statusId: string, note?: string): Promise<Application> {

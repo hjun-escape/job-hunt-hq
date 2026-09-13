@@ -11,11 +11,13 @@ export function QuickAdd({ open, onClose }: { open: boolean; onClose: () => void
   const settings = useSettings();
   const { status, run } = useSaver();
   const pl = settings.pickLists;
-  const blank = () => ({ title: "", company: "", url: "", countryId: pl.countries[0]?.id ?? "", channelId: pl.channels[0]?.id ?? "", statusId: "saved" });
+  const countries = pl.countries.filter((c) => !c.archived);
+  const channels = pl.channels.filter((c) => !c.archived);
+  const blank = () => ({ title: "", company: "", url: "", countryId: countries[0]?.id ?? "", channelId: channels[0]?.id ?? "", statusId: "saved" });
   const [form, setForm] = useState(blank);
   const companies = Object.values(state.companies);
   const openStatuses = pl.statuses.filter((s) => s.group === "open" && !s.archived);
-  const canSubmit = form.title.trim() !== "" && form.company.trim() !== "" && status !== "saving";
+  const canSubmit = openStatuses.length > 0 && form.title.trim() !== "" && form.company.trim() !== "" && status !== "saving";
 
   const submit = () => {
     if (!canSubmit) return;
@@ -24,7 +26,7 @@ export function QuickAdd({ open, onClose }: { open: boolean; onClose: () => void
     void run(async () => {
       const existing = companies.find((c) => c.name.toLowerCase() === name.toLowerCase());
       const company = existing ?? (await repo.createCompany({ name }));
-      const statusId = openStatuses.some((s) => s.id === form.statusId) ? form.statusId : openStatuses[0].id;
+      const statusId = openStatuses.some((s) => s.id === form.statusId) ? form.statusId : (openStatuses[0]?.id ?? "");
       const app = await repo.createApplication({
         companyId: company.id, title, countryId: form.countryId, channelId: form.channelId, statusId,
         ...(form.url.trim() ? { url: form.url.trim() } : {}),
@@ -38,6 +40,7 @@ export function QuickAdd({ open, onClose }: { open: boolean; onClose: () => void
   return (
     <Drawer open={open} title="New application" onClose={onClose}
       footer={<><span className="muted">{status === "saving" ? "Saving…" : ""}</span><button type="button" className="btn primary" onClick={submit} disabled={!canSubmit}>Create</button></>}>
+      {openStatuses.length === 0 ? <p className="banner banner-warn" role="alert">There is no open status to file this under. Unarchive one in Settings › Pick lists first.</p> : null}
       <Field label="Role title" htmlFor="qa-title">
         <input id="qa-title" value={form.title} autoFocus onChange={(e) => setForm({ ...form, title: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
       </Field>
@@ -51,12 +54,12 @@ export function QuickAdd({ open, onClose }: { open: boolean; onClose: () => void
       <div className="grid-3">
         <Field label="Country" htmlFor="qa-country">
           <select id="qa-country" value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>
-            {pl.countries.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {countries.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </Field>
         <Field label="Channel" htmlFor="qa-channel">
           <select id="qa-channel" value={form.channelId} onChange={(e) => setForm({ ...form, channelId: e.target.value })}>
-            {pl.channels.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {channels.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </Field>
         <Field label="Status" htmlFor="qa-status">

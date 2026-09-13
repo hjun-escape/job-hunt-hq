@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { defaultSettings } from "../../src/domain/defaults";
 import { createStore } from "../../src/store/store";
-import { startSync } from "../../src/store/sync";
+import { retryOnce, startSync } from "../../src/store/sync";
 
 const NOW = "2026-09-11T00:00:00.000Z";
 
@@ -119,5 +119,38 @@ describe("startSync", () => {
     expect(store.getState().readOnly).toBe(true);
     expect(errors).toEqual(["revoked"]);
     h.stop();
+  });
+});
+
+describe("retryOnce", () => {
+  it("re-attaches once when the listener errors synchronously and stop() tears down the live listener", () => {
+    const events: string[] = [];
+    let calls = 0;
+    const attach = (onError: (e: DbError) => void) => {
+      const n = ++calls;
+      if (n === 1) onError({ code: "revoked", message: "" });
+      return () => { events.push(`unsub${n}`); };
+    };
+    const stop = retryOnce(attach, { isStopped: () => false, fail: () => events.push("fail") });
+    expect(calls).toBe(2);
+    expect(events).toEqual(["unsub1"]);
+    stop();
+    expect(events).toEqual(["unsub1", "unsub2"]);
+  });
+  it("gives up through fail() on the second error, synchronous or not", () => {
+    const events: string[] = [];
+    const attach = (onError: (e: DbError) => void) => { onError({ code: "revoked", message: "" }); return () => { events.push("unsub"); }; };
+    retryOnce(attach, { isStopped: () => false, fail: (e) => events.push(`fail:${e.code}`) });
+    expect(events).toEqual(["unsub", "fail:revoked"]);
+  });
+  it("ignores errors after stop", () => {
+    let stopped = false;
+    let handler: ((e: DbError) => void) | null = null;
+    const events: string[] = [];
+    const stop = retryOnce((onError) => { handler = onError; return () => {}; }, { isStopped: () => stopped, fail: () => events.push("fail") });
+    stop();
+    stopped = true;
+    handler!({ code: "revoked", message: "" });
+    expect(events).toEqual([]);
   });
 });

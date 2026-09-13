@@ -9,6 +9,7 @@ import { SaveIndicator } from "../../ui/SaveIndicator";
 import { allTimeZones } from "../../ui/timeZones";
 import { useSaver } from "../../ui/useSaver";
 import { PickListEditor } from "./PickListEditor";
+import { StorageMeter } from "./StorageMeter";
 
 export function SettingsPage() {
   const { repo } = useApp();
@@ -17,23 +18,30 @@ export function SettingsPage() {
   const confirm = useConfirm();
   const [fxCurrency, setFxCurrency] = useState("");
   const [fxRate, setFxRate] = useState("");
+  const [fxError, setFxError] = useState<string | null>(null);
   const w = settings.priorityWeights;
 
-  const save = (patch: Partial<Settings>) => run(() => repo.saveSettings({ ...settings, ...patch }));
-  const setWeight = (key: keyof Settings["priorityWeights"], v: number | null) => save({ priorityWeights: { ...w, [key]: v ?? 0 } });
+  type SettingsPatch = Partial<Settings> | ((current: Settings) => Partial<Settings>);
+  const save = (p: SettingsPatch) => run(() => repo.modifySettings((cur) => (typeof p === "function" ? p(cur) : p)));
+  const setWeight = (key: keyof Settings["priorityWeights"], v: number | null) => save((cur) => ({ priorityWeights: { ...cur.priorityWeights, [key]: v ?? 0 } }));
   const addFx = () => {
-    const cur = fxCurrency.trim().toUpperCase();
+    const code = fxCurrency.trim().toUpperCase();
     const rate = Number(fxRate);
-    if (!cur || !(rate > 0)) return;
-    void save({ fxRates: { ...settings.fxRates, [cur]: rate } });
+    if (!code || !(rate > 0)) {
+      setFxError("Enter a 3-letter currency code and a rate above 0.");
+      return;
+    }
+    setFxError(null);
+    void save((cur) => ({ fxRates: { ...cur.fxRates, [code]: rate } }));
     setFxCurrency("");
     setFxRate("");
   };
-  const removeFx = (cur: string) => {
-    const next = { ...settings.fxRates };
-    delete next[cur];
-    void save({ fxRates: next });
-  };
+  const removeFx = (code: string) =>
+    void save((cur) => {
+      const next = { ...cur.fxRates };
+      delete next[code];
+      return { fxRates: next };
+    });
   const reset = async () => {
     const ok = await confirm({ title: "Reset settings?", message: "Pick lists, weights, rates and cadence return to defaults. Your records are untouched.", confirmLabel: "Reset", typed: "RESET" });
     if (ok) void run(() => repo.saveSettings(defaultSettings(settings.homeTz, nowIso())));
@@ -85,12 +93,18 @@ export function SettingsPage() {
           <input aria-label="Rate" placeholder="1.36" value={fxRate} onChange={(e) => setFxRate(e.target.value)} style={{ width: 120 }} />
           <button type="button" className="btn" onClick={addFx} disabled={repo.readOnly}>Add rate</button>
         </div>
+        {fxError ? <p className="field-hint danger-text" role="alert" aria-label="Exchange rate problem">{fxError}</p> : null}
       </div>
 
       <div className="section">
         <h2>Pick lists</h2>
         <p className="muted">Rename freely: records reference entries by id. Archive an entry to hide it from new selections. Entries in use cannot be deleted.</p>
         <PickListEditor />
+      </div>
+
+      <div className="section">
+        <h2>Files</h2>
+        <StorageMeter />
       </div>
 
       <div className="section">

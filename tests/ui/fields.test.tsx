@@ -58,12 +58,37 @@ describe("TagInput", () => {
     const input = screen.getByLabelText("Tags") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "b" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onChange).toHaveBeenLastCalledWith(["a", "b"]);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(typeof onChange.mock.calls[0][0]).toBe("function");
+    expect((onChange.mock.calls[0][0] as (c: string[]) => string[])(["a"])).toEqual(["a", "b"]);
+
     fireEvent.change(input, { target: { value: "a" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledTimes(1); // "a" already in the rendered value: no-op, no call
+
     fireEvent.click(screen.getByRole("button", { name: "Remove a" }));
-    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect((onChange.mock.calls[1][0] as (c: string[]) => string[])(["a"])).toEqual([]);
+  });
+
+  it("computes add/remove against the current list, not the one it rendered from", () => {
+    const onChange = vi.fn();
+    render(<TagInput label="Tags" value={["a"]} onChange={onChange} />);
+    const input = screen.getByLabelText("Tags") as HTMLInputElement;
+
+    // Adding "b": a sibling write already added it (plus "c") by the time this applies --
+    // must not be duplicated, and the sibling addition must survive.
+    fireEvent.change(input, { target: { value: "b" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    const add = onChange.mock.calls[0][0] as (c: string[]) => string[];
+    expect(add(["a", "b", "c"])).toEqual(["a", "b", "c"]);
+    expect(add(["a", "c"])).toEqual(["a", "c", "b"]);
+
+    // Removing "a": a sibling write already added "c" by the time this applies -- "a" must be
+    // removed by value, without losing that concurrent addition.
+    fireEvent.click(screen.getByRole("button", { name: "Remove a" }));
+    const remove = onChange.mock.calls[1][0] as (c: string[]) => string[];
+    expect(remove(["a", "c"])).toEqual(["c"]);
   });
 });
 
@@ -89,5 +114,24 @@ describe("TriStateField", () => {
     expect(onChange).toHaveBeenLastCalledWith(false);
     fireEvent.change(select, { target: { value: "unknown" } });
     expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe("disabled fields", () => {
+  it("RatingField, TagInput and TriStateField ignore input while disabled", () => {
+    const onRating = vi.fn(); const onTags = vi.fn(); const onTri = vi.fn();
+    render(<>
+      <RatingField label="Desire" value={2} onChange={onRating} disabled />
+      <TagInput label="Tags" value={["a"]} onChange={onTags} disabled />
+      <TriStateField label="Sponsorship needed" value={null} onChange={onTri} disabled />
+    </>);
+    fireEvent.click(screen.getByRole("button", { name: "Desire 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove a" }));
+    const tagInput = screen.getByLabelText("Tags") as HTMLInputElement;
+    expect(tagInput.disabled).toBe(true);
+    expect((screen.getByLabelText("Sponsorship needed") as HTMLSelectElement).disabled).toBe(true);
+    expect(onRating).not.toHaveBeenCalled();
+    expect(onTags).not.toHaveBeenCalled();
+    expect(onTri).not.toHaveBeenCalled();
   });
 });

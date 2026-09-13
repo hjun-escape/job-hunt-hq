@@ -27,4 +27,28 @@ describe("useConfirm", () => {
     fireEvent.change(screen.getByLabelText(/type REPLACE/i), { target: { value: "REPLACE" } });
     expect(button.disabled).toBe(false);
   });
+
+  it("cancels on Escape", async () => {
+    const results: boolean[] = [];
+    render(<ConfirmProvider><Harness onResult={(v) => results.push(v)} /></ConfirmProvider>);
+    fireEvent.click(screen.getByText("open"));
+    await screen.findByRole("alertdialog");
+    fireEvent.keyDown(window, { key: "Escape" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(results).toEqual([false]);
+  });
+
+  it("focuses the typed-phrase input when a phrase is required", async () => {
+    render(<ConfirmProvider><Harness typed="RESET" onResult={() => {}} /></ConfirmProvider>);
+    fireEvent.click(screen.getByText("open"));
+    await screen.findByRole("alertdialog");
+    expect(document.activeElement).toBe(screen.getByRole("textbox"));
+  });
+
+  it("focuses Cancel when no phrase is required", async () => {
+    render(<ConfirmProvider><Harness onResult={() => {}} /></ConfirmProvider>);
+    fireEvent.click(screen.getByText("open"));
+    await screen.findByRole("alertdialog");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
+  });
 });

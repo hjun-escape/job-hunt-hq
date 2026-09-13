@@ -7,6 +7,8 @@ import { Field, TagInput, TextArea, TextField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 
+const isSafeUrl = (u: string) => /^https?:\/\//i.test(u);
+
 export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const { repo } = useApp();
   const state = useAppState();
@@ -25,16 +27,22 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
   }
 
   const linked = Object.values(state.applications).filter((a) => a.companyId === id);
+  const contacts = Object.values(state.contacts).filter((c) => c.companyId === id).sort((a, b) => a.name.localeCompare(b.name));
   const patch = (p: Partial<Company>) => run(() => repo.update("companies", id, p));
-  const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) => {
-    const existing: SponsorshipPolicy = company.sponsorship[countryId] ?? { policy: "unknown" };
-    return patch({ sponsorship: { ...company.sponsorship, [countryId]: { ...existing, ...p } } });
-  };
+  /** Reads the company at write time, inside its own write chain -- so the sponsorship matrix
+   * and sources list never clobber a sibling field that a concurrent write just set. */
+  const modify = (fn: (current: Company) => Partial<Company>) => run(() => repo.modify("companies", id, fn));
+  const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) =>
+    modify((cur) => {
+      const existing: SponsorshipPolicy = cur.sponsorship[countryId] ?? { policy: "unknown" };
+      return { sponsorship: { ...cur.sponsorship, [countryId]: { ...existing, ...p } } };
+    });
   const remove = async () => {
-    if (linked.length) return;
+    if (linked.length || contacts.length) return;
     const ok = await confirm({ title: `Delete ${company.name}?`, message: "Notes and sponsorship info on this company are removed. This cannot be undone.", confirmLabel: "Delete" });
     if (ok && (await run(() => repo.remove("companies", id)))) onClose();
   };
+  const deleteBlockedBy = [linked.length ? "applications" : null, contacts.length ? "contacts" : null].filter(Boolean).join(" and ");
 
   return (
     <Drawer
@@ -44,8 +52,8 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       footer={
         <>
           <SaveIndicator status={status} />
-          <button type="button" className="btn danger" disabled={linked.length > 0 || repo.readOnly}
-            title={linked.length ? "Reassign or delete its applications first" : undefined} onClick={() => void remove()}>
+          <button type="button" className="btn danger" disabled={linked.length > 0 || contacts.length > 0 || repo.readOnly}
+            title={deleteBlockedBy ? `Reassign or delete its ${deleteBlockedBy} first` : undefined} onClick={() => void remove()}>
             Delete company
           </button>
         </>
@@ -58,8 +66,8 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         <TextField label="Size" value={company.size ?? ""} onCommit={(v) => patch({ size: v || undefined })} />
         <TextField label="HQ" value={company.hq ?? ""} onCommit={(v) => patch({ hq: v || undefined })} />
       </div>
-      <TagInput label="Office cities" value={company.cities} onChange={(v) => void patch({ cities: v })} />
-      <TagInput label="Tech stack" value={company.techStack} onChange={(v) => void patch({ techStack: v })} />
+      <TagInput label="Office cities" value={company.cities} onChange={(fn) => void modify((cur) => ({ cities: fn(cur.cities) }))} />
+      <TagInput label="Tech stack" value={company.techStack} onChange={(fn) => void modify((cur) => ({ techStack: fn(cur.techStack) }))} />
 
       <h3>Sponsorship by country</h3>
       {settings.pickLists.countries.map((co) => {
@@ -86,8 +94,8 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         <ul>
           {company.sources.map((s, i) => (
             <li key={`${s.url}-${i}`}>
-              <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a>{" "}
-              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void patch({ sources: company.sources.filter((_, j) => j !== i) })}>×</button>
+              {isSafeUrl(s.url) ? <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a> : <span>{s.label || s.url}</span>}{" "}
+              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((x) => !(x.url === s.url && x.label === s.label)) }))}>×</button>
             </li>
           ))}
         </ul>
@@ -97,7 +105,8 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         <input placeholder="https://" aria-label="Source URL" value={newSource.url} onChange={(e) => setNewSource({ ...newSource, url: e.target.value })} />
         <button type="button" className="btn" onClick={() => {
           if (!newSource.url.trim()) return;
-          void patch({ sources: [...company.sources, { label: newSource.label.trim(), url: newSource.url.trim() }] });
+          const toAdd = { label: newSource.label.trim(), url: newSource.url.trim() };
+          void modify((cur) => ({ sources: [...cur.sources, toAdd] }));
           setNewSource({ label: "", url: "" });
         }}>Add source</button>
       </div>
@@ -107,6 +116,11 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       <h3>Applications ({linked.length})</h3>
       {linked.length === 0 ? <p className="muted">None yet.</p> : (
         <ul>{linked.map((a) => <li key={a.id}><a href={`#/applications/${a.id}`}>{a.title}</a></li>)}</ul>
+      )}
+
+      <h3>Contacts ({contacts.length})</h3>
+      {contacts.length === 0 ? <p className="muted">No contacts at this company yet. Add them under <a href="#/contacts">Contacts</a>.</p> : (
+        <ul>{contacts.map((c) => <li key={c.id}><a href={`#/contacts/${c.id}`}>{c.name}</a> <span className="muted">· {settings.pickLists.contactRelationships.find((r) => r.id === c.relationshipId)?.label ?? c.relationshipId}</span></li>)}</ul>
       )}
     </Drawer>
   );

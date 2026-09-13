@@ -15,21 +15,35 @@ export function PickListEditor() {
   const { status, run } = useSaver();
   const [name, setName] = useState<PickListName>("statuses");
   const [label, setLabel] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
   const list = settings.pickLists[name] as PickEntry[];
   const used = referencedPickIds(state, name);
   const isStatus = name === "statuses";
 
-  const commit = (next: PickEntry[]) => run(() => repo.saveSettings({ ...settings, pickLists: { ...settings.pickLists, [name]: next } }));
-  const editStatus = (id: string, patch: Partial<Omit<StatusEntry, "id">>) => commit(updateEntry(list as StatusEntry[], id, patch));
+  /** Applies `fn` to this list as it stands at write time, inside the settings singleton's
+   * write chain -- so switching lists (or two edits landing close together) never clobbers a
+   * sibling list or a sibling edit with a copy of settings read before either write settled. */
+  const commit = (fn: (current: PickEntry[]) => PickEntry[]) =>
+    run(() => repo.modifySettings((cur) => ({ pickLists: { ...cur.pickLists, [name]: fn(cur.pickLists[name] as PickEntry[]) } })));
+  const editStatus = (id: string, patch: Partial<Omit<StatusEntry, "id">>) => commit((curList) => updateEntry(curList as StatusEntry[], id, patch));
 
   const add = () => {
     const text = label.trim();
-    if (!text) return;
-    const id = slugId(text, list);
-    const entry = isStatus
-      ? { id, label: text, color: "gray" as const, group: "open" as const, stageRank: Math.max(0, ...(list as StatusEntry[]).filter((s) => s.group === "open").map((s) => s.stageRank)) + 1 }
-      : { id, label: text, color: "gray" as const };
-    void commit(addEntry(list, entry as PickEntry));
+    if (!text) {
+      setAddError("Enter a label for the new entry.");
+      return;
+    }
+    setAddError(null);
+    // slugId/stageRank are computed inside the updater, from the list as it stands at write
+    // time -- not the rendered `list` -- so two concurrent adds never generate the same id
+    // or stageRank from a copy of the list read before the other's write settled.
+    void commit((curList) => {
+      const id = slugId(text, curList);
+      const entry = isStatus
+        ? { id, label: text, color: "gray" as const, group: "open" as const, stageRank: Math.max(0, ...(curList as StatusEntry[]).filter((s) => s.group === "open").map((s) => s.stageRank)) + 1 }
+        : { id, label: text, color: "gray" as const };
+      return addEntry(curList, entry as PickEntry);
+    });
     setLabel("");
   };
 
@@ -49,6 +63,7 @@ export function PickListEditor() {
         <button type="button" className="btn primary" onClick={add} disabled={repo.readOnly}>Add</button>
         <SaveIndicator status={status} />
       </div>
+      {addError ? <p className="field-hint danger-text" role="alert" aria-label="New entry label problem">{addError}</p> : null}
       <div className="table-wrap">
         <table className="table">
           <thead>
@@ -66,10 +81,10 @@ export function PickListEditor() {
                 <tr key={`${name}:${e.id}`}>
                   <td>
                     <input key={`${name}:${e.id}:${e.label}`} aria-label={`Label ${e.id}`} defaultValue={e.label}
-                      onBlur={(ev) => { const v = ev.target.value.trim(); if (v && v !== e.label) void commit(updateEntry(list, e.id, { label: v })); }} />
+                      onBlur={(ev) => { const v = ev.target.value.trim(); if (v && v !== e.label) void commit((curList) => updateEntry(curList, e.id, { label: v })); }} />
                   </td>
                   <td>
-                    <select aria-label={`Color ${e.id}`} value={e.color ?? "gray"} onChange={(ev) => void commit(updateEntry(list, e.id, { color: ev.target.value as ColorToken }))}>
+                    <select aria-label={`Color ${e.id}`} value={e.color ?? "gray"} onChange={(ev) => void commit((curList) => updateEntry(curList, e.id, { color: ev.target.value as ColorToken }))}>
                       {COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </td>
@@ -86,15 +101,19 @@ export function PickListEditor() {
                       </td>
                     </>
                   ) : null}
-                  <td><input type="checkbox" aria-label={`Archive ${e.id}`} checked={!!e.archived} onChange={(ev) => void commit(updateEntry(list, e.id, { archived: ev.target.checked }))} /></td>
+                  <td><input type="checkbox" aria-label={`Archive ${e.id}`} checked={!!e.archived} onChange={(ev) => void commit((curList) => updateEntry(curList, e.id, { archived: ev.target.checked }))} /></td>
                   <td>
-                    <button type="button" className="btn ghost" aria-label={`Move up ${e.id}`} disabled={i === 0} onClick={() => void commit(moveEntry(list, i, -1))}>↑</button>
-                    <button type="button" className="btn ghost" aria-label={`Move down ${e.id}`} disabled={i === list.length - 1} onClick={() => void commit(moveEntry(list, i, 1))}>↓</button>
+                    {/* Locate the entry by id inside the updater, not by its rendered index `i`:
+                        a click applied after a sibling move already shifted this list would
+                        otherwise swap whatever now sits at index `i`, silently undoing or
+                        misapplying the move. */}
+                    <button type="button" className="btn ghost" aria-label={`Move up ${e.id}`} disabled={i === 0} onClick={() => void commit((curList) => moveEntry(curList, curList.findIndex((x) => x.id === e.id), -1))}>↑</button>
+                    <button type="button" className="btn ghost" aria-label={`Move down ${e.id}`} disabled={i === list.length - 1} onClick={() => void commit((curList) => moveEntry(curList, curList.findIndex((x) => x.id === e.id), 1))}>↓</button>
                   </td>
                   <td>
                     <button type="button" className="btn ghost" aria-label={`Delete ${e.id}`} disabled={inUse || repo.readOnly}
                       title={inUse ? "In use by existing records; archive it instead" : "Delete"}
-                      onClick={() => void commit(removeEntry(list, e.id))}>Delete</button>
+                      onClick={() => void commit((curList) => removeEntry(curList, e.id))}>Delete</button>
                   </td>
                 </tr>
               );

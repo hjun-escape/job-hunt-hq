@@ -11,6 +11,7 @@
   --danger: #c93b3b;
   --warn: #b7791f;
   --ok: #2f855a;
+  --danger-text: #ffffff;
   --chip-gray: #e4e3de; --chip-gray-text: #3a3a36;
   --chip-blue: #dbe7ff; --chip-blue-text: #1e3f8f;
   --chip-purple: #eadcff; --chip-purple-text: #4b2a8a;
@@ -26,6 +27,7 @@
     --bg: #141413; --surface: #1e1e1c; --surface-2: #262624; --border: #3a3a36;
     --text: #ecebe6; --text-muted: #a3a29a; --accent: #7aa2ff; --accent-text: #101010;
     --danger: #f08c8c; --warn: #e0b060; --ok: #7fd1a0;
+    --danger-text: #101010;
     --chip-gray: #33332f; --chip-gray-text: #d6d5cf;
     --chip-blue: #21365f; --chip-blue-text: #b9ccff;
     --chip-purple: #382758; --chip-purple-text: #d4c0ff;
@@ -40,6 +42,7 @@
   --bg: #141413; --surface: #1e1e1c; --surface-2: #262624; --border: #3a3a36;
   --text: #ecebe6; --text-muted: #a3a29a; --accent: #7aa2ff; --accent-text: #101010;
   --danger: #f08c8c; --warn: #e0b060; --ok: #7fd1a0;
+  --danger-text: #101010;
   --chip-gray: #33332f; --chip-gray-text: #d6d5cf;
   --chip-blue: #21365f; --chip-blue-text: #b9ccff;
   --chip-purple: #382758; --chip-purple-text: #d4c0ff;

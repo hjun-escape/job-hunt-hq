@@ -262,3 +262,14 @@ export interface EntityMap {
 }
 export type CollectionName = keyof EntityMap;
 export const COLLECTIONS: CollectionName[] = ["applications", "companies", "contacts", "assets", "answers", "interviews", "prep"];
+
+/** The per-collection maps the store holds; domain code that needs "all records" depends on this, not on the store module. */
+export interface RecordSets {
+  applications: Record<string, Application>;
+  companies: Record<string, Company>;
+  contacts: Record<string, Contact>;
+  assets: Record<string, AssetDoc>;
+  answers: Record<string, Answer>;
+  interviews: Record<string, Interview>;
+  prep: Record<string, PrepItem>;
+}

@@ -1,13 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Company } from "../../src/domain/types";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
-import { buildApplication, buildCompany } from "../../src/domain/factories";
+import { buildApplication, buildCompany, buildContact } from "../../src/domain/factories";
+import { Repository } from "../../src/store/repository";
 
 const NOW = "2026-09-11T00:00:00.000Z";
+const put = (db: ReturnType<typeof createFakeDb>, path: string, doc: object) => db.doc(path).set(doc as unknown as Record<string, unknown>);
 
 async function open(hash: string, seed?: (db: ReturnType<typeof createFakeDb>) => Promise<void>) {
   const db = createFakeDb();
@@ -80,5 +82,106 @@ describe("Companies", () => {
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "shop" } });
     expect(screen.getByText("Shopify")).toBeTruthy();
     expect(screen.queryByText("Kakao")).toBeNull();
+  });
+
+  it("lists the company's contacts in the editor", async () => {
+    await open("#/companies/co_1", async (d) => {
+      await put(d, "companies/co_1", buildCompany({ name: "Shopify" }, "co_1", NOW));
+      await d.doc("contacts/ct_1").set({ id: "ct_1", name: "Dana Kim", relationshipId: "recruiter", companyId: "co_1", notes: "", createdAt: NOW, updatedAt: NOW });
+    });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("link", { name: "Dana Kim" }).getAttribute("href")).toBe("#/contacts/ct_1");
+  });
+
+  it("renders only http(s) sources as links", async () => {
+    await open("#/companies/co_1", async (d) => {
+      await put(d, "companies/co_1", buildCompany({ name: "Shopify", sources: [{ label: "Blind", url: "https://teamblind.com/x" }, { label: "Bad", url: "javascript:alert(1)" }] }, "co_1", NOW));
+    });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("link", { name: "Blind" }).getAttribute("href")).toBe("https://teamblind.com/x");
+    expect(screen.queryByRole("link", { name: "Bad" })).toBeNull();
+    expect(screen.getByText("Bad")).toBeTruthy();
+  });
+
+  it("computes the sponsorship policy write from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      await open("#/companies/co_4", async (d) => {
+        await put(d, "companies/co_4", buildCompany({ name: "Spy Co" }, "co_4", NOW));
+      });
+      await screen.findByRole("dialog");
+      fireEvent.change(screen.getByLabelText("Canada sponsorship"), { target: { value: "yes" } });
+      await waitFor(() => {
+        const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "companies" && docId === "co_4");
+        expect(call).toBeTruthy();
+        expect(typeof call?.[2]).toBe("function");
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
+  });
+
+  it("blocks deleting a company that a contact still points at, even with no applications", async () => {
+    await open("#/companies/co_5", async (d) => {
+      await put(d, "companies/co_5", buildCompany({ name: "Contact Co" }, "co_5", NOW));
+      await put(d, "contacts/ct_5", buildContact({ name: "Dana Kim", relationshipId: "recruiter", companyId: "co_5" }, "ct_5", NOW));
+    });
+    await screen.findByRole("dialog");
+    const del = screen.getByRole("button", { name: "Delete company" }) as HTMLButtonElement;
+    expect(del.disabled).toBe(true);
+  });
+
+  it("removes a source by identity, not by its rendered index", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const db = await open("#/companies/co_6", async (d) => {
+        await put(d, "companies/co_6", buildCompany({ name: "Source Co", sources: [{ label: "Blind", url: "https://teamblind.com/x" }, { label: "Glassdoor", url: "https://glassdoor.com/y" }] }, "co_6", NOW));
+      });
+      await screen.findByRole("dialog");
+      fireEvent.click(screen.getByRole("button", { name: "Remove source Blind" }));
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "companies" && docId === "co_6");
+      expect(call).toBeTruthy();
+      const updater = call?.[2] as (cur: Company) => Partial<Company>;
+
+      // Simulate a concurrent write that prepended a third source before this click's write
+      // lands -- removing "Blind" by its rendered index (0) would instead drop that new entry.
+      const cur: Company = buildCompany(
+        { name: "Source Co", sources: [{ label: "Extra", url: "https://extra.example/z" }, { label: "Blind", url: "https://teamblind.com/x" }, { label: "Glassdoor", url: "https://glassdoor.com/y" }] },
+        "co_6",
+        NOW,
+      );
+      const patch = updater(cur);
+      expect(patch.sources).toEqual([{ label: "Extra", url: "https://extra.example/z" }, { label: "Glassdoor", url: "https://glassdoor.com/y" }]);
+
+      // Let the real click's write (against the actual current company) settle.
+      await waitFor(async () => {
+        const c = (await db.doc("companies/co_6").get()).data() as unknown as Company;
+        expect(c.sources).toEqual([{ label: "Glassdoor", url: "https://glassdoor.com/y" }]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
+  });
+
+  it("computes a city addition from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const db = await open("#/companies/co_7", async (d) => {
+        await put(d, "companies/co_7", buildCompany({ name: "Cities Co" }, "co_7", NOW));
+      });
+      await screen.findByRole("dialog");
+      const citiesInput = screen.getByLabelText("Office cities");
+      fireEvent.change(citiesInput, { target: { value: "Toronto" } });
+      fireEvent.keyDown(citiesInput, { key: "Enter" });
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "companies" && docId === "co_7");
+      expect(call).toBeTruthy();
+      expect(typeof call?.[2]).toBe("function");
+      await waitFor(async () => {
+        const c = (await db.doc("companies/co_7").get()).data() as unknown as Company;
+        expect(c.cities).toEqual(["Toronto"]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
   });
 });
