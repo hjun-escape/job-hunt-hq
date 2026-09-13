@@ -88,7 +88,11 @@ export function ApplicationsPage({ parts, query }: PageProps) {
     else { setSortKey(key); setSortDir("asc"); }
   };
   const set = (p: Partial<AppFilter>) => setFilter({ ...filter, ...p });
-  const chooseColumns = (keys: string[]) => { setVisible(keys); saveColumnPrefs(keys); };
+  const chooseColumns = (keys: string[]) => {
+    setVisible(keys);
+    saveColumnPrefs(keys);
+    if (!keys.includes(sortKey)) { setSortKey("company"); setSortDir("asc"); }
+  };
   const openDetail = (id: string) => navigate(`/applications/${id}${viewQuery}`);
 
   return (

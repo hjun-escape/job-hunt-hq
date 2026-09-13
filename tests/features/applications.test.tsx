@@ -102,6 +102,16 @@ describe("Applications", () => {
     expect((screen.getByRole("checkbox", { name: "Show Company column" }) as HTMLInputElement).disabled).toBe(true);
   });
 
+  it("falls back to sorting by company when the sorted column is hidden", async () => {
+    localStorage.clear();
+    await open("#/applications");
+    // The page sorts by Deadline (ascending) by default.
+    expect(screen.getByRole("columnheader", { name: /Deadline/ }).getAttribute("aria-sort")).toBe("ascending");
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show Deadline column" }));
+    expect(screen.getByRole("columnheader", { name: /Company/ }).getAttribute("aria-sort")).toBe("ascending");
+  });
+
   it("board view groups cards by status and moves them by drop or by the move select", async () => {
     const db = await open("#/applications?view=board", async (d) => {
       await d.doc("companies/co_1").set(buildCompany({ name: "Shopify" }, "co_1", NOW) as unknown as Record<string, unknown>);
