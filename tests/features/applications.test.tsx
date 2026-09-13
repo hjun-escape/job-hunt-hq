@@ -59,4 +59,17 @@ describe("Applications", () => {
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzz" } });
     expect(await screen.findByText(/No applications match/)).toBeTruthy();
   });
+
+  it("blocks quick-add when every open status is archived", async () => {
+    const db = createFakeDb();
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.statuses = s.pickLists.statuses.map((st) => (st.group === "open" ? { ...st, archived: true } : st));
+    await db.doc("settings/main").set(s as unknown as Record<string, unknown>);
+    window.location.hash = "#/applications";
+    render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
+    await screen.findByRole("heading", { name: "Applications" });
+    fireEvent.click(screen.getByRole("button", { name: "New application" }));
+    expect(await screen.findByText(/no open status/i)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Create" }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });

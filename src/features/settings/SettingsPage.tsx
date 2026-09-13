@@ -18,6 +18,7 @@ export function SettingsPage() {
   const confirm = useConfirm();
   const [fxCurrency, setFxCurrency] = useState("");
   const [fxRate, setFxRate] = useState("");
+  const [fxError, setFxError] = useState<string | null>(null);
   const w = settings.priorityWeights;
 
   const save = (patch: Partial<Settings>) => run(() => repo.saveSettings({ ...settings, ...patch }));
@@ -25,7 +26,11 @@ export function SettingsPage() {
   const addFx = () => {
     const cur = fxCurrency.trim().toUpperCase();
     const rate = Number(fxRate);
-    if (!cur || !(rate > 0)) return;
+    if (!cur || !(rate > 0)) {
+      setFxError("Enter a 3-letter currency code and a rate above 0.");
+      return;
+    }
+    setFxError(null);
     void save({ fxRates: { ...settings.fxRates, [cur]: rate } });
     setFxCurrency("");
     setFxRate("");
@@ -86,6 +91,7 @@ export function SettingsPage() {
           <input aria-label="Rate" placeholder="1.36" value={fxRate} onChange={(e) => setFxRate(e.target.value)} style={{ width: 120 }} />
           <button type="button" className="btn" onClick={addFx} disabled={repo.readOnly}>Add rate</button>
         </div>
+        {fxError ? <p className="field-hint danger-text" role="alert" aria-label="Exchange rate problem">{fxError}</p> : null}
       </div>
 
       <div className="section">

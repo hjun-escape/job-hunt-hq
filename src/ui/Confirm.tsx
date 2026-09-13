@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export interface ConfirmRequest {
   title: string;
@@ -22,6 +22,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   };
   const value = useMemo(() => confirm, [confirm]);
   const locked = !!pending?.req.typed && typed !== pending.req.typed;
+  useEffect(() => {
+    if (!pending) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") finish(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
   return (
     <ConfirmContext.Provider value={value}>
       {children}
@@ -37,7 +43,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               </label>
             ) : null}
             <div className="modal-actions">
-              <button type="button" className="btn" onClick={() => finish(false)}>Cancel</button>
+              <button type="button" className="btn" onClick={() => finish(false)} autoFocus>Cancel</button>
               <button type="button" className={pending.req.danger === false ? "btn primary" : "btn danger"} disabled={locked} onClick={() => finish(true)}>
                 {pending.req.confirmLabel ?? "Confirm"}
               </button>

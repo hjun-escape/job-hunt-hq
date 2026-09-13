@@ -91,4 +91,14 @@ describe("Companies", () => {
     await screen.findByRole("dialog");
     expect(screen.getByRole("link", { name: "Dana Kim" }).getAttribute("href")).toBe("#/contacts/ct_1");
   });
+
+  it("renders only http(s) sources as links", async () => {
+    await open("#/companies/co_1", async (d) => {
+      await put(d, "companies/co_1", buildCompany({ name: "Shopify", sources: [{ label: "Blind", url: "https://teamblind.com/x" }, { label: "Bad", url: "javascript:alert(1)" }] }, "co_1", NOW));
+    });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("link", { name: "Blind" }).getAttribute("href")).toBe("https://teamblind.com/x");
+    expect(screen.queryByRole("link", { name: "Bad" })).toBeNull();
+    expect(screen.getByText("Bad")).toBeTruthy();
+  });
 });

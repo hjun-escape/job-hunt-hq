@@ -61,4 +61,20 @@ describe("Application links", () => {
     expect(added?.applicationId).toBe("app_1");
     expect(window.location.hash).toMatch(/^#\/interviews\/iv_/);
   });
+
+  it("defaults the round type to the first non-archived entry", async () => {
+    const db = createFakeDb();
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.roundTypes = s.pickLists.roundTypes.map((r, i) => (i === 0 ? { ...r, archived: true } : r));
+    await put(db, "settings/main", s);
+    await put(db, "profile/main", defaultProfile(NOW));
+    await put(db, "companies/co_1", buildCompany({ name: "Shopify" }, "co_1", NOW));
+    await put(db, "applications/app_1", buildApplication({ companyId: "co_1", title: "Backend Engineer", countryId: "CA", channelId: "linkedin", statusId: "applied", maxStageRank: 3 }, "app_1", NOW));
+    window.location.hash = "#/applications/app_1";
+    render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("tab", { name: "Interviews" }));
+    const openTypes = s.pickLists.roundTypes.filter((r) => !r.archived);
+    expect((screen.getByLabelText("Round type to add") as HTMLSelectElement).value).toBe(openTypes[0].id);
+  });
 });

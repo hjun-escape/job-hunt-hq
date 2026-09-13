@@ -36,7 +36,7 @@ export function ZonedTimeField({ label, value, homeTz, onCommit, disabled }: Pro
   return (
     <div className="field">
       <span className="field-label">{label}</span>
-      <div className="row">
+      <div className="row zoned-row">
         <input aria-label={`${label} date and time`} type="datetime-local" value={draft} disabled={disabled}
           onChange={(e) => { setDraft(e.target.value); commit(e.target.value, tz); }} />
         <select aria-label={`${label} timezone`} value={tz} disabled={disabled} onChange={(e) => { setTz(e.target.value); commit(draft, e.target.value); }}>

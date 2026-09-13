@@ -15,6 +15,7 @@ export function PickListEditor() {
   const { status, run } = useSaver();
   const [name, setName] = useState<PickListName>("statuses");
   const [label, setLabel] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
   const list = settings.pickLists[name] as PickEntry[];
   const used = referencedPickIds(state, name);
   const isStatus = name === "statuses";
@@ -24,7 +25,11 @@ export function PickListEditor() {
 
   const add = () => {
     const text = label.trim();
-    if (!text) return;
+    if (!text) {
+      setAddError("Enter a label for the new entry.");
+      return;
+    }
+    setAddError(null);
     const id = slugId(text, list);
     const entry = isStatus
       ? { id, label: text, color: "gray" as const, group: "open" as const, stageRank: Math.max(0, ...(list as StatusEntry[]).filter((s) => s.group === "open").map((s) => s.stageRank)) + 1 }
@@ -49,6 +54,7 @@ export function PickListEditor() {
         <button type="button" className="btn primary" onClick={add} disabled={repo.readOnly}>Add</button>
         <SaveIndicator status={status} />
       </div>
+      {addError ? <p className="field-hint danger-text" role="alert" aria-label="New entry label problem">{addError}</p> : null}
       <div className="table-wrap">
         <table className="table">
           <thead>

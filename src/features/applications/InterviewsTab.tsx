@@ -15,7 +15,8 @@ export function InterviewsTab({ app }: { app: Application }) {
   const settings = useSettings();
   const { run, status } = useSaver();
   const pl = settings.pickLists;
-  const [type, setType] = useState(pl.roundTypes[0]?.id ?? "");
+  const openTypes = pl.roundTypes.filter((r) => !r.archived);
+  const [type, setType] = useState(openTypes[0]?.id ?? "");
   const rounds = roundsFor(app.id, Object.values(state.interviews));
   const add = () => {
     if (!type) return;
@@ -29,7 +30,7 @@ export function InterviewsTab({ app }: { app: Application }) {
       <div className="row" style={{ alignItems: "end" }}>
         <Field label="Round type to add" htmlFor="add-round-type">
           <select id="add-round-type" value={type} onChange={(e) => setType(e.target.value)} disabled={repo.readOnly}>
-            {pl.roundTypes.filter((r) => !r.archived).map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+            {openTypes.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
         </Field>
         <button type="button" className="btn primary" onClick={add} disabled={!type || repo.readOnly || status === "saving"}>Add round</button>

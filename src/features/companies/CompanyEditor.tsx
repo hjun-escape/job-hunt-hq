@@ -7,6 +7,8 @@ import { Field, TagInput, TextArea, TextField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 
+const isSafeUrl = (u: string) => /^https?:\/\//i.test(u);
+
 export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const { repo } = useApp();
   const state = useAppState();
@@ -87,7 +89,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         <ul>
           {company.sources.map((s, i) => (
             <li key={`${s.url}-${i}`}>
-              <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a>{" "}
+              {isSafeUrl(s.url) ? <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a> : <span>{s.label || s.url}</span>}{" "}
               <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void patch({ sources: company.sources.filter((_, j) => j !== i) })}>×</button>
             </li>
           ))}

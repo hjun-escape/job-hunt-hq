@@ -12,7 +12,7 @@ export function Shell() {
       <nav className="nav" aria-label="Main">
         <div className="brand">Job Hunt HQ</div>
         {NAV.map((n) => (
-          <a key={n.key} href={`#${n.to}`} className={key === n.key ? "nav-item active" : "nav-item"}>
+          <a key={n.key} href={`#${n.to}`} className={key === n.key ? "nav-item active" : "nav-item"} aria-current={key === n.key ? "page" : undefined}>
             {n.label}
           </a>
         ))}

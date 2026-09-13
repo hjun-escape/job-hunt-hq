@@ -68,4 +68,14 @@ describe("SettingsPage", () => {
     expect(s.pickLists.roundTypes.find((e) => e.id === "final")?.label).toBe("Final");
     expect(s.pickLists.statuses.find((e) => e.id === "final")?.label).toBe("Final round");
   });
+
+  it("explains an invalid exchange rate and an empty pick-list label", async () => {
+    await open("#/settings");
+    fireEvent.change(screen.getByLabelText("Currency code"), { target: { value: "usd" } });
+    fireEvent.change(screen.getByLabelText("Rate"), { target: { value: "-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add rate" }));
+    expect(await screen.findByRole("alert", { name: /rate/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(await screen.findByRole("alert", { name: /label/i })).toBeTruthy();
+  });
 });

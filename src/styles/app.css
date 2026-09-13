@@ -43,7 +43,7 @@ textarea { resize: vertical; }
 .btn { font: inherit; padding: 7px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
 .btn:hover { background: var(--surface-2); }
 .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-.btn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn.danger { background: var(--danger); color: var(--danger-text); border-color: var(--danger); }
 .btn.ghost { border-color: transparent; background: transparent; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
@@ -90,6 +90,7 @@ textarea { resize: vertical; }
 .drawer-title { font-weight: 600; }
 .drawer-body { padding: 16px; overflow-y: auto; flex: 1; }
 .drawer-foot { padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+.drawer:focus { outline: none; }
 .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; width: min(440px, 92vw); box-shadow: var(--shadow); }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .save-indicator { font-size: 12px; color: var(--text-muted); min-width: 80px; }
@@ -123,6 +124,8 @@ textarea { resize: vertical; }
 .checklist .done { text-decoration: line-through; color: var(--text-muted); }
 .rows-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .rows-row .btn { margin-top: 20px; }
+.zoned-row > input { flex: 2 1 180px; }
+.zoned-row > select { flex: 2 1 170px; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .drawer-backdrop { z-index: 45; }
