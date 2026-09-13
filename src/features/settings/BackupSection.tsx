@@ -117,7 +117,7 @@ export function BackupSection() {
       ) : null}
       {pending ? (
         <div className="section">
-          <p>{pending.fileName}: {summary(pending.backup)}. Exported {pending.backup.exportedAt.slice(0, 10)}.</p>
+          <p>{pending.fileName}: {summary(pending.backup)}. Exported {String(pending.backup.exportedAt ?? "").slice(0, 10)}.</p>
           <div className="row" role="radiogroup" aria-label="Restore mode">
             <label className="row"><input type="radio" name="restore-mode" checked={mode === "merge"} onChange={() => setMode("merge")} /> Merge into current data</label>
             <label className="row"><input type="radio" name="restore-mode" checked={mode === "replace"} onChange={() => setMode("replace")} /> Replace everything</label>

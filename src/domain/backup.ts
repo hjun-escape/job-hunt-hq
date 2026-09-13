@@ -1,6 +1,16 @@
-import { SCHEMA_VERSION } from "./defaults";
+import { defaultPickLists, defaultProfile, defaultSettings, SCHEMA_VERSION } from "./defaults";
+import { buildAnswer, buildApplication, buildAsset, buildCompany, buildContact, buildInterview, buildPrep } from "./factories";
+import { nowIso } from "./ids";
 import { MIGRATIONS, migrateSettings, type Migration } from "./migrate";
 import type { Answer, Application, AssetDoc, CollectionName, Company, Contact, EntityMap, Interview, PickEntry, PickLists, PrepItem, Profile, RecordSets, Settings } from "./types";
+
+const PICK_LIST_NAMES: (keyof PickLists)[] = [
+  "statuses", "channels", "countries", "workModes", "employmentTypes", "hiringTracks", "levels",
+  "roleFamilies", "roundTypes", "contactRelationships", "assetKinds", "answerKinds", "answerThemes",
+  "prepKinds", "closedReasons",
+];
+const PROFILE_ARRAY_FIELDS = ["phones", "addresses", "links", "education", "employment"] as const;
+const PROFILE_OBJECT_FIELDS = ["salaryExpectations", "workAuth"] as const;
 
 export interface Backup {
   app: "job-hunt-hq";
@@ -63,9 +73,37 @@ export function validateBackup(raw: unknown, currentVersion: number = SCHEMA_VER
   if (raw.app !== "job-hunt-hq") problems.push('This is not a Job Hunt HQ backup (missing app: "job-hunt-hq").');
   if (typeof raw.schemaVersion !== "number") problems.push("schemaVersion is missing.");
   else if (raw.schemaVersion > currentVersion) problems.push(`schemaVersion ${raw.schemaVersion} is newer than this app understands (${currentVersion}). Update the app first.`);
+  if (typeof raw.exportedAt !== "string" || !raw.exportedAt) problems.push("exportedAt is missing.");
   const settings = raw.settings;
-  if (!isObject(settings) || !isObject(settings.pickLists)) problems.push("settings.pickLists is missing.");
-  if (!isObject(raw.profile)) problems.push("profile is missing.");
+  if (!isObject(settings) || !isObject(settings.pickLists)) {
+    problems.push("settings.pickLists is missing.");
+  } else {
+    const pickLists = settings.pickLists as Record<string, unknown>;
+    for (const name of PICK_LIST_NAMES) {
+      const list = pickLists[name];
+      if (!Array.isArray(list)) { problems.push(`settings.pickLists.${name} is missing or not a list.`); continue; }
+      list.forEach((entry: unknown, i: number) => {
+        if (!isObject(entry) || typeof entry.id !== "string" || !entry.id || typeof entry.label !== "string" || !entry.label) {
+          problems.push(`settings.pickLists.${name}[${i}] needs id and label.`);
+          return;
+        }
+        if (name === "statuses") {
+          const stageRank = entry.stageRank;
+          const group = entry.group;
+          if (typeof stageRank !== "number" || (group !== "open" && group !== "won" && group !== "lost")) {
+            problems.push(`settings.pickLists.statuses[${i}] needs group and stageRank.`);
+          }
+        }
+      });
+    }
+  }
+  if (!isObject(raw.profile)) {
+    problems.push("profile is missing.");
+  } else {
+    const profile = raw.profile;
+    for (const field of PROFILE_ARRAY_FIELDS) if (!Array.isArray(profile[field])) problems.push(`profile.${field} is missing.`);
+    for (const field of PROFILE_OBJECT_FIELDS) if (!isObject(profile[field])) problems.push(`profile.${field} is missing.`);
+  }
   const lists = isObject(settings) && isObject(settings.pickLists) ? (settings.pickLists as Record<string, unknown>) : {};
   const idsOf = (list: string): Set<string> => new Set(Array.isArray(lists[list]) ? (lists[list] as { id?: unknown }[]).map((e) => String(e.id)) : []);
   for (const name of RESTORE_ORDER) {
@@ -94,8 +132,27 @@ function unionPickLists(backupLists: PickLists, currentLists: PickLists): PickLi
   return merged as unknown as PickLists;
 }
 
+/** Runs a possibly-incomplete document through its collection's factory so absent optional
+ * fields (arrays, strings) get their defaults; present fields, including `updatedAt`, win. */
+function normalizeDoc(name: CollectionName, doc: EntityMap[CollectionName], now: string): EntityMap[CollectionName] {
+  const id = doc.id;
+  const createdAt = doc.createdAt ?? now;
+  switch (name) {
+    case "applications": return buildApplication(doc as never, id, createdAt);
+    case "companies": return buildCompany(doc as never, id, createdAt);
+    case "contacts": return buildContact(doc as never, id, createdAt);
+    case "assets": return buildAsset(doc as never, id, createdAt);
+    case "answers": return buildAnswer(doc as never, id, createdAt);
+    case "interviews": return buildInterview(doc as never, id, createdAt);
+    case "prep": return buildPrep(doc as never, id, createdAt);
+    default: throw new Error(`Unknown collection ${name as string}`);
+  }
+}
+
 /** Merge upserts every document; replace also deletes current documents the backup does not carry. Settings/profile first.
- * Merge keeps pick-list entries the backup lacks but current data has; replace keeps the backup's lists as they are. */
+ * Merge keeps pick-list entries the backup lacks but current data has; replace keeps the backup's lists as they are.
+ * Every document, and the backup's own settings/profile, are normalized through their defaults/factory first so a
+ * structurally incomplete backup (missing arrays, missing pick lists) still restores instead of bricking the page. */
 export function planRestore(
   backup: Backup,
   current: RecordSets & { settings?: Settings | null; profile?: Profile | null },
@@ -103,13 +160,23 @@ export function planRestore(
   opts: { migrations?: Migration[]; now?: string; homeTz?: string } = {},
 ): RestoreStep[] {
   const migrations = opts.migrations ?? MIGRATIONS;
-  const migratedSettings = migrateSettings({ ...backup.settings, schemaVersion: backup.settings.schemaVersion ?? backup.schemaVersion }, migrations);
+  const now = opts.now ?? nowIso();
+  const homeTz = opts.homeTz ?? current.settings?.homeTz ?? "UTC";
+  const schemaVersion = backup.settings?.schemaVersion ?? backup.schemaVersion;
+  const normalizedBackupSettings: Settings = {
+    ...defaultSettings(homeTz, now),
+    ...backup.settings,
+    schemaVersion,
+    pickLists: { ...defaultPickLists(), ...backup.settings?.pickLists },
+  };
+  const migratedSettings = migrateSettings(normalizedBackupSettings, migrations);
   const settings: Settings = mode === "merge" && current.settings
     ? { ...migratedSettings, pickLists: unionPickLists(migratedSettings.pickLists, current.settings.pickLists) }
     : migratedSettings;
+  const profile: Profile = { ...defaultProfile(now), ...backup.profile };
   const steps: RestoreStep[] = [
     { kind: "settings", settings },
-    { kind: "profile", profile: backup.profile },
+    { kind: "profile", profile },
   ];
   if (mode === "replace") {
     for (const name of RESTORE_ORDER) {
@@ -117,6 +184,6 @@ export function planRestore(
       for (const id of Object.keys(current[name])) if (!keep.has(id)) steps.push({ kind: "delete", collection: name, id });
     }
   }
-  for (const name of RESTORE_ORDER) for (const doc of backup[name] as EntityMap[CollectionName][]) steps.push({ kind: "write", collection: name, doc });
+  for (const name of RESTORE_ORDER) for (const doc of backup[name] as EntityMap[CollectionName][]) steps.push({ kind: "write", collection: name, doc: normalizeDoc(name, doc, now) });
   return steps;
 }

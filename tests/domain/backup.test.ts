@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildBackup, planRestore, validateBackup } from "../../src/domain/backup";
 import { SCHEMA_VERSION, defaultPickLists, defaultProfile, defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
-import type { RecordSets, Settings } from "../../src/domain/types";
+import type { Application, RecordSets, Settings } from "../../src/domain/types";
 
 const NOW = "2026-09-14T00:00:00.000Z";
 const empty = (): RecordSets => ({ applications: {}, companies: {}, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} });
@@ -102,5 +102,49 @@ describe("backup", () => {
     const settingsStep = steps[0];
     if (settingsStep.kind !== "settings") throw new Error("expected a settings step first");
     expect(settingsStep.settings.pickLists.statuses.map((s) => s.id)).not.toContain("phone-screen");
+  });
+
+  it("rejects settings.pickLists missing every list, a status without group/stageRank, and an empty profile", () => {
+    const b = buildBackup(state(), NOW) as unknown as Record<string, unknown>;
+
+    const missingLists = validateBackup({ ...b, settings: { pickLists: {} } });
+    expect(missingLists.ok).toBe(false);
+    if (missingLists.ok) return;
+    for (const name of Object.keys(defaultPickLists())) {
+      expect(missingLists.problems).toEqual(expect.arrayContaining([`settings.pickLists.${name} is missing or not a list.`]));
+    }
+
+    const badStatus = validateBackup({
+      ...b,
+      settings: { ...(b.settings as Record<string, unknown>), pickLists: { ...defaultPickLists(), statuses: [{ id: "s1", label: "S1" }] } },
+    });
+    expect(badStatus.ok).toBe(false);
+    if (badStatus.ok) return;
+    expect(badStatus.problems).toEqual(expect.arrayContaining([expect.stringMatching(/statuses\[0\] needs group and stageRank/)]));
+
+    const emptyProfile = validateBackup({ ...b, profile: {} });
+    expect(emptyProfile.ok).toBe(false);
+    if (emptyProfile.ok) return;
+    for (const field of ["phones", "addresses", "links", "education", "employment", "salaryExpectations", "workAuth"]) {
+      expect(emptyProfile.problems).toEqual(expect.arrayContaining([`profile.${field} is missing.`]));
+    }
+  });
+
+  it("normalizes a structurally incomplete document through its factory while planning a restore", () => {
+    const b = buildBackup(state(), NOW);
+    const incomplete = { ...b.applications[0] } as Record<string, unknown>;
+    delete incomplete.tags;
+    delete incomplete.answerIds;
+    delete incomplete.activity;
+    const backup = { ...b, applications: [incomplete] } as unknown as typeof b;
+    const steps = planRestore(backup, empty(), "merge");
+    const write = steps.find((s) => s.kind === "write" && s.collection === "applications");
+    if (write?.kind !== "write") throw new Error("expected a write step for the application");
+    const doc = write.doc as unknown as Application;
+    expect(doc.tags).toEqual([]);
+    expect(doc.answerIds).toEqual([]);
+    expect(doc.activity).toEqual([]);
+    expect(doc.title).toBe(b.applications[0].title);
+    expect(doc.createdAt).toBe(b.applications[0].createdAt);
   });
 });
