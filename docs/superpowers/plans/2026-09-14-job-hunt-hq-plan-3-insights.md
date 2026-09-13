@@ -490,7 +490,8 @@ describe("Dashboard", () => {
       await put(db, "applications/c", app("c", { maxStageRank: 4, statusId: "rejected" }));
     });
     const funnel = screen.getByRole("region", { name: "Funnel" });
-    expect(within(funnel).getByText("Applied: 3 reached")).toBeTruthy();
+    expect(within(funnel).getByText("Saved: 3 reached")).toBeTruthy();
+    expect(within(funnel).getByText("Applied: 3 reached · 100%")).toBeTruthy();
     expect(within(funnel).getByText("Screening: 2 reached · 67%")).toBeTruthy();
     fireEvent.click(within(funnel).getByRole("radio", { name: "By channel" }));
     expect(within(funnel).getByRole("heading", { name: "LinkedIn" })).toBeTruthy();
