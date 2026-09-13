@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { useAppState } from "../store/context";
-import { useRoute } from "./router";
+import { navigate, useRoute } from "./router";
 import { NAV, PAGES } from "./routes";
 
 export function Shell() {
@@ -7,6 +8,9 @@ export function Shell() {
   const route = useRoute();
   const key = route.parts[0] ?? "";
   const Page = PAGES[key];
+  const routeQuery = key === "search" ? (route.query.get("q") ?? "") : "";
+  const [q, setQ] = useState(routeQuery);
+  useEffect(() => { if (key === "search") setQ(routeQuery); }, [key, routeQuery]);
   return (
     <div className="shell">
       <nav className="nav" aria-label="Main">
@@ -18,6 +22,11 @@ export function Shell() {
         ))}
       </nav>
       <main className="main">
+        <div className="topbar">
+          <form role="search" onSubmit={(e) => { e.preventDefault(); navigate(`/search?q=${encodeURIComponent(q.trim())}`); }}>
+            <input type="search" aria-label="Search everything" placeholder="Search companies, roles, contacts, answers" value={q} onChange={(e) => setQ(e.target.value)} />
+          </form>
+        </div>
         {state.readOnly && (
           <div className="banner banner-warn" role="alert">
             Storage is unavailable in this view. You can browse, but changes will not be saved.

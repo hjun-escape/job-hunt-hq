@@ -135,6 +135,11 @@ textarea { resize: vertical; }
 .kanban-card:focus-visible { outline: 2px solid var(--accent); }
 .kanban-move { margin-top: 6px; font-size: 12px; padding: 4px 6px; }
 .kanban-empty { font-size: 12px; text-align: center; margin: 12px 0; }
+/* search */
+.topbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.topbar input { max-width: 340px; }
+.search-results ul { margin: 0; padding-left: 18px; }
+.search-results li { padding: 3px 0; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }
@@ -148,4 +153,5 @@ textarea { resize: vertical; }
   .slot { grid-template-columns: 1fr; }
   .funnel-row { grid-template-columns: 1fr; gap: 2px; }
   .kanban-col { flex-basis: 82vw; }
+  .topbar input { max-width: none; }
 }
