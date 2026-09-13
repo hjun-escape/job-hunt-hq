@@ -12,9 +12,10 @@ const NOW = "2026-09-11T00:00:00.000Z";
 type Db = ReturnType<typeof createFakeDb>;
 const put = (db: Db, path: string, doc: object) => db.doc(path).set(doc as unknown as Record<string, unknown>);
 
-async function open(hash: string, seed?: (db: Db) => Promise<void>, heading = "Assets") {
+async function open(hash: string, seed?: (db: Db) => Promise<void>, heading = "Assets", seedAssets?: (assets: ReturnType<typeof createFakeAssets>) => Promise<void>) {
   const db = createFakeDb();
   const assets = createFakeAssets();
+  if (seedAssets) await seedAssets(assets);
   await put(db, "settings/main", defaultSettings("America/Toronto", NOW));
   if (seed) await seed(db);
   window.location.hash = hash;
@@ -73,9 +74,13 @@ describe("Assets", () => {
     expect((screen.getByRole("button", { name: "Delete asset" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("shows the storage meter on the Settings page", async () => {
-    const { assets } = await open("#/settings", undefined, "Settings");
-    await assets.upload(new Blob([new Uint8Array(1024)], { type: "application/pdf" }));
+  it("shows the storage meter on the Settings page and refreshes on demand", async () => {
+    const { assets } = await open("#/settings", undefined, "Settings", async (a) => {
+      await a.upload(new Blob([new Uint8Array(1024)], { type: "application/pdf" }));
+    });
     expect(await screen.findByText(/1 file/)).toBeTruthy();
+    await assets.upload(new Blob([new Uint8Array(2048)], { type: "application/pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh storage usage" }));
+    expect(await screen.findByText(/2 files/)).toBeTruthy();
   });
 });
