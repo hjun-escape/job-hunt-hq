@@ -8,6 +8,7 @@ import { Field, NumberField, TextField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { allTimeZones } from "../../ui/timeZones";
 import { useSaver } from "../../ui/useSaver";
+import { BackupSection } from "./BackupSection";
 import { PickListEditor } from "./PickListEditor";
 import { StorageMeter } from "./StorageMeter";
 
@@ -105,6 +106,11 @@ export function SettingsPage() {
       <div className="section">
         <h2>Files</h2>
         <StorageMeter />
+      </div>
+
+      <div className="section">
+        <h2>Backup and restore</h2>
+        <BackupSection />
       </div>
 
       <div className="section">
