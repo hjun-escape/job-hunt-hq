@@ -1,0 +1,70 @@
+import { describe, it, expect } from "vitest";
+import { buildBackup, planRestore, validateBackup } from "../../src/domain/backup";
+import { SCHEMA_VERSION, defaultProfile, defaultSettings } from "../../src/domain/defaults";
+import { buildApplication, buildCompany } from "../../src/domain/factories";
+import type { RecordSets } from "../../src/domain/types";
+
+const NOW = "2026-09-14T00:00:00.000Z";
+const empty = (): RecordSets => ({ applications: {}, companies: {}, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} });
+const state = () => ({
+  settings: defaultSettings("America/Toronto", NOW), profile: defaultProfile(NOW),
+  ...empty(),
+  companies: { co_1: buildCompany({ name: "Shopify" }, "co_1", NOW) },
+  applications: { app_1: buildApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied", maxStageRank: 3 }, "app_1", NOW) },
+});
+
+describe("backup", () => {
+  it("builds a backup envelope with every collection and no file bytes", () => {
+    const b = buildBackup(state(), NOW);
+    expect(b).toMatchObject({ app: "job-hunt-hq", schemaVersion: SCHEMA_VERSION, exportedAt: NOW });
+    expect(b.applications.map((a) => a.id)).toEqual(["app_1"]);
+    expect(b.companies).toHaveLength(1);
+    expect(b.prep).toEqual([]);
+    expect(JSON.stringify(b)).not.toContain("_blobs");
+  });
+
+  it("round-trips through validation", () => {
+    const b = buildBackup(state(), NOW);
+    const v = validateBackup(JSON.parse(JSON.stringify(b)));
+    expect(v.ok).toBe(true);
+  });
+
+  it("rejects a newer schema, malformed collections, and unknown pick-list ids with readable problems", () => {
+    const b = buildBackup(state(), NOW) as unknown as Record<string, unknown>;
+    const bad = { ...b, schemaVersion: SCHEMA_VERSION + 1, contacts: "nope", applications: [{ ...(b.applications as object[])[0], statusId: "ghost-status" }, { title: "no id" }] };
+    const v = validateBackup(bad);
+    expect(v.ok).toBe(false);
+    if (v.ok) return;
+    expect(v.problems).toEqual(expect.arrayContaining([
+      expect.stringMatching(/schemaVersion 2 is newer/),
+      expect.stringMatching(/contacts must be an array/),
+      expect.stringMatching(/applications\[0\].*statusId "ghost-status"/),
+      expect.stringMatching(/applications\[1\].*id/),
+    ]));
+    expect(validateBackup("not an object")).toMatchObject({ ok: false });
+    expect(validateBackup({ ...b, app: "other" })).toMatchObject({ ok: false, problems: [expect.stringMatching(/job-hunt-hq/)] });
+  });
+
+  it("plans a merge as settings, profile, then upserts in dependency order", () => {
+    const b = buildBackup(state(), NOW);
+    const steps = planRestore(b, empty(), "merge");
+    expect(steps.map((s) => s.kind)).toEqual(["settings", "profile", "write", "write"]);
+    expect(steps.slice(2).map((s) => (s.kind === "write" ? `${s.collection}/${s.doc.id}` : ""))).toEqual(["companies/co_1", "applications/app_1"]);
+  });
+
+  it("plans a replace as deletes of every current document the backup lacks, before the writes", () => {
+    const b = buildBackup(state(), NOW);
+    const current = { ...empty(), companies: { co_9: buildCompany({ name: "Gone" }, "co_9", NOW), co_1: buildCompany({ name: "Kept" }, "co_1", NOW) } };
+    const steps = planRestore(b, current, "replace");
+    expect(steps.map((s) => (s.kind === "delete" ? `delete ${s.collection}/${s.id}` : s.kind))).toEqual(["settings", "profile", "delete companies/co_9", "write", "write"]);
+  });
+
+  it("migrates an older backup's settings forward while planning", () => {
+    const b = buildBackup(state(), NOW);
+    const older = { ...b, schemaVersion: 0, settings: { ...b.settings, schemaVersion: 0 } };
+    const bump = [{ to: SCHEMA_VERSION, apply: (s: typeof b.settings) => ({ ...s, followUpCadenceDays: 9 }) }];
+    const steps = planRestore(older as typeof b, empty(), "merge", bump);
+    expect(steps[0]).toMatchObject({ kind: "settings", settings: { schemaVersion: SCHEMA_VERSION, followUpCadenceDays: 9 } });
+    expect(planRestore(b, empty(), "merge")[0]).toMatchObject({ kind: "settings", settings: { followUpCadenceDays: 7 } });
+  });
+});
