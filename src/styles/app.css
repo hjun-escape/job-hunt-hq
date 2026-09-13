@@ -110,6 +110,18 @@ textarea { resize: vertical; }
 .rows-row .btn { margin-top: 20px; }
 .zoned-row > input { flex: 2 1 180px; }
 .zoned-row > select { flex: 2 1 170px; }
+/* dashboard */
+.dashboard-grid { gap: 14px; align-items: start; }
+.agenda { list-style: none; padding: 0; margin: 0; }
+.agenda-item { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.agenda-item:last-child { border-bottom: 0; }
+.funnel { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.funnel-row { display: grid; grid-template-columns: 140px 1fr auto; gap: 10px; align-items: center; }
+.funnel-label { font-size: 13px; }
+.funnel-track { display: block; height: 14px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.funnel-bar { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.funnel-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.funnel-group h3 { margin: 12px 0 6px; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }
@@ -121,4 +133,5 @@ textarea { resize: vertical; }
   .drawer-backdrop { z-index: 45; }
   .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
   .slot { grid-template-columns: 1fr; }
+  .funnel-row { grid-template-columns: 1fr; gap: 2px; }
 }

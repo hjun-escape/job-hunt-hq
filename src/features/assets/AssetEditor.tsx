@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { blobUrl, uploadDocument, validateDocument } from "../../capabilities/files";
 import { assetUsage, formatBytes, isAssetReferenced } from "../../domain/assets";
+import { openStages, screenRate } from "../../domain/funnel";
 import type { AssetDoc } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useCapability } from "../../store/useCapability";
@@ -111,6 +112,11 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
           {usage.asCoverLetter.map((a) => <li key={`c-${a.id}`}><a href={`#/applications/${a.id}`}>{appLabel(a)}</a> <span className="muted">· cover letter</span></li>)}
         </ul>
       )}
+      {usage.asResume.length > 0 ? (() => {
+        const rate = screenRate(usage.asResume, openStages(settings));
+        const reached = usage.asResume.filter((a) => a.maxStageRank >= (openStages(settings).find((s) => s.id === "screening")?.stageRank ?? Infinity)).length;
+        return rate == null ? null : <p className="muted">{`Screen-rate ${Math.round(rate * 100)}%: ${reached} of ${usage.asResume.length} applications using this resume reached Screening.`}</p>;
+      })() : null}
     </Drawer>
   );
 }

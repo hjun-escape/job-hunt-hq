@@ -8,7 +8,7 @@ import { AnswersPage } from "../features/answers/AnswersPage";
 import { PrepPage } from "../features/prep/PrepPage";
 import { ProfilePage } from "../features/profile/ProfilePage";
 import { SettingsPage } from "../features/settings/SettingsPage";
-import { DashboardPage } from "./DashboardPage";
+import { DashboardPage } from "../features/dashboard/DashboardPage";
 
 export interface PageProps {
   parts: string[];

@@ -117,4 +117,15 @@ describe("Assets", () => {
       modifySpy.mockRestore();
     }
   });
+
+  it("shows the screen-rate of applications that use the asset as their resume", async () => {
+    await open("#/assets/as_1", async (db) => {
+      await db.doc("assets/as_1").set(buildAsset({ kindId: "resume", name: "Backend resume" }, "as_1", NOW) as unknown as Record<string, unknown>);
+      await db.doc("companies/co_1").set({ id: "co_1", name: "Shopify", cities: [], techStack: [], sponsorship: {}, interviewProcess: "", sources: [], notes: "", createdAt: NOW, updatedAt: NOW });
+      await db.doc("applications/a").set(buildApplication({ companyId: "co_1", title: "A", countryId: "CA", channelId: "linkedin", statusId: "screening", maxStageRank: 4, resumeAssetId: "as_1" }, "a", NOW) as unknown as Record<string, unknown>);
+      await db.doc("applications/b").set(buildApplication({ companyId: "co_1", title: "B", countryId: "CA", channelId: "linkedin", statusId: "applied", maxStageRank: 3, resumeAssetId: "as_1" }, "b", NOW) as unknown as Record<string, unknown>);
+    });
+    await screen.findByRole("dialog");
+    expect(screen.getByText("Screen-rate 50%: 1 of 2 applications using this resume reached Screening.")).toBeTruthy();
+  });
 });
