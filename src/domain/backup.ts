@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION } from "./defaults";
 import { MIGRATIONS, migrateSettings, type Migration } from "./migrate";
-import type { Answer, Application, AssetDoc, CollectionName, Company, Contact, EntityMap, Interview, PrepItem, Profile, RecordSets, Settings } from "./types";
+import type { Answer, Application, AssetDoc, CollectionName, Company, Contact, EntityMap, Interview, PickEntry, PickLists, PrepItem, Profile, RecordSets, Settings } from "./types";
 
 export interface Backup {
   app: "job-hunt-hq";
@@ -82,10 +82,33 @@ export function validateBackup(raw: unknown, currentVersion: number = SCHEMA_VER
   return problems.length ? { ok: false, problems } : { ok: true, backup: raw as unknown as Backup };
 }
 
-/** Merge upserts every document; replace also deletes current documents the backup does not carry. Settings/profile first. */
-export function planRestore(backup: Backup, current: RecordSets, mode: RestoreMode, migrations: Migration[] = MIGRATIONS): RestoreStep[] {
+/** Backup's entries first, then current entries whose id the backup lacks -- for every pick list. */
+function unionPickLists(backupLists: PickLists, currentLists: PickLists): PickLists {
+  const merged: Record<string, PickEntry[]> = {};
+  for (const key of Object.keys(backupLists) as (keyof PickLists)[]) {
+    const backupList = backupLists[key] as PickEntry[];
+    const currentList = currentLists[key] as PickEntry[];
+    const ids = new Set(backupList.map((e) => e.id));
+    merged[key] = [...backupList, ...currentList.filter((e) => !ids.has(e.id))];
+  }
+  return merged as unknown as PickLists;
+}
+
+/** Merge upserts every document; replace also deletes current documents the backup does not carry. Settings/profile first.
+ * Merge keeps pick-list entries the backup lacks but current data has; replace keeps the backup's lists as they are. */
+export function planRestore(
+  backup: Backup,
+  current: RecordSets & { settings?: Settings | null; profile?: Profile | null },
+  mode: RestoreMode,
+  opts: { migrations?: Migration[]; now?: string; homeTz?: string } = {},
+): RestoreStep[] {
+  const migrations = opts.migrations ?? MIGRATIONS;
+  const migratedSettings = migrateSettings({ ...backup.settings, schemaVersion: backup.settings.schemaVersion ?? backup.schemaVersion }, migrations);
+  const settings: Settings = mode === "merge" && current.settings
+    ? { ...migratedSettings, pickLists: unionPickLists(migratedSettings.pickLists, current.settings.pickLists) }
+    : migratedSettings;
   const steps: RestoreStep[] = [
-    { kind: "settings", settings: migrateSettings({ ...backup.settings, schemaVersion: backup.settings.schemaVersion ?? backup.schemaVersion }, migrations) },
+    { kind: "settings", settings },
     { kind: "profile", profile: backup.profile },
   ];
   if (mode === "replace") {

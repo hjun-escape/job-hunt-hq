@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { buildBackup, planRestore, validateBackup } from "../../src/domain/backup";
-import { SCHEMA_VERSION, defaultProfile, defaultSettings } from "../../src/domain/defaults";
+import { SCHEMA_VERSION, defaultPickLists, defaultProfile, defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
-import type { RecordSets } from "../../src/domain/types";
+import type { RecordSets, Settings } from "../../src/domain/types";
 
 const NOW = "2026-09-14T00:00:00.000Z";
 const empty = (): RecordSets => ({ applications: {}, companies: {}, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} });
@@ -63,8 +63,44 @@ describe("backup", () => {
     const b = buildBackup(state(), NOW);
     const older = { ...b, schemaVersion: 0, settings: { ...b.settings, schemaVersion: 0 } };
     const bump = [{ to: SCHEMA_VERSION, apply: (s: typeof b.settings) => ({ ...s, followUpCadenceDays: 9 }) }];
-    const steps = planRestore(older as typeof b, empty(), "merge", bump);
+    const steps = planRestore(older as typeof b, empty(), "merge", { migrations: bump });
     expect(steps[0]).toMatchObject({ kind: "settings", settings: { schemaVersion: SCHEMA_VERSION, followUpCadenceDays: 9 } });
     expect(planRestore(b, empty(), "merge")[0]).toMatchObject({ kind: "settings", settings: { followUpCadenceDays: 7 } });
+  });
+
+  it("merge keeps a current-only status entry and takes everything else from the backup", () => {
+    const b = buildBackup(state(), NOW);
+    const currentSettings: Settings = {
+      ...defaultSettings("America/Toronto", NOW),
+      followUpCadenceDays: 30,
+      pickLists: {
+        ...defaultPickLists(),
+        statuses: [...defaultPickLists().statuses, { id: "phone-screen", label: "Phone screen", group: "open", stageRank: 3 }],
+      },
+    };
+    const current = { ...empty(), settings: currentSettings, profile: defaultProfile(NOW) };
+    const steps = planRestore(b, current, "merge");
+    const settingsStep = steps[0];
+    if (settingsStep.kind !== "settings") throw new Error("expected a settings step first");
+    const ids = settingsStep.settings.pickLists.statuses.map((s) => s.id);
+    expect(ids).toContain("phone-screen");
+    expect(ids).toEqual(expect.arrayContaining(b.settings.pickLists.statuses.map((s) => s.id)));
+    expect(settingsStep.settings.followUpCadenceDays).toBe(b.settings.followUpCadenceDays);
+  });
+
+  it("replace does not union", () => {
+    const b = buildBackup(state(), NOW);
+    const currentSettings: Settings = {
+      ...defaultSettings("America/Toronto", NOW),
+      pickLists: {
+        ...defaultPickLists(),
+        statuses: [...defaultPickLists().statuses, { id: "phone-screen", label: "Phone screen", group: "open", stageRank: 3 }],
+      },
+    };
+    const current = { ...empty(), settings: currentSettings, profile: defaultProfile(NOW) };
+    const steps = planRestore(b, current, "replace");
+    const settingsStep = steps[0];
+    if (settingsStep.kind !== "settings") throw new Error("expected a settings step first");
+    expect(settingsStep.settings.pickLists.statuses.map((s) => s.id)).not.toContain("phone-screen");
   });
 });

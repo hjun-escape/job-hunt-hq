@@ -122,7 +122,7 @@ export function BackupSection() {
             <label className="row"><input type="radio" name="restore-mode" checked={mode === "merge"} onChange={() => setMode("merge")} /> Merge into current data</label>
             <label className="row"><input type="radio" name="restore-mode" checked={mode === "replace"} onChange={() => setMode("replace")} /> Replace everything</label>
           </div>
-          <p className="muted">Merge writes every record in the file over any current record with the same id. Replace also deletes current records the file does not contain.</p>
+          <p className="muted">Merge writes every record in the file over any current record with the same id. Replace also deletes current records the file does not contain. Settings and profile come from the file; in merge mode, pick-list entries you added since the backup are kept.</p>
           <button type="button" className={mode === "replace" ? "btn danger" : "btn primary"} onClick={() => void restore()} disabled={busy || repo.readOnly}>Restore</button>
           {progress ? <p aria-live="polite">{progress.done} of {progress.total} steps done</p> : null}
         </div>
