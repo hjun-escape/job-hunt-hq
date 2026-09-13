@@ -61,4 +61,63 @@ describe("startSync", () => {
     expect(store.getState().profile).not.toBeNull();
     h.stop();
   });
+
+  it("re-subscribes once after a terminated collection listener, then mirrors data normally", async () => {
+    const db = createFakeDb();
+    await db.doc("applications/app_1").set({ id: "app_1", title: "SWE" });
+    let calls = 0;
+    const flaky = {
+      ...db,
+      collection: (path: string) => {
+        const real = db.collection(path);
+        if (path !== "applications") return real;
+        return {
+          ...real,
+          onSnapshot: (next: (s: QuerySnapshot) => void, error?: (e: DbError) => void) => {
+            calls++;
+            if (calls === 1) {
+              queueMicrotask(() => error?.({ code: "revoked", message: "boom" }));
+              return () => {};
+            }
+            return real.onSnapshot(next, error);
+          },
+        } as unknown as CollectionReference;
+      },
+    } as unknown as DB;
+    const store = createStore();
+    const errors: string[] = [];
+    const h = startSync(flaky, store, { homeTz: "UTC", onError: (e) => errors.push(e.code) });
+    await h.ready;
+    expect(store.getState().ready).toBe(true);
+    expect(store.getState().readOnly).toBe(false);
+    expect(store.getState().applications.app_1?.title).toBe("SWE");
+    expect(errors).toHaveLength(0);
+    expect(calls).toBe(2);
+    h.stop();
+  });
+
+  it("gives up and fails after a second terminated collection listener", async () => {
+    const db = createFakeDb();
+    const flaky = {
+      ...db,
+      collection: (path: string) => {
+        const real = db.collection(path);
+        if (path !== "applications") return real;
+        return {
+          ...real,
+          onSnapshot: (_next: unknown, error?: (e: DbError) => void) => {
+            queueMicrotask(() => error?.({ code: "revoked", message: "boom" }));
+            return () => {};
+          },
+        } as unknown as CollectionReference;
+      },
+    } as unknown as DB;
+    const store = createStore();
+    const errors: string[] = [];
+    const h = startSync(flaky, store, { homeTz: "UTC", onError: (e) => errors.push(e.code) });
+    await h.ready;
+    expect(store.getState().readOnly).toBe(true);
+    expect(errors).toEqual(["revoked"]);
+    h.stop();
+  });
 });
