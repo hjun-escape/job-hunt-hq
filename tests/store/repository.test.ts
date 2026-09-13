@@ -101,6 +101,15 @@ describe("Repository", () => {
     expect(store.getState().profile?.name).toBe("Ada");
   });
 
+  it("saveProfile echoes into the store so a follow-up save built from the store keeps the first change", async () => {
+    const { repo, store } = await boot();
+    const base = store.getState().profile!;
+    const p1 = repo.saveProfile({ ...base, name: "Ada" });
+    const p2 = p1.then(() => repo.saveProfile({ ...store.getState().profile!, email: "me@example.com" }));
+    await Promise.all([p1, p2]);
+    expect(store.getState().profile).toMatchObject({ name: "Ada", email: "me@example.com" });
+  });
+
   it("a read-only repository rejects writes with code read_only", async () => {
     const repo = new Repository(null, createStore());
     expect(repo.readOnly).toBe(true);

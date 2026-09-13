@@ -128,14 +128,20 @@ export class Repository {
 
   async saveSettings(settings: Settings): Promise<void> {
     const db = this.requireDb();
-    const next = stripUndefined({ ...settings, updatedAt: this.now() });
-    await this.guard(() => db.doc(SETTINGS_PATH).set(next as unknown as Record<string, unknown>));
+    await this.serialize(SETTINGS_PATH, async () => {
+      const next = stripUndefined({ ...settings, updatedAt: this.now() });
+      await this.guard(() => db.doc(SETTINGS_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ settings: next });
+    });
   }
 
   async saveProfile(profile: Profile): Promise<void> {
     const db = this.requireDb();
-    const next = stripUndefined({ ...profile, updatedAt: this.now() });
-    await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
+    await this.serialize(PROFILE_PATH, async () => {
+      const next = stripUndefined({ ...profile, updatedAt: this.now() });
+      await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ profile: next });
+    });
   }
 
   async createCompany(input: NewCompany): Promise<Company> {

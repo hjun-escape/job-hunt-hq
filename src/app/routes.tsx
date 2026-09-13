@@ -6,6 +6,7 @@ import { InterviewsPage } from "../features/interviews/InterviewsPage";
 import { AssetsPage } from "../features/assets/AssetsPage";
 import { AnswersPage } from "../features/answers/AnswersPage";
 import { PrepPage } from "../features/prep/PrepPage";
+import { ProfilePage } from "../features/profile/ProfilePage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { DashboardPage } from "./DashboardPage";
 
@@ -28,6 +29,7 @@ export const NAV: NavItem[] = [
   { key: "assets", to: "/assets", label: "Assets" },
   { key: "answers", to: "/answers", label: "Answers" },
   { key: "prep", to: "/prep", label: "Prep" },
+  { key: "profile", to: "/profile", label: "Profile" },
   { key: "settings", to: "/settings", label: "Settings" },
 ];
 
@@ -40,5 +42,6 @@ export const PAGES: Record<string, ComponentType<PageProps>> = {
   assets: AssetsPage,
   answers: AnswersPage,
   prep: PrepPage,
+  profile: ProfilePage,
   settings: SettingsPage,
 };
