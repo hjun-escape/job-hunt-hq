@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
@@ -10,6 +10,7 @@ import { OverviewTab } from "../../src/features/applications/OverviewTab";
 import { Repository } from "../../src/store/repository";
 import { createStore } from "../../src/store/store";
 import { AppContext } from "../../src/store/context";
+import { ToastProvider } from "../../src/ui/Toast";
 import type { Application } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -103,7 +104,7 @@ describe("ApplicationDetail", () => {
 });
 
 describe("OverviewTab compensation patch", () => {
-  it("computes the comp patch from the current record, not the one it rendered", () => {
+  it("computes the comp patch from the current record, not the one it rendered", async () => {
     const app = buildApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied" }, "app_1", NOW);
     app.comp = { currency: "CAD", period: "year", note: "rendered note" };
     const settings = defaultSettings("America/Toronto", NOW);
@@ -125,9 +126,12 @@ describe("OverviewTab compensation patch", () => {
 
     render(
       <AppContext.Provider value={{ store, repo, caps: absentCapabilities() }}>
-        <OverviewTab app={app} patch={patch} />
+        <ToastProvider>
+          <OverviewTab app={app} patch={patch} />
+        </ToastProvider>
       </AppContext.Provider>,
     );
+    await act(async () => {});
     const min = screen.getByLabelText("Min");
     fireEvent.change(min, { target: { value: "100000" } });
     fireEvent.blur(min);

@@ -140,6 +140,10 @@ textarea { resize: vertical; }
 .topbar input { max-width: 340px; }
 .search-results ul { margin: 0; padding-left: 18px; }
 .search-results li { padding: 3px 0; }
+.ai-panel { margin-top: 10px; }
+.ai-panel fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; }
+.ai-panel legend { padding: 0 4px; }
+.ai-panel h4 { margin: 10px 0 4px; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }

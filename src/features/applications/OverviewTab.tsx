@@ -2,7 +2,9 @@ import { assetsOfKind } from "../../domain/assets";
 import { formatMoney, normalizeAmount } from "../../domain/money";
 import type { Application, Comp, Rating, Settings } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
+import { useCapability } from "../../store/useCapability";
 import { DateField, NumberField, RatingField, SelectField, TagInput, TextArea, TextField, TriStateField } from "../../ui/fields";
+import { RequirementsPanel } from "../ai/RequirementsPanel";
 import type { AppPatch } from "./ApplicationDetail";
 import { DeadlineField } from "./DeadlineField";
 
@@ -20,7 +22,8 @@ function normalizedText(comp: Comp, settings: Settings): string | null {
 export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPatch) => Promise<boolean> }) {
   const state = useAppState();
   const settings = useSettings();
-  const { repo } = useApp();
+  const { repo, caps } = useApp();
+  const sampleCap = useCapability(caps.sample);
   const pl = settings.pickLists;
   const companies = Object.values(state.companies).map((c) => ({ id: c.id, label: c.name }));
   const allAssets = Object.values(state.assets);
@@ -131,6 +134,7 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPa
         <TagInput label="Tags" value={app.tags} onChange={(fn) => patch((cur) => ({ tags: fn(cur.tags) }))} />
         <TextArea label="Job description" rows={10} value={app.jobDescription ?? ""} onCommit={(v) => patch({ jobDescription: opt(v) })}
           placeholder="Paste the posting here. AI drafting and requirement extraction use it in a later plan." />
+        <RequirementsPanel app={app} patch={patch} sample={sampleCap} />
       </div>
     </div>
   );
