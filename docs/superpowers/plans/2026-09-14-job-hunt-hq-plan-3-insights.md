@@ -2231,7 +2231,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `SampleLike = typeof Claude.sample` (callable + `.json` + `.limits`), `Profile`, `Answer`.
 - Produces:
-  - `createFakeSample({ reply?: (input) => string, json?: (input) => unknown, error?: {code, message, text?}, chunks?: number }) → SampleLike & { calls: {input, options}[] }` — streams `reply` in `chunks` pieces through `onText` (each with whole `text` + `delta`), resolves `{text, truncated: false, modelTierApplied: "default"}`, honours `signal` (rejects `{code: "cancelled", text}`), rejects with `error` when given (after streaming half the reply when `error.text` is set).
+  - `createFakeSample({ reply?: (input) => string, json?: (input) => unknown, error?: {code, message, text?}, chunks?: number, pace?: () => Promise<void> }) → SampleLike & { calls: {input, options}[] }` — streams `reply` in `chunks` pieces through `onText` (each with whole `text` + `delta`), resolves `{text, truncated: false, modelTierApplied: "default"}`, honours `signal` (rejects `{code: "cancelled", text}`), rejects with `error` when given (after streaming half the reply when `error.text` is set).
   - `ai.ts`: `DraftInput {question, company, role, jobDescription?, sources: {title, body}[], profileSummary?, language: "en" | "ko", length: "short" | "medium" | "long"}`, `buildDraftPrompt(input): string`, `buildRequirementsPrompt(jobDescription): string`, `profileSummary(profile): string` (employment summaries + links only), `Requirements {must: string[]; nice: string[]}`, `parseRequirements(value: unknown): Requirements | null`, `sampleErrorOf(e): {code: string; message: string; text?: string}`, `classifySampleError(code): "hidden" | "retry_later" | "quiet" | "message"`, `describeSampleError(code): string`, `RATE_LIMIT_MS = 30000`, `MAX_JD_CHARS = 6000`, `MAX_SOURCE_CHARS = 1500`.
   - `useSample(sample: SampleLike | null | undefined) → { available, phase: "idle" | "thinking" | "streaming" | "done" | "error", text, setText, error, truncated, disabledUntil, run(input, options?), runJson<T>(input, options?): Promise<T | null>, stop(), reset() }` — `available` false while pending/null or after a hide-class error; `disabledUntil` a timestamp after `rate_limited`.
 
@@ -2373,12 +2373,17 @@ describe("useSample", () => {
   });
 
   it("stop() cancels quietly and runJson returns parsed data or null", async () => {
-    const slow = createFakeSample({ reply: () => "a b c d e f g h", chunks: 8 });
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let paced = 0;
+    const slow = createFakeSample({ reply: () => "a b", chunks: 2, pace: () => (paced++ === 0 ? Promise.resolve() : gate) });
     const { result } = renderHook(() => useSample(slow));
     let p: Promise<unknown> = Promise.resolve();
     act(() => { p = result.current.run("q"); });
     await waitFor(() => expect(result.current.phase).toBe("streaming"));
+    expect(result.current.text).toBe("a ");
     act(() => result.current.stop());
+    release();
     await act(async () => { await p; });
     expect(result.current.phase).toBe("idle");
     expect(result.current.error).toBeNull();
@@ -2393,7 +2398,7 @@ describe("useSample", () => {
     let none: unknown = "unset";
     await act(async () => { none = await b.result.current.runJson("q"); });
     expect(none).toBeNull();
-    expect(b.result.current.error).toMatch(/could not read/i);
+    expect(b.result.current.error).toMatch(/could not be read/i);
   });
 });
 ```
@@ -2419,6 +2424,8 @@ export interface FakeSampleOptions {
   error?: FakeError;
   /** How many onText updates a reply is split into (default 3). */
   chunks?: number;
+  /** Awaited before each chunk; defaults to a macrotask tick. Tests pass a gate to hold the stream open. */
+  pace?: () => Promise<void>;
 }
 export type FakeSample = SampleLike & { calls: { input: Input; options?: Options }[] };
 
@@ -2437,7 +2444,7 @@ export function createFakeSample(opts: FakeSampleOptions = {}): FakeSample {
     const stopAt = opts.error?.text != null ? Math.ceil(full.length / 2) : full.length;
     let text = "";
     while (text.length < stopAt) {
-      await tick();
+      await (opts.pace ?? tick)();
       if (options?.signal?.aborted) throw { code: "cancelled", message: "aborted", ...(text ? { text } : {}) };
       const delta = full.slice(text.length, Math.min(stopAt, text.length + size));
       text += delta;
