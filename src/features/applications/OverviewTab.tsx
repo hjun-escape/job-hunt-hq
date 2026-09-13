@@ -1,3 +1,4 @@
+import { assetsOfKind } from "../../domain/assets";
 import { formatMoney, normalizeAmount } from "../../domain/money";
 import type { Application, Comp, Rating, Settings } from "../../domain/types";
 import { useAppState, useSettings } from "../../store/context";
@@ -20,6 +21,12 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: Parti
   const settings = useSettings();
   const pl = settings.pickLists;
   const companies = Object.values(state.companies).map((c) => ({ id: c.id, label: c.name }));
+  const allAssets = Object.values(state.assets);
+  const resumeOptions = assetsOfKind(allAssets, ["resume", "cv"]).map((a) => ({ id: a.id, label: `${a.name} (${a.version})` }));
+  const coverOptions = assetsOfKind(allAssets, ["cover-letter"]).map((a) => ({ id: a.id, label: `${a.name} (${a.version})` }));
+  const contactOptions = Object.values(state.contacts)
+    .sort((a, b) => Number(b.companyId === app.companyId) - Number(a.companyId === app.companyId) || a.name.localeCompare(b.name))
+    .map((c) => ({ id: c.id, label: c.companyId && c.companyId !== app.companyId ? `${c.name} (${state.companies[c.companyId]?.name ?? "?"})` : c.name }));
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
   const comp: Comp = app.comp ?? { currency: settings.displayCurrency, period: "year" };
   const setComp = (p: Partial<Comp>) => patch({ comp: { ...comp, ...p } });
@@ -53,6 +60,17 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: Parti
           <SelectField label="Channel" value={app.channelId} options={pl.channels} onChange={(v) => { if (v) patch({ channelId: v }); }} allowEmpty={false} />
           <TextField label="Source note" value={app.sourceNote ?? ""} onCommit={(v) => patch({ sourceNote: opt(v) })} placeholder="Who referred, which recruiter, which posting" />
         </div>
+      </div>
+
+      <div className="section">
+        <h3>Documents and people</h3>
+        <div className="grid-2">
+          <SelectField label="Resume version" value={app.resumeAssetId ?? ""} options={resumeOptions} onChange={(v) => patch({ resumeAssetId: opt(v) })} emptyLabel="None yet" />
+          <SelectField label="Cover letter" value={app.coverLetterAssetId ?? ""} options={coverOptions} onChange={(v) => patch({ coverLetterAssetId: opt(v) })} emptyLabel="None yet" />
+          <SelectField label="Referrer" value={app.referrerContactId ?? ""} options={contactOptions} onChange={(v) => patch({ referrerContactId: opt(v) })} emptyLabel="No referrer" />
+          <SelectField label="Recruiter" value={app.recruiterContactId ?? ""} options={contactOptions} onChange={(v) => patch({ recruiterContactId: opt(v) })} emptyLabel="No recruiter" />
+        </div>
+        <p className="field-hint">Manage files under <a href="#/assets">Assets</a> and people under <a href="#/contacts">Contacts</a>.</p>
       </div>
 
       <div className="section">

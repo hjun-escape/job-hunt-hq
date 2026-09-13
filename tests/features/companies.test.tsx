@@ -8,6 +8,7 @@ import { defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
 
 const NOW = "2026-09-11T00:00:00.000Z";
+const put = (db: ReturnType<typeof createFakeDb>, path: string, doc: object) => db.doc(path).set(doc as unknown as Record<string, unknown>);
 
 async function open(hash: string, seed?: (db: ReturnType<typeof createFakeDb>) => Promise<void>) {
   const db = createFakeDb();
@@ -80,5 +81,14 @@ describe("Companies", () => {
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "shop" } });
     expect(screen.getByText("Shopify")).toBeTruthy();
     expect(screen.queryByText("Kakao")).toBeNull();
+  });
+
+  it("lists the company's contacts in the editor", async () => {
+    await open("#/companies/co_1", async (d) => {
+      await put(d, "companies/co_1", buildCompany({ name: "Shopify" }, "co_1", NOW));
+      await d.doc("contacts/ct_1").set({ id: "ct_1", name: "Dana Kim", relationshipId: "recruiter", companyId: "co_1", notes: "", createdAt: NOW, updatedAt: NOW });
+    });
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("link", { name: "Dana Kim" }).getAttribute("href")).toBe("#/contacts/ct_1");
   });
 });

@@ -7,12 +7,21 @@ import { Drawer } from "../../ui/Drawer";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 import { ActivityTab } from "./ActivityTab";
+import { AnswersTab } from "./AnswersTab";
+import { InterviewsTab } from "./InterviewsTab";
 import { NotesTab } from "./NotesTab";
 import { OverviewTab } from "./OverviewTab";
 
-type Tab = "overview" | "activity" | "notes";
+/** A patch either replaces fields directly, or is computed from the current record --
+ * required for any nested object/array (e.g. answerIds) so a stale render never clobbers
+ * a concurrent change. See Repository.modify. */
+export type AppPatch = Partial<Application> | ((current: Application) => Partial<Application>);
+
+type Tab = "overview" | "interviews" | "answers" | "activity" | "notes";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "interviews", label: "Interviews" },
+  { id: "answers", label: "Answers" },
   { id: "activity", label: "Activity" },
   { id: "notes", label: "Notes" },
 ];
@@ -35,7 +44,7 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
   }
 
   const company = state.companies[app.companyId];
-  const patch = (p: Partial<Application>) => run(() => repo.update("applications", id, p));
+  const patch = (p: AppPatch) => run(() => (typeof p === "function" ? repo.modify("applications", id, p) : repo.update("applications", id, p)));
   const score = priorityScore(app, settings.priorityWeights);
   const remove = async () => {
     const ok = await confirm({ title: `Delete ${app.title} at ${company?.name ?? "?"}?`, message: "Interviews linked to it lose their link. This cannot be undone.", confirmLabel: "Delete" });
@@ -69,7 +78,13 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "tab active" : "tab"} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
-      {tab === "overview" ? <OverviewTab app={app} patch={patch} /> : tab === "activity" ? <ActivityTab app={app} /> : <NotesTab app={app} patch={patch} />}
+      <div role="tabpanel">
+        {tab === "overview" ? <OverviewTab app={app} patch={patch} />
+          : tab === "interviews" ? <InterviewsTab app={app} />
+          : tab === "answers" ? <AnswersTab app={app} patch={patch} />
+          : tab === "activity" ? <ActivityTab app={app} />
+          : <NotesTab app={app} patch={patch} />}
+      </div>
     </Drawer>
   );
 }

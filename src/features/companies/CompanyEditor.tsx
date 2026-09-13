@@ -25,6 +25,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
   }
 
   const linked = Object.values(state.applications).filter((a) => a.companyId === id);
+  const contacts = Object.values(state.contacts).filter((c) => c.companyId === id).sort((a, b) => a.name.localeCompare(b.name));
   const patch = (p: Partial<Company>) => run(() => repo.update("companies", id, p));
   const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) => {
     const existing: SponsorshipPolicy = company.sponsorship[countryId] ?? { policy: "unknown" };
@@ -107,6 +108,11 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       <h3>Applications ({linked.length})</h3>
       {linked.length === 0 ? <p className="muted">None yet.</p> : (
         <ul>{linked.map((a) => <li key={a.id}><a href={`#/applications/${a.id}`}>{a.title}</a></li>)}</ul>
+      )}
+
+      <h3>Contacts ({contacts.length})</h3>
+      {contacts.length === 0 ? <p className="muted">No contacts at this company yet. Add them under <a href="#/contacts">Contacts</a>.</p> : (
+        <ul>{contacts.map((c) => <li key={c.id}><a href={`#/contacts/${c.id}`}>{c.name}</a> <span className="muted">· {settings.pickLists.contactRelationships.find((r) => r.id === c.relationshipId)?.label ?? c.relationshipId}</span></li>)}</ul>
       )}
     </Drawer>
   );
