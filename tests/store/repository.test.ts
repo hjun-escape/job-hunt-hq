@@ -163,4 +163,33 @@ describe("Repository", () => {
     expect(stored?.city).toBe("A");
     expect(stored?.team).toBe("B");
   });
+
+  it("creates the five record types with prefixed ids and factory defaults", async () => {
+    const { repo, store } = await boot();
+    const contact = await repo.createContact({ name: "Dana", relationshipId: "recruiter" });
+    const asset = await repo.createAsset({ kindId: "resume", name: "Backend resume" });
+    const answer = await repo.createAnswer({ kindId: "answer", title: "Why us" });
+    const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "saved" });
+    const interview = await repo.createInterview({ applicationId: app.id, roundTypeId: "coding" });
+    const prep = await repo.createPrep({ kindId: "coding", title: "Two Sum" });
+    expect(contact.id).toMatch(/^ct_/); expect(contact.notes).toBe("");
+    expect(asset.id).toMatch(/^as_/); expect(asset.version).toBe("v1");
+    expect(answer.id).toMatch(/^an_/); expect(answer.language).toBe("en");
+    expect(interview.id).toMatch(/^iv_/); expect(interview.outcome).toBe("pending");
+    expect(prep.id).toMatch(/^pr_/); expect(prep.attempts).toBe(0);
+    const s = store.getState();
+    expect(s.contacts[contact.id] && s.assets[asset.id] && s.answers[answer.id] && s.interviews[interview.id] && s.prep[prep.id]).toBeTruthy();
+  });
+
+  it("createInterview rejects an unknown application", async () => {
+    const { repo } = await boot();
+    await expect(repo.createInterview({ applicationId: "app_missing", roundTypeId: "coding" })).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("readOnly reflects a store that was marked read-only after a terminal error", async () => {
+    const { repo, store } = await boot();
+    expect(repo.readOnly).toBe(false);
+    store.setState({ readOnly: true });
+    expect(repo.readOnly).toBe(true);
+  });
 });

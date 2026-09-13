@@ -91,3 +91,22 @@ describe("TriStateField", () => {
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
 });
+
+describe("disabled fields", () => {
+  it("RatingField, TagInput and TriStateField ignore input while disabled", () => {
+    const onRating = vi.fn(); const onTags = vi.fn(); const onTri = vi.fn();
+    render(<>
+      <RatingField label="Desire" value={2} onChange={onRating} disabled />
+      <TagInput label="Tags" value={["a"]} onChange={onTags} disabled />
+      <TriStateField label="Sponsorship needed" value={null} onChange={onTri} disabled />
+    </>);
+    fireEvent.click(screen.getByRole("button", { name: "Desire 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove a" }));
+    const tagInput = screen.getByLabelText("Tags") as HTMLInputElement;
+    expect(tagInput.disabled).toBe(true);
+    expect((screen.getByLabelText("Sponsorship needed") as HTMLSelectElement).disabled).toBe(true);
+    expect(onRating).not.toHaveBeenCalled();
+    expect(onTags).not.toHaveBeenCalled();
+    expect(onTri).not.toHaveBeenCalled();
+  });
+});

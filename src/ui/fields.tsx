@@ -191,8 +191,9 @@ interface RatingProps {
   label: string;
   value: Rating | null;
   onChange: (value: Rating | null) => void;
+  disabled?: boolean;
 }
-export function RatingField({ label, value, onChange }: RatingProps) {
+export function RatingField({ label, value, onChange, disabled }: RatingProps) {
   return (
     <div className="field">
       <span className="field-label">{label}</span>
@@ -200,6 +201,7 @@ export function RatingField({ label, value, onChange }: RatingProps) {
         {([1, 2, 3, 4, 5] as Rating[]).map((n) => (
           <button key={n} type="button" aria-label={`${label} ${n}`} aria-pressed={value === n}
             className={value != null && n <= value ? "rating-dot on" : "rating-dot"}
+            disabled={disabled}
             onClick={() => onChange(value === n ? null : n)}>
             {n}
           </button>
@@ -215,12 +217,14 @@ interface TagProps {
   onChange: (value: string[]) => void;
   placeholder?: string;
   suggestions?: string[];
+  disabled?: boolean;
 }
-export function TagInput({ label, value, onChange, placeholder = "Add and press Enter", suggestions }: TagProps) {
+export function TagInput({ label, value, onChange, placeholder = "Add and press Enter", suggestions, disabled }: TagProps) {
   const id = useId();
   const listId = useId();
   const [draft, setDraft] = useState("");
   const add = () => {
+    if (disabled) return;
     const tag = draft.trim();
     setDraft("");
     if (!tag || value.includes(tag)) return;
@@ -232,14 +236,15 @@ export function TagInput({ label, value, onChange, placeholder = "Add and press 
         {value.map((t) => (
           <span key={t} className="chip chip-gray">
             {t}
-            <button type="button" className="chip-x" aria-label={`Remove ${t}`} onClick={() => onChange(value.filter((x) => x !== t))}>×</button>
+            <button type="button" className="chip-x" aria-label={`Remove ${t}`} disabled={disabled} onClick={() => onChange(value.filter((x) => x !== t))}>×</button>
           </span>
         ))}
         <input id={id} value={draft} placeholder={placeholder} list={suggestions ? listId : undefined}
+          disabled={disabled}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); }
-            else if (e.key === "Backspace" && draft === "" && value.length) onChange(value.slice(0, -1));
+            else if (e.key === "Backspace" && draft === "" && value.length && !disabled) onChange(value.slice(0, -1));
           }}
           onBlur={add} />
         {suggestions ? <datalist id={listId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist> : null}
@@ -254,13 +259,14 @@ interface TriProps {
   onChange: (value: boolean | null) => void;
   yesLabel?: string;
   noLabel?: string;
+  disabled?: boolean;
 }
-export function TriStateField({ label, value, onChange, yesLabel = "Yes", noLabel = "No" }: TriProps) {
+export function TriStateField({ label, value, onChange, yesLabel = "Yes", noLabel = "No", disabled }: TriProps) {
   const id = useId();
   const current = value === null ? "unknown" : value ? "yes" : "no";
   return (
     <Field label={label} htmlFor={id}>
-      <select id={id} value={current} onChange={(e) => onChange(e.target.value === "unknown" ? null : e.target.value === "yes")}>
+      <select id={id} value={current} disabled={disabled} onChange={(e) => onChange(e.target.value === "unknown" ? null : e.target.value === "yes")}>
         <option value="unknown">Unknown</option>
         <option value="yes">{yesLabel}</option>
         <option value="no">{noLabel}</option>

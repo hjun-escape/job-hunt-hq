@@ -101,6 +101,9 @@ textarea { resize: vertical; }
 @media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 .activity { list-style: none; padding: 0; margin: 0; }
 .activity li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.chip-toggle { font: inherit; cursor: pointer; border: 1px solid transparent; }
+.chip-toggle[aria-pressed="true"] { border-color: var(--accent); }
+.chip-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .drawer-backdrop { z-index: 45; }
