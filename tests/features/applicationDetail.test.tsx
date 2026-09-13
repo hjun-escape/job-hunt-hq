@@ -68,4 +68,12 @@ describe("ApplicationDetail", () => {
     await waitFor(async () => expect(await stored()).toBeUndefined());
     expect(window.location.hash).toBe("#/applications");
   });
+
+  it("keeps Overview field labels unique while the toolbar is visible", async () => {
+    await open();
+    expect(screen.getByLabelText("Country")).toBeTruthy();
+    expect(screen.getByLabelText("Channel")).toBeTruthy();
+    expect(screen.getByLabelText("Filter by country")).toBeTruthy();
+    expect(screen.getByLabelText("Filter by status")).toBeTruthy();
+  });
 });

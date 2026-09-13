@@ -86,23 +86,23 @@ export function ApplicationsPage({ parts }: PageProps) {
       </div>
       <div className="toolbar">
         <label className="field"><span className="field-label">Search</span><input value={filter.text} onChange={(e) => set({ text: e.target.value })} placeholder="Company, title, city, tag" /></label>
-        <label className="field"><span className="field-label">Country</span>
-          <select value={filter.countryId} onChange={(e) => set({ countryId: e.target.value })}>
+        <label className="field"><span className="field-label">Filter by country</span>
+          <select aria-label="Filter by country" value={filter.countryId} onChange={(e) => set({ countryId: e.target.value })}>
             <option value="">All</option>{pl.countries.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </label>
-        <label className="field"><span className="field-label">Status</span>
-          <select value={filter.statusId} onChange={(e) => set({ statusId: e.target.value })}>
+        <label className="field"><span className="field-label">Filter by status</span>
+          <select aria-label="Filter by status" value={filter.statusId} onChange={(e) => set({ statusId: e.target.value })}>
             <option value="">All open</option>{pl.statuses.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </label>
-        <label className="field"><span className="field-label">Tier</span>
-          <select value={filter.tier} onChange={(e) => set({ tier: e.target.value as AppFilter["tier"] })}>
+        <label className="field"><span className="field-label">Filter by tier</span>
+          <select aria-label="Filter by tier" value={filter.tier} onChange={(e) => set({ tier: e.target.value as AppFilter["tier"] })}>
             <option value="">Any</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
           </select>
         </label>
-        <label className="field"><span className="field-label">Channel</span>
-          <select value={filter.channelId} onChange={(e) => set({ channelId: e.target.value })}>
+        <label className="field"><span className="field-label">Filter by channel</span>
+          <select aria-label="Filter by channel" value={filter.channelId} onChange={(e) => set({ channelId: e.target.value })}>
             <option value="">Any</option>{pl.channels.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </label>
