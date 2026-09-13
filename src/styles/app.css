@@ -159,5 +159,6 @@ textarea { resize: vertical; }
   .slot { grid-template-columns: 1fr; }
   .funnel-row { grid-template-columns: 1fr; gap: 2px; }
   .kanban-col { flex-basis: 82vw; }
+  .topbar form { flex: 1; }
   .topbar input { max-width: none; }
 }

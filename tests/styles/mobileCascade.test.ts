@@ -28,6 +28,12 @@ describe("src/styles/app.css mobile drawer overrides", () => {
     expect(tail).toContain(".drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }");
   });
 
+  it("stretches the search form across the top bar on small screens", () => {
+    const tail = css.slice(css.lastIndexOf("@media (max-width: 720px)"));
+    expect(tail).toContain(".topbar form { flex: 1; }");
+    expect(tail).toContain(".topbar input { max-width: none; }");
+  });
+
   it("keeps exactly one mobile breakpoint block, as the last rule in the file", () => {
     const occurrences = css.split("@media (max-width: 720px)").length - 1;
     expect(occurrences).toBe(1);
