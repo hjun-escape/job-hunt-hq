@@ -54,6 +54,11 @@ describe("startSync", () => {
     await h.ready;
     expect(store.getState().readOnly).toBe(true);
     expect(errors).toContain("revoked");
+    // Finding 1: fail() must be idempotent (one transition, one onError call) and must
+    // seed settings/profile even though every collection subscription died before delivering data.
+    expect(errors).toHaveLength(1);
+    expect(store.getState().settings).not.toBeNull();
+    expect(store.getState().profile).not.toBeNull();
     h.stop();
   });
 });

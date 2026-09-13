@@ -8,6 +8,7 @@ import { createStore } from "../store/store";
 import { startSync, type SyncHandle } from "../store/sync";
 import { ConfirmProvider } from "../ui/Confirm";
 import { ToastProvider } from "../ui/Toast";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { Shell } from "./Shell";
 
 export function App({ capabilities }: { capabilities: Capabilities }) {
@@ -39,7 +40,9 @@ export function App({ capabilities }: { capabilities: Capabilities }) {
     <AppContext.Provider value={services}>
       <ToastProvider>
         <ConfirmProvider>
-          <Shell />
+          <ErrorBoundary>
+            <Shell />
+          </ErrorBoundary>
         </ConfirmProvider>
       </ToastProvider>
     </AppContext.Provider>

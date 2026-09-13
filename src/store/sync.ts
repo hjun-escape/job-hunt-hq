@@ -31,6 +31,7 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
   const unsubs: Unsubscribe[] = [];
   const pending = new Set<string>([...COLLECTIONS, "settings", "profile"]);
   let stopped = false;
+  let failed = false;
   let resolveReady: () => void = () => {};
   const ready = new Promise<void>((resolve) => {
     resolveReady = resolve;
@@ -43,9 +44,21 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
       resolveReady();
     }
   };
+  /** Terminal for the whole sync: at most one transition and one `onError` call, no matter
+   * how many of the nine subscriptions hit a terminal error. If settings/profile never made
+   * it out of a listener before this fires, seed in-memory defaults so every page's
+   * `useSettings()`/`useProfile()` still has something to render instead of throwing. */
   const fail = (e: DbError) => {
+    if (stopped || failed) return;
+    failed = true;
     opts.onError?.(e);
-    store.setState({ readOnly: true, ready: true });
+    const s = store.getState();
+    store.setState({
+      readOnly: true,
+      ready: true,
+      settings: s.settings ?? defaultSettings(opts.homeTz, now()),
+      profile: s.profile ?? defaultProfile(now()),
+    });
     resolveReady();
   };
 
