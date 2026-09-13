@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { TextField, TagInput, RatingField, TriStateField, NumberField } from "../../src/ui/fields";
 
 describe("TextField", () => {
@@ -14,6 +14,26 @@ describe("TextField", () => {
     fireEvent.blur(input);
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith("new");
+  });
+
+  it("reverts to the prop value after a failed commit, then can commit the same text again", async () => {
+    let resolveCommit: (ok: boolean) => void = () => {};
+    const onCommit = vi.fn(() => new Promise<boolean>((resolve) => { resolveCommit = resolve; }));
+    render(<TextField label="Title" value="old" onCommit={onCommit} />);
+    const input = screen.getByLabelText("Title") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "new" } });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith("new");
+    await act(async () => {
+      resolveCommit(false);
+      await Promise.resolve();
+    });
+    expect(input.value).toBe("old");
+    fireEvent.change(input, { target: { value: "new" } });
+    fireEvent.blur(input);
+    expect(onCommit).toHaveBeenCalledTimes(2);
+    expect(onCommit).toHaveBeenLastCalledWith("new");
   });
 });
 

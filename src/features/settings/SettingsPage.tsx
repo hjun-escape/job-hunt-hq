@@ -20,7 +20,7 @@ export function SettingsPage() {
   const w = settings.priorityWeights;
 
   const save = (patch: Partial<Settings>) => run(() => repo.saveSettings({ ...settings, ...patch }));
-  const setWeight = (key: keyof Settings["priorityWeights"], v: number | null) => void save({ priorityWeights: { ...w, [key]: v ?? 0 } });
+  const setWeight = (key: keyof Settings["priorityWeights"], v: number | null) => save({ priorityWeights: { ...w, [key]: v ?? 0 } });
   const addFx = () => {
     const cur = fxCurrency.trim().toUpperCase();
     const rate = Number(fxRate);
@@ -54,8 +54,8 @@ export function SettingsPage() {
               {allTimeZones().map((z) => <option key={z} value={z}>{z}</option>)}
             </select>
           </Field>
-          <TextField label="Display currency" value={settings.displayCurrency} onCommit={(v) => void save({ displayCurrency: v.trim().toUpperCase() || "CAD" })} />
-          <NumberField label="Follow-up cadence (days)" value={settings.followUpCadenceDays} min={1} onCommit={(v) => void save({ followUpCadenceDays: v ?? 7 })} />
+          <TextField label="Display currency" value={settings.displayCurrency} onCommit={(v) => save({ displayCurrency: v.trim().toUpperCase() || "CAD" })} />
+          <NumberField label="Follow-up cadence (days)" value={settings.followUpCadenceDays} min={1} onCommit={(v) => save({ followUpCadenceDays: v ?? 7 })} />
         </div>
         <h3>Priority weights</h3>
         <div className="grid-3">

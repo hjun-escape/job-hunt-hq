@@ -25,10 +25,10 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
   }
 
   const linked = Object.values(state.applications).filter((a) => a.companyId === id);
-  const patch = (p: Partial<Company>) => void run(() => repo.update("companies", id, p));
+  const patch = (p: Partial<Company>) => run(() => repo.update("companies", id, p));
   const setPolicy = (countryId: string, p: Partial<SponsorshipPolicy>) => {
     const existing: SponsorshipPolicy = company.sponsorship[countryId] ?? { policy: "unknown" };
-    patch({ sponsorship: { ...company.sponsorship, [countryId]: { ...existing, ...p } } });
+    return patch({ sponsorship: { ...company.sponsorship, [countryId]: { ...existing, ...p } } });
   };
   const remove = async () => {
     if (linked.length) return;
@@ -52,14 +52,14 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       }
     >
       <div className="grid-2">
-        <TextField label="Name" value={company.name} onCommit={(v) => { if (v.trim()) patch({ name: v.trim() }); }} />
+        <TextField label="Name" value={company.name} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} />
         <TextField label="Website" type="url" value={company.website ?? ""} onCommit={(v) => patch({ website: v || undefined })} />
         <TextField label="Industry" value={company.industry ?? ""} onCommit={(v) => patch({ industry: v || undefined })} />
         <TextField label="Size" value={company.size ?? ""} onCommit={(v) => patch({ size: v || undefined })} />
         <TextField label="HQ" value={company.hq ?? ""} onCommit={(v) => patch({ hq: v || undefined })} />
       </div>
-      <TagInput label="Office cities" value={company.cities} onChange={(v) => patch({ cities: v })} />
-      <TagInput label="Tech stack" value={company.techStack} onChange={(v) => patch({ techStack: v })} />
+      <TagInput label="Office cities" value={company.cities} onChange={(v) => void patch({ cities: v })} />
+      <TagInput label="Tech stack" value={company.techStack} onChange={(v) => void patch({ techStack: v })} />
 
       <h3>Sponsorship by country</h3>
       {settings.pickLists.countries.map((co) => {
@@ -67,7 +67,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         return (
           <div className="grid-2" key={co.id}>
             <Field label={`${co.label} sponsorship`} htmlFor={`sp-${co.id}`}>
-              <select id={`sp-${co.id}`} value={p?.policy ?? "unknown"} onChange={(e) => setPolicy(co.id, { policy: e.target.value as SponsorshipPolicy["policy"] })}>
+              <select id={`sp-${co.id}`} value={p?.policy ?? "unknown"} onChange={(e) => void setPolicy(co.id, { policy: e.target.value as SponsorshipPolicy["policy"] })}>
                 <option value="unknown">Unknown</option>
                 <option value="yes">Sponsors</option>
                 <option value="no">Does not sponsor</option>
@@ -87,7 +87,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
           {company.sources.map((s, i) => (
             <li key={`${s.url}-${i}`}>
               <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a>{" "}
-              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => patch({ sources: company.sources.filter((_, j) => j !== i) })}>×</button>
+              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void patch({ sources: company.sources.filter((_, j) => j !== i) })}>×</button>
             </li>
           ))}
         </ul>
@@ -97,7 +97,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         <input placeholder="https://" aria-label="Source URL" value={newSource.url} onChange={(e) => setNewSource({ ...newSource, url: e.target.value })} />
         <button type="button" className="btn" onClick={() => {
           if (!newSource.url.trim()) return;
-          patch({ sources: [...company.sources, { label: newSource.label.trim(), url: newSource.url.trim() }] });
+          void patch({ sources: [...company.sources, { label: newSource.label.trim(), url: newSource.url.trim() }] });
           setNewSource({ label: "", url: "" });
         }}>Add source</button>
       </div>

@@ -1,6 +1,26 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PickEntry, Rating } from "../domain/types";
 
+/** What a field's `onCommit` may return: nothing/`true` means "saved, keep the draft",
+ * `false` (or a rejected promise) means "the save failed, revert to the last committed value"
+ * so Enter/blur is not a no-op the next time the caller tries the same edit. */
+type CommitOutcome = void | boolean | Promise<boolean | void>;
+
+function isPromiseLike(v: unknown): v is Promise<boolean | void> {
+  return !!v && typeof (v as { then?: unknown }).then === "function";
+}
+
+/** Calls `revert` when `outcome` is (or resolves/rejects to) a failure. */
+function afterCommit(outcome: CommitOutcome, revert: () => void): void {
+  if (isPromiseLike(outcome)) {
+    outcome.then((ok) => {
+      if (ok === false) revert();
+    }, revert);
+    return;
+  }
+  if (outcome === false) revert();
+}
+
 export function Field({ label, children, hint, htmlFor }: { label: string; children: ReactNode; hint?: string; htmlFor?: string }) {
   return (
     <div className="field">
@@ -14,7 +34,7 @@ export function Field({ label, children, hint, htmlFor }: { label: string; child
 interface TextProps {
   label: string;
   value: string;
-  onCommit: (value: string) => void;
+  onCommit: (value: string) => CommitOutcome;
   placeholder?: string;
   type?: "text" | "url" | "email";
   disabled?: boolean;
@@ -28,10 +48,12 @@ export function TextField({ label, value, onCommit, placeholder, type = "text", 
     last.current = value;
   }, [value]);
   const commit = () => {
-    if (draft !== last.current) {
-      last.current = draft;
-      onCommit(draft);
-    }
+    if (draft === last.current) return;
+    last.current = draft;
+    afterCommit(onCommit(draft), () => {
+      last.current = value;
+      setDraft(value);
+    });
   };
   return (
     <Field label={label} htmlFor={id}>
@@ -54,7 +76,7 @@ export function TextField({ label, value, onCommit, placeholder, type = "text", 
 interface TextAreaProps {
   label: string;
   value: string;
-  onCommit: (value: string) => void;
+  onCommit: (value: string) => CommitOutcome;
   rows?: number;
   placeholder?: string;
   disabled?: boolean;
@@ -77,10 +99,12 @@ export function TextArea({ label, value, onCommit, rows = 4, placeholder, disabl
         disabled={disabled}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
-          if (draft !== last.current) {
-            last.current = draft;
-            onCommit(draft);
-          }
+          if (draft === last.current) return;
+          last.current = draft;
+          afterCommit(onCommit(draft), () => {
+            last.current = value;
+            setDraft(value);
+          });
         }}
       />
     </Field>
@@ -90,7 +114,7 @@ export function TextArea({ label, value, onCommit, rows = 4, placeholder, disabl
 interface NumberProps {
   label: string;
   value: number | null;
-  onCommit: (value: number | null) => void;
+  onCommit: (value: number | null) => CommitOutcome;
   min?: number;
   max?: number;
   step?: number;
@@ -108,10 +132,12 @@ export function NumberField({ label, value, onCommit, min, max, step, disabled }
     const trimmed = draft.trim();
     const next = trimmed === "" ? null : Number(trimmed);
     if (next !== null && Number.isNaN(next)) return;
-    if (next !== last.current) {
-      last.current = next;
-      onCommit(next);
-    }
+    if (next === last.current) return;
+    last.current = next;
+    afterCommit(onCommit(next), () => {
+      last.current = value;
+      setDraft(value == null ? "" : String(value));
+    });
   };
   return (
     <Field label={label} htmlFor={id}>

@@ -15,7 +15,7 @@ function normalizedText(comp: Comp, settings: Settings): string | null {
   return `${f(lo)} – ${f(hi)}`;
 }
 
-export function OverviewTab({ app, patch }: { app: Application; patch: (p: Partial<Application>) => unknown }) {
+export function OverviewTab({ app, patch }: { app: Application; patch: (p: Partial<Application>) => Promise<boolean> }) {
   const state = useAppState();
   const settings = useSettings();
   const pl = settings.pickLists;
@@ -33,7 +33,7 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: Parti
         <h3>Role</h3>
         <div className="grid-2">
           <SelectField label="Company" value={app.companyId} options={companies} onChange={(v) => { if (v) patch({ companyId: v }); }} allowEmpty={false} />
-          <TextField label="Title" value={app.title} onCommit={(v) => { if (v.trim()) patch({ title: v.trim() }); }} />
+          <TextField label="Title" value={app.title} onCommit={(v) => (v.trim() ? patch({ title: v.trim() }) : false)} />
           <TextField label="Req ID" value={app.reqId ?? ""} onCommit={(v) => patch({ reqId: opt(v) })} />
           <TextField label="Posting URL" type="url" value={app.url ?? ""} onCommit={(v) => patch({ url: opt(v) })} />
           <TextField label="Team" value={app.team ?? ""} onCommit={(v) => patch({ team: opt(v) })} />
