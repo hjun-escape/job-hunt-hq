@@ -95,3 +95,5 @@ textarea { resize: vertical; }
 .tab { font: inherit; background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 8px 10px; cursor: pointer; color: var(--text-muted); }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
 @media (max-width: 720px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+.activity { list-style: none; padding: 0; margin: 0; }
+.activity li { padding: 6px 0; border-bottom: 1px solid var(--border); }

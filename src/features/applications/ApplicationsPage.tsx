@@ -10,6 +10,7 @@ import { useApp, useAppState, useSettings } from "../../store/context";
 import { Chip, PickChip } from "../../ui/Chip";
 import { Table } from "../../ui/Table";
 import type { Column, SortDir } from "../../ui/sortRows";
+import { ApplicationDetail } from "./ApplicationDetail";
 import { QuickAdd } from "./QuickAdd";
 
 const URGENCY_COLOR: Record<Urgency, ColorToken> = { overdue: "red", urgent: "red", soon: "amber", later: "gray" };
@@ -112,6 +113,7 @@ export function ApplicationsPage({ parts }: PageProps) {
         onRowClick={(a) => navigate(`/applications/${a.id}`)} selectedId={parts[0]}
         emptyText='No applications match. Add one with "New application".' />
       <QuickAdd open={adding} onClose={() => setAdding(false)} />
+      {parts[0] ? <ApplicationDetail id={parts[0]} onClose={() => navigate("/applications")} /> : null}
     </section>
   );
 }
