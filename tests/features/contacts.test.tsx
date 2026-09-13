@@ -93,3 +93,16 @@ describe("Contacts", () => {
       expect(b.reference).toEqual({ usedInApplicationIds: [], lastNotifiedAt: "2026-09-10" });
     });
   });
+
+  it("defaults the new contact's relationship to the first non-archived entry", async () => {
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.contactRelationships = s.pickLists.contactRelationships.map((r, i) => (i === 0 ? { ...r, archived: true } : r));
+    const db = await open("#/contacts", async (d) => { await put(d, "settings/main", s); });
+    fireEvent.change(screen.getByLabelText("New contact name"), { target: { value: "Dana Kim" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add contact" }));
+    await screen.findByRole("dialog");
+    await waitFor(async () => expect((await db.collection("contacts").get()).size).toBe(1));
+    const openRels = s.pickLists.contactRelationships.filter((r) => !r.archived);
+    const added = (await db.collection("contacts").get()).docs[0].data() as unknown as Contact;
+    expect(added.relationshipId).toBe(openRels[0].id);
+  });

@@ -48,4 +48,17 @@ describe("Prep", () => {
     expect(screen.queryByText("Two Sum", { selector: "td strong" })).toBeTruthy();
     expect(screen.queryByText("Rate limiter", { selector: "td strong" })).toBeNull();
   });
+
+  it("defaults the new prep item's kind to the first non-archived entry", async () => {
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.prepKinds = s.pickLists.prepKinds.map((k, i) => (i === 0 ? { ...k, archived: true } : k));
+    const db = await open("#/prep", async (d) => { await put(d, "settings/main", s); });
+    fireEvent.change(screen.getByLabelText("New prep title"), { target: { value: "Two Sum" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add prep item" }));
+    await screen.findByRole("dialog");
+    await waitFor(async () => expect((await db.collection("prep").get()).size).toBe(1));
+    const openKinds = s.pickLists.prepKinds.filter((k) => !k.archived);
+    const added = (await db.collection("prep").get()).docs[0].data() as unknown as PrepItem;
+    expect(added.kindId).toBe(openKinds[0].id);
+  });
 });

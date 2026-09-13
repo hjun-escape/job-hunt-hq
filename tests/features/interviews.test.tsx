@@ -68,4 +68,17 @@ describe("Interviews", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(async () => expect((await db.doc("interviews/iv_1").get()).exists).toBe(false));
   });
+
+  it("defaults the new round's type to the first non-archived entry", async () => {
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.roundTypes = s.pickLists.roundTypes.map((r, i) => (i === 0 ? { ...r, archived: true } : r));
+    const db = await open("#/interviews", async (d) => { await put(d, "settings/main", s); });
+    fireEvent.change(screen.getByLabelText("New round application"), { target: { value: "app_1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add round" }));
+    await screen.findByRole("dialog");
+    await waitFor(async () => expect((await db.collection("interviews").get()).size).toBe(1));
+    const openTypes = s.pickLists.roundTypes.filter((r) => !r.archived);
+    const added = (await db.collection("interviews").get()).docs[0].data() as unknown as Interview;
+    expect(added.roundTypeId).toBe(openTypes[0].id);
+  });
 });

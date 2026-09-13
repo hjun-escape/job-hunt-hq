@@ -19,7 +19,8 @@ export function AnswersPage({ parts }: PageProps) {
   const sort = useSort("updated", "desc");
   const pl = settings.pickLists;
   const [filter, setFilter] = useState<AnswerFilter>({ text: "", kindId: "", themeId: "", language: "" });
-  const [newKind, setNewKind] = useState(pl.answerKinds[0]?.id ?? "answer");
+  const openAnswerKinds = pl.answerKinds.filter((k) => !k.archived);
+  const [newKind, setNewKind] = useState(openAnswerKinds[0]?.id ?? "answer");
   const [newTitle, setNewTitle] = useState("");
   const apps = Object.values(state.applications);
   const rows = useMemo(() => filterAnswers(Object.values(state.answers), filter), [state.answers, filter]);
@@ -52,7 +53,7 @@ export function AnswersPage({ parts }: PageProps) {
         <span className="muted">{rows.length} shown</span>
       </div>
       <div className="toolbar">
-        <label className="field"><span className="field-label">New answer kind</span><select value={newKind} onChange={(e) => setNewKind(e.target.value)}>{pl.answerKinds.filter((k) => !k.archived).map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}</select></label>
+        <label className="field"><span className="field-label">New answer kind</span><select value={newKind} onChange={(e) => setNewKind(e.target.value)}>{openAnswerKinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}</select></label>
         <label className="field"><span className="field-label">New answer title</span><input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Why this company, STAR: outage, 지원동기…" onKeyDown={(e) => { if (e.key === "Enter") create(); }} /></label>
         <button type="button" className="btn primary" onClick={create} disabled={repo.readOnly}>Add answer</button>
       </div>

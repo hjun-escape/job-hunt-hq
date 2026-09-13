@@ -23,7 +23,8 @@ export function InterviewsPage({ parts }: PageProps) {
   const openStatuses = new Set(pl.statuses.filter((s) => s.group === "open").map((s) => s.id));
   const openApps = Object.values(state.applications).filter((a) => openStatuses.has(a.statusId));
   const [newApp, setNewApp] = useState("");
-  const [newType, setNewType] = useState(pl.roundTypes[0]?.id ?? "");
+  const openRoundTypes = pl.roundTypes.filter((r) => !r.archived);
+  const [newType, setNewType] = useState(openRoundTypes[0]?.id ?? "");
   const all = Object.values(state.interviews);
   const groups = useMemo(() => groupInterviews(all, settings.homeTz), [all, settings.homeTz]);
   const appLabel = (i: Interview) => { const a = state.applications[i.applicationId]; return a ? `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}` : "(deleted application)"; };
@@ -52,7 +53,7 @@ export function InterviewsPage({ parts }: PageProps) {
           </select>
         </label>
         <label className="field"><span className="field-label">New round type</span>
-          <select value={newType} onChange={(e) => setNewType(e.target.value)}>{pl.roundTypes.filter((r) => !r.archived).map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select>
+          <select value={newType} onChange={(e) => setNewType(e.target.value)}>{openRoundTypes.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select>
         </label>
         <button type="button" className="btn primary" onClick={create} disabled={!newApp || repo.readOnly}>Add round</button>
       </div>

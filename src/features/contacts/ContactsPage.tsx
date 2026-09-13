@@ -22,7 +22,8 @@ export function ContactsPage({ parts }: PageProps) {
   const [rel, setRel] = useState("");
   const [onlyDue, setOnlyDue] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newRel, setNewRel] = useState(settings.pickLists.contactRelationships[0]?.id ?? "");
+  const openRelationships = settings.pickLists.contactRelationships.filter((r) => !r.archived);
+  const [newRel, setNewRel] = useState(openRelationships[0]?.id ?? "");
   const apps = Object.values(state.applications);
   const today = todayIso(settings.homeTz);
   const flag = (c: Contact) => followUpDue(c, apps, settings.pickLists.statuses, settings.followUpCadenceDays, today);
@@ -67,7 +68,7 @@ export function ContactsPage({ parts }: PageProps) {
       <div className="toolbar">
         <label className="field"><span className="field-label">New contact name</span><input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" onKeyDown={(e) => { if (e.key === "Enter") create(); }} /></label>
         <label className="field"><span className="field-label">New contact relationship</span>
-          <select value={newRel} onChange={(e) => setNewRel(e.target.value)}>{settings.pickLists.contactRelationships.filter((r) => !r.archived).map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select>
+          <select value={newRel} onChange={(e) => setNewRel(e.target.value)}>{openRelationships.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select>
         </label>
         <button type="button" className="btn primary" onClick={create} disabled={repo.readOnly}>Add contact</button>
       </div>

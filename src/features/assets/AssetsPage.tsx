@@ -18,7 +18,8 @@ export function AssetsPage({ parts }: PageProps) {
   const { run } = useSaver();
   const sort = useSort("updated", "desc");
   const kinds = settings.pickLists.assetKinds;
-  const [newKind, setNewKind] = useState(kinds[0]?.id ?? "");
+  const openKinds = kinds.filter((k) => !k.archived);
+  const [newKind, setNewKind] = useState(openKinds[0]?.id ?? "");
   const [newName, setNewName] = useState("");
   const all = Object.values(state.assets);
   const usedBy = (id: string) => Object.values(state.applications).filter((a) => a.resumeAssetId === id || a.coverLetterAssetId === id).length;
@@ -47,7 +48,7 @@ export function AssetsPage({ parts }: PageProps) {
       <h1>Assets</h1>
       <div className="toolbar">
         <label className="field"><span className="field-label">New asset kind</span>
-          <select value={newKind} onChange={(e) => setNewKind(e.target.value)}>{kinds.filter((k) => !k.archived).map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}</select>
+          <select value={newKind} onChange={(e) => setNewKind(e.target.value)}>{openKinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}</select>
         </label>
         <label className="field"><span className="field-label">New asset name</span><input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Backend resume, Korean 이력서, …" onKeyDown={(e) => { if (e.key === "Enter") create(); }} /></label>
         <button type="button" className="btn primary" onClick={create} disabled={repo.readOnly}>Add asset</button>

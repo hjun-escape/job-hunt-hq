@@ -83,4 +83,17 @@ describe("Assets", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh storage usage" }));
     expect(await screen.findByText(/2 files/)).toBeTruthy();
   });
+
+  it("defaults the new asset's kind to the first non-archived entry", async () => {
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.assetKinds = s.pickLists.assetKinds.map((k, i) => (i === 0 ? { ...k, archived: true } : k));
+    const { db } = await open("#/assets", async (d) => { await put(d, "settings/main", s); });
+    fireEvent.change(screen.getByLabelText("New asset name"), { target: { value: "Backend resume" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add asset" }));
+    await screen.findByRole("dialog");
+    await waitFor(async () => expect((await db.collection("assets").get()).size).toBe(1));
+    const openKinds = s.pickLists.assetKinds.filter((k) => !k.archived);
+    const added = (await db.collection("assets").get()).docs[0].data() as unknown as AssetDoc;
+    expect(added.kindId).toBe(openKinds[0].id);
+  });
 });

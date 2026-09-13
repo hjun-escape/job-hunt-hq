@@ -19,7 +19,8 @@ export function PrepPage({ parts }: PageProps) {
   const sort = useSort("updated", "desc");
   const pl = settings.pickLists;
   const [filter, setFilter] = useState<PrepFilter>({ text: "", kindId: "", pattern: "", difficulty: "" });
-  const [newKind, setNewKind] = useState(pl.prepKinds[0]?.id ?? "coding");
+  const openPrepKinds = pl.prepKinds.filter((k) => !k.archived);
+  const [newKind, setNewKind] = useState(openPrepKinds[0]?.id ?? "coding");
   const [newTitle, setNewTitle] = useState("");
   const all = Object.values(state.prep);
   const rows = useMemo(() => filterPrep(all, filter), [all, filter]);
@@ -54,7 +55,7 @@ export function PrepPage({ parts }: PageProps) {
         <span className="muted">{rows.length} shown</span>
       </div>
       <div className="toolbar">
-        <label className="field"><span className="field-label">New prep kind</span><select value={newKind} onChange={(e) => setNewKind(e.target.value)}>{pl.prepKinds.filter((k) => !k.archived).map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}</select></label>
+        <label className="field"><span className="field-label">New prep kind</span><select value={newKind} onChange={(e) => setNewKind(e.target.value)}>{openPrepKinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}</select></label>
         <label className="field"><span className="field-label">New prep title</span><input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Two Sum, Design a rate limiter, 'Tell me about a conflict'…" onKeyDown={(e) => { if (e.key === "Enter") create(); }} /></label>
         <button type="button" className="btn primary" onClick={create} disabled={repo.readOnly}>Add prep item</button>
       </div>

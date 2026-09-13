@@ -62,4 +62,17 @@ describe("Answers", () => {
     expect(screen.getAllByText("Outage").length).toBeGreaterThan(0);
     expect(screen.queryByText("Why us", { selector: "td strong" })).toBeNull();
   });
+
+  it("defaults the new answer's kind to the first non-archived entry", async () => {
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.answerKinds = s.pickLists.answerKinds.map((k, i) => (i === 0 ? { ...k, archived: true } : k));
+    const db = await open("#/answers", async (d) => { await put(d, "settings/main", s); });
+    fireEvent.change(screen.getByLabelText("New answer title"), { target: { value: "Why Shopify" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add answer" }));
+    await screen.findByRole("dialog");
+    await waitFor(async () => expect((await db.collection("answers").get()).size).toBe(1));
+    const openKinds = s.pickLists.answerKinds.filter((k) => !k.archived);
+    const added = (await db.collection("answers").get()).docs[0].data() as unknown as Answer;
+    expect(added.kindId).toBe(openKinds[0].id);
+  });
 });
