@@ -2,6 +2,7 @@ import type { Capabilities } from "./types";
 import { createFakeAssets } from "./fakeAssets";
 import { createFakeDb } from "./fakeDb";
 import { createAnchorDownloads } from "./fakeDownloads";
+import { createFakeSample } from "./fakeSample";
 
 export const DEV_PERSIST_KEY = "job-hunt-hq-dev";
 
@@ -20,6 +21,9 @@ export function createCapabilities(): Capabilities {
     db: Promise.resolve(createFakeDb({ persistKey: DEV_PERSIST_KEY })),
     assets: Promise.resolve(createFakeAssets()),
     downloads: Promise.resolve(createAnchorDownloads()),
-    sample: Promise.resolve(null),
+    sample: Promise.resolve(createFakeSample({
+      reply: (input) => `(dev sample) This is a canned draft. The real page streams Claude's answer here.\n\nPrompt began: ${typeof input === "string" ? input.slice(0, 80) : "…"}`,
+      json: () => ({ must: ["(dev) 3+ years backend", "(dev) Go"], nice: ["(dev) gRPC"] }),
+    })),
   };
 }
