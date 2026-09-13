@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatBytes } from "../../domain/assets";
 import { useApp } from "../../store/context";
 import { useCapability } from "../../store/useCapability";
@@ -8,11 +8,17 @@ export function StorageMeter() {
   const assets = useCapability(caps.assets);
   const [usage, setUsage] = useState<{ files: number; bytes: number; maxFiles: number; maxBytes: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const load = () => {
     if (!assets) return;
-    let live = true;
-    assets.list().then((r) => { if (live) setUsage(r.usage); }, () => { if (live) setError("Could not read storage usage."); });
-    return () => { live = false; };
+    assets.list().then(
+      (r) => { if (mounted.current) { setError(null); setUsage(r.usage); } },
+      () => { if (mounted.current) setError("Could not read storage usage."); },
+    );
   };
   useEffect(() => {
     if (!assets) return;
