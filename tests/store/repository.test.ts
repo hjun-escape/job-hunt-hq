@@ -102,12 +102,41 @@ describe("Repository", () => {
   });
 
   it("saveProfile echoes into the store so a follow-up save built from the store keeps the first change", async () => {
-    const { repo, store } = await boot();
+    const { db, store } = await boot();
     const base = store.getState().profile!;
-    const p1 = repo.saveProfile({ ...base, name: "Ada" });
-    const p2 = p1.then(() => repo.saveProfile({ ...store.getState().profile!, email: "me@example.com" }));
-    await Promise.all([p1, p2]);
+    // Like the real platform, the write confirms before the subscription echoes it back: the fake
+    // notifies synchronously inside `set`, so delay the real write by 20ms to reproduce that lag.
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    await slowRepo.saveProfile({ ...base, name: "Ada" });
+    await slowRepo.saveProfile({ ...store.getState().profile!, email: "me@example.com" });
+    await new Promise((r) => setTimeout(r, 50));
     expect(store.getState().profile).toMatchObject({ name: "Ada", email: "me@example.com" });
+    expect((await db.doc("profile/main").get()).data()).toMatchObject({ name: "Ada", email: "me@example.com" });
+  });
+
+  it("saveSettings echoes into the store so a follow-up save built from the store keeps the first change", async () => {
+    const { db, store } = await boot();
+    const base = store.getState().settings!;
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    await slowRepo.saveSettings({ ...base, displayCurrency: "KRW" });
+    await slowRepo.saveSettings({ ...store.getState().settings!, followUpCadenceDays: 14 });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().settings).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
+    expect((await db.doc("settings/main").get()).data()).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
   });
 
   it("a read-only repository rejects writes with code read_only", async () => {

@@ -56,27 +56,27 @@ export function ProfilePage() {
           <TextField label="Full name" value={profile.name} onCommit={(v) => save({ name: v.trim() })} disabled={ro} />
           <TextField label="Email address" type="email" value={profile.email} onCommit={(v) => save({ email: v.trim() })} disabled={ro} />
         </div>
-        <RowsEditor label="Phone numbers" rows={profile.phones} columns={[{ key: "label", label: "Label", placeholder: "CA / KR" }, { key: "value", label: "Number" }]} blank={() => ({ label: "", value: "" })} onChange={(rows) => void save({ phones: rows })} disabled={ro} addLabel="Add phone" />
-        <RowsEditor label="Addresses" rows={profile.addresses} columns={[{ key: "countryId", label: "Country", type: "select", options: countries }, { key: "lines", label: "Address", placeholder: "Street, city, postal code" }]} blank={() => ({ countryId: countries[0]?.id ?? "CA", lines: "" })} onChange={(rows) => void save({ addresses: rows })} disabled={ro} addLabel="Add address" />
+        <RowsEditor label="Phone numbers" rows={profile.phones} columns={[{ key: "label", label: "Label", placeholder: "CA / KR" }, { key: "value", label: "Number" }]} blank={() => ({ label: "", value: "" })} onChange={(fn) => void save((cur) => ({ phones: fn(cur.phones) }))} disabled={ro} addLabel="Add phone" />
+        <RowsEditor label="Addresses" rows={profile.addresses} columns={[{ key: "countryId", label: "Country", type: "select", options: countries }, { key: "lines", label: "Address", placeholder: "Street, city, postal code" }]} blank={() => ({ countryId: countries[0]?.id ?? "CA", lines: "" })} onChange={(fn) => void save((cur) => ({ addresses: fn(cur.addresses) }))} disabled={ro} addLabel="Add address" />
       </div>
 
       <div className="section">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>Links</h2><CopyButton section="links" label="Copy links" /></div>
-        <RowsEditor label="Links" rows={profile.links} columns={[{ key: "label", label: "Label", placeholder: "GitHub, LinkedIn, portfolio" }, { key: "url", label: "URL" }]} blank={() => ({ label: "", url: "" })} onChange={(rows) => void save({ links: rows })} disabled={ro} addLabel="Add link" />
+        <RowsEditor label="Links" rows={profile.links} columns={[{ key: "label", label: "Label", placeholder: "GitHub, LinkedIn, portfolio" }, { key: "url", label: "URL" }]} blank={() => ({ label: "", url: "" })} onChange={(fn) => void save((cur) => ({ links: fn(cur.links) }))} disabled={ro} addLabel="Add link" />
       </div>
 
       <div className="section">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>Education</h2><CopyButton section="education" label="Copy education" /></div>
         <RowsEditor<Education> label="Education" rows={profile.education}
           columns={[{ key: "school", label: "School" }, { key: "degree", label: "Degree" }, { key: "field", label: "Field" }, { key: "start", label: "Start", placeholder: "2019-09" }, { key: "end", label: "End", placeholder: "2023-05" }, { key: "gpa", label: "GPA" }, { key: "notes", label: "Notes" }]}
-          blank={() => ({ school: "", degree: "", field: "", start: "", end: "" })} onChange={(rows) => void save({ education: rows })} disabled={ro} addLabel="Add education" />
+          blank={() => ({ school: "", degree: "", field: "", start: "", end: "" })} onChange={(fn) => void save((cur) => ({ education: fn(cur.education) }))} disabled={ro} addLabel="Add education" />
       </div>
 
       <div className="section">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>Employment</h2><CopyButton section="employment" label="Copy employment" /></div>
         <RowsEditor<Employment> label="Employment" rows={profile.employment}
           columns={[{ key: "company", label: "Company" }, { key: "title", label: "Title" }, { key: "start", label: "Start", placeholder: "2023-06" }, { key: "end", label: "End", placeholder: "blank = present" }, { key: "location", label: "Location" }, { key: "summary", label: "Summary" }]}
-          blank={() => ({ company: "", title: "", start: "", summary: "" })} onChange={(rows) => void save({ employment: rows })} disabled={ro} addLabel="Add employment" />
+          blank={() => ({ company: "", title: "", start: "", summary: "" })} onChange={(fn) => void save((cur) => ({ employment: fn(cur.employment) }))} disabled={ro} addLabel="Add employment" />
       </div>
 
       <div className="section">
