@@ -4,7 +4,7 @@ import type { ChecklistItem } from "../../domain/types";
 
 interface Props {
   items: ChecklistItem[];
-  onChange: (items: ChecklistItem[]) => void;
+  onChange: (update: (current: ChecklistItem[]) => ChecklistItem[]) => void;
   disabled?: boolean;
 }
 
@@ -13,7 +13,8 @@ export function ChecklistEditor({ items, onChange, disabled }: Props) {
   const add = () => {
     const text = draft.trim();
     if (!text) return;
-    onChange([...items, { id: newId("ck"), text, done: false }]);
+    const item: ChecklistItem = { id: newId("ck"), text, done: false };
+    onChange((current) => [...current, item]);
     setDraft("");
   };
   return (
@@ -24,10 +25,11 @@ export function ChecklistEditor({ items, onChange, disabled }: Props) {
           {items.map((it) => (
             <li key={it.id}>
               <label className="row">
-                <input type="checkbox" checked={it.done} disabled={disabled} onChange={(e) => onChange(items.map((x) => (x.id === it.id ? { ...x, done: e.target.checked } : x)))} />
+                <input type="checkbox" checked={it.done} disabled={disabled}
+                  onChange={(e) => { const checked = e.target.checked; onChange((current) => current.map((x) => (x.id === it.id ? { ...x, done: checked } : x))); }} />
                 <span className={it.done ? "done" : undefined}>{it.text}</span>
               </label>
-              <button type="button" className="btn ghost" aria-label={`Remove ${it.text}`} disabled={disabled} onClick={() => onChange(items.filter((x) => x.id !== it.id))}>×</button>
+              <button type="button" className="btn ghost" aria-label={`Remove ${it.text}`} disabled={disabled} onClick={() => onChange((current) => current.filter((x) => x.id !== it.id))}>×</button>
             </li>
           ))}
         </ul>

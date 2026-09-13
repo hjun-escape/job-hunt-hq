@@ -66,8 +66,8 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         <TextField label="Size" value={company.size ?? ""} onCommit={(v) => patch({ size: v || undefined })} />
         <TextField label="HQ" value={company.hq ?? ""} onCommit={(v) => patch({ hq: v || undefined })} />
       </div>
-      <TagInput label="Office cities" value={company.cities} onChange={(v) => void patch({ cities: v })} />
-      <TagInput label="Tech stack" value={company.techStack} onChange={(v) => void patch({ techStack: v })} />
+      <TagInput label="Office cities" value={company.cities} onChange={(fn) => void modify((cur) => ({ cities: fn(cur.cities) }))} />
+      <TagInput label="Tech stack" value={company.techStack} onChange={(fn) => void modify((cur) => ({ techStack: fn(cur.techStack) }))} />
 
       <h3>Sponsorship by country</h3>
       {settings.pickLists.countries.map((co) => {

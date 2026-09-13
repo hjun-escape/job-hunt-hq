@@ -162,4 +162,26 @@ describe("Companies", () => {
       modifySpy.mockRestore();
     }
   });
+
+  it("computes a city addition from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const db = await open("#/companies/co_7", async (d) => {
+        await put(d, "companies/co_7", buildCompany({ name: "Cities Co" }, "co_7", NOW));
+      });
+      await screen.findByRole("dialog");
+      const citiesInput = screen.getByLabelText("Office cities");
+      fireEvent.change(citiesInput, { target: { value: "Toronto" } });
+      fireEvent.keyDown(citiesInput, { key: "Enter" });
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "companies" && docId === "co_7");
+      expect(call).toBeTruthy();
+      expect(typeof call?.[2]).toBe("function");
+      await waitFor(async () => {
+        const c = (await db.doc("companies/co_7").get()).data() as unknown as Company;
+        expect(c.cities).toEqual(["Toronto"]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
+  });
 });

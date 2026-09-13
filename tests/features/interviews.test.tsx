@@ -1,10 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany, buildContact, buildInterview } from "../../src/domain/factories";
+import { Repository } from "../../src/store/repository";
 import type { Interview } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -80,5 +81,26 @@ describe("Interviews", () => {
     const openTypes = s.pickLists.roundTypes.filter((r) => !r.archived);
     const added = (await db.collection("interviews").get()).docs[0].data() as unknown as Interview;
     expect(added.roundTypeId).toBe(openTypes[0].id);
+  });
+
+  it("computes a checklist addition from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const db = await open("#/interviews/iv_1", async (d) => {
+        await put(d, "interviews/iv_1", buildInterview({ applicationId: "app_1", roundTypeId: "coding" }, "iv_1", NOW));
+      });
+      await screen.findByRole("dialog");
+      fireEvent.change(screen.getByLabelText("New checklist item"), { target: { value: "Review consistent hashing" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add item" }));
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "interviews" && docId === "iv_1");
+      expect(call).toBeTruthy();
+      expect(typeof call?.[2]).toBe("function");
+      await waitFor(async () => {
+        const iv = (await db.doc("interviews/iv_1").get()).data() as unknown as Interview;
+        expect(iv.prepChecklist.map((c) => c.text)).toEqual(["Review consistent hashing"]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
   });
 });

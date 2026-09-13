@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeAssets } from "../../src/capabilities/fakeAssets";
@@ -6,6 +6,7 @@ import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildAsset } from "../../src/domain/factories";
+import { Repository } from "../../src/store/repository";
 import type { AssetDoc } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -95,5 +96,25 @@ describe("Assets", () => {
     const openKinds = s.pickLists.assetKinds.filter((k) => !k.archived);
     const added = (await db.collection("assets").get()).docs[0].data() as unknown as AssetDoc;
     expect(added.kindId).toBe(openKinds[0].id);
+  });
+
+  it("computes the target-country selection from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const { db } = await open("#/assets/as_1", async (d) => {
+        await put(d, "assets/as_1", buildAsset({ kindId: "resume", name: "Backend resume" }, "as_1", NOW));
+      });
+      await screen.findByRole("dialog");
+      fireEvent.click(screen.getByRole("button", { name: "Canada" }));
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "assets" && docId === "as_1");
+      expect(call).toBeTruthy();
+      expect(typeof call?.[2]).toBe("function");
+      await waitFor(async () => {
+        const a = (await db.doc("assets/as_1").get()).data() as unknown as AssetDoc;
+        expect(a.targetCountryIds).toEqual(["CA"]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
   });
 });

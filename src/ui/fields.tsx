@@ -214,7 +214,7 @@ export function RatingField({ label, value, onChange, disabled }: RatingProps) {
 interface TagProps {
   label: string;
   value: string[];
-  onChange: (value: string[]) => void;
+  onChange: (update: (current: string[]) => string[]) => void;
   placeholder?: string;
   suggestions?: string[];
   disabled?: boolean;
@@ -227,8 +227,10 @@ export function TagInput({ label, value, onChange, placeholder = "Add and press 
     if (disabled) return;
     const tag = draft.trim();
     setDraft("");
-    if (!tag || value.includes(tag)) return;
-    onChange([...value, tag]);
+    if (!tag || value.includes(tag)) return; // fast path: skip an obviously-redundant write
+    // Re-checked against `current` at write time, so a tag a concurrent write already added
+    // is never duplicated.
+    onChange((current) => (current.includes(tag) ? current : [...current, tag]));
   };
   return (
     <Field label={label} htmlFor={id}>
@@ -236,7 +238,7 @@ export function TagInput({ label, value, onChange, placeholder = "Add and press 
         {value.map((t) => (
           <span key={t} className="chip chip-gray">
             {t}
-            <button type="button" className="chip-x" aria-label={`Remove ${t}`} disabled={disabled} onClick={() => onChange(value.filter((x) => x !== t))}>×</button>
+            <button type="button" className="chip-x" aria-label={`Remove ${t}`} disabled={disabled} onClick={() => onChange((current) => current.filter((x) => x !== t))}>×</button>
           </span>
         ))}
         <input id={id} value={draft} placeholder={placeholder} list={suggestions ? listId : undefined}
@@ -244,7 +246,7 @@ export function TagInput({ label, value, onChange, placeholder = "Add and press 
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); }
-            else if (e.key === "Backspace" && draft === "" && value.length && !disabled) onChange(value.slice(0, -1));
+            else if (e.key === "Backspace" && draft === "" && value.length && !disabled) onChange((current) => current.slice(0, -1));
           }}
           onBlur={add} />
         {suggestions ? <datalist id={listId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist> : null}

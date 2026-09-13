@@ -33,7 +33,8 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
   const referenced = isAssetReferenced(id, apps);
   const ro = repo.readOnly;
   const pl = settings.pickLists;
-  const patch = (p: Partial<AssetDoc>) => run(() => repo.update("assets", id, p));
+  type AssetPatch = Partial<AssetDoc> | ((current: AssetDoc) => Partial<AssetDoc>);
+  const patch = (p: AssetPatch) => run(() => (typeof p === "function" ? repo.modify("assets", id, p) : repo.update("assets", id, p)));
   const appLabel = (a: { companyId: string; title: string }) => `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}`;
 
   const onPick = async (file: File | undefined) => {
@@ -77,8 +78,8 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
         <TextField label="Name" value={asset.name} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} disabled={ro} />
         <TextField label="Version" value={asset.version} onCommit={(v) => patch({ version: v.trim() || "v1" })} disabled={ro} />
       </div>
-      <MultiPick label="Target countries" options={pl.countries} value={asset.targetCountryIds} onChange={(v) => void patch({ targetCountryIds: v })} disabled={ro} />
-      <MultiPick label="Target role families" options={pl.roleFamilies} value={asset.targetRoleFamilyIds} onChange={(v) => void patch({ targetRoleFamilyIds: v })} disabled={ro} />
+      <MultiPick label="Target countries" options={pl.countries} value={asset.targetCountryIds} onChange={(fn) => void patch((cur) => ({ targetCountryIds: fn(cur.targetCountryIds) }))} disabled={ro} />
+      <MultiPick label="Target role families" options={pl.roleFamilies} value={asset.targetRoleFamilyIds} onChange={(fn) => void patch((cur) => ({ targetRoleFamilyIds: fn(cur.targetRoleFamilyIds) }))} disabled={ro} />
 
       <div className="section">
         <h3>File</h3>

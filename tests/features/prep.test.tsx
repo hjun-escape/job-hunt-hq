@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
@@ -6,6 +6,7 @@ import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { todayIso } from "../../src/domain/dates";
 import { buildPrep } from "../../src/domain/factories";
+import { Repository } from "../../src/store/repository";
 import type { PrepItem } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -60,5 +61,27 @@ describe("Prep", () => {
     const openKinds = s.pickLists.prepKinds.filter((k) => !k.archived);
     const added = (await db.collection("prep").get()).docs[0].data() as unknown as PrepItem;
     expect(added.kindId).toBe(openKinds[0].id);
+  });
+
+  it("computes a pattern addition from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const db = await open("#/prep/pr_1", async (d) => {
+        await put(d, "prep/pr_1", buildPrep({ kindId: "coding", title: "Two Sum" }, "pr_1", NOW));
+      });
+      await screen.findByRole("dialog");
+      const patternsInput = screen.getByLabelText("Patterns");
+      fireEvent.change(patternsInput, { target: { value: "two pointers" } });
+      fireEvent.keyDown(patternsInput, { key: "Enter" });
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "prep" && docId === "pr_1");
+      expect(call).toBeTruthy();
+      expect(typeof call?.[2]).toBe("function");
+      await waitFor(async () => {
+        const p = (await db.doc("prep/pr_1").get()).data() as unknown as PrepItem;
+        expect(p.patterns).toEqual(["two pointers"]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
   });
 });

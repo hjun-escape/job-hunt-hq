@@ -128,7 +128,7 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: AppPa
 
       <div className="section">
         <h3>Tags and job description</h3>
-        <TagInput label="Tags" value={app.tags} onChange={(v) => patch({ tags: v })} />
+        <TagInput label="Tags" value={app.tags} onChange={(fn) => patch((cur) => ({ tags: fn(cur.tags) }))} />
         <TextArea label="Job description" rows={10} value={app.jobDescription ?? ""} onCommit={(v) => patch({ jobDescription: opt(v) })}
           placeholder="Paste the posting here. AI drafting and requirement extraction use it in a later plan." />
       </div>

@@ -29,7 +29,8 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
   const ro = repo.readOnly;
   const pl = settings.pickLists;
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
-  const patch = (p: Partial<Answer>) => run(() => repo.update("answers", id, p));
+  type AnswerPatch = Partial<Answer> | ((current: Answer) => Partial<Answer>);
+  const patch = (p: AnswerPatch) => run(() => (typeof p === "function" ? repo.modify("answers", id, p) : repo.update("answers", id, p)));
   const copy = async () => {
     const ok = await copyText(answer.body);
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); } else toast.show("Could not copy. Select the text and copy it manually.", "error");
@@ -48,8 +49,8 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
         <TextField label="Question it answers" value={answer.question ?? ""} onCommit={(v) => patch({ question: opt(v) })} placeholder="Tell me about a time you…" disabled={ro} />
         <SelectField label="Language" value={answer.language} options={LANGUAGES} onChange={(v) => { if (v) void patch({ language: v as Answer["language"] }); }} allowEmpty={false} disabled={ro} />
       </div>
-      <MultiPick label="Themes" options={pl.answerThemes} value={answer.themeIds} onChange={(v) => void patch({ themeIds: v })} disabled={ro} />
-      <TagInput label="Tags" value={answer.tags} onChange={(v) => void patch({ tags: v })} disabled={ro} />
+      <MultiPick label="Themes" options={pl.answerThemes} value={answer.themeIds} onChange={(fn) => void patch((cur) => ({ themeIds: fn(cur.themeIds) }))} disabled={ro} />
+      <TagInput label="Tags" value={answer.tags} onChange={(fn) => void patch((cur) => ({ tags: fn(cur.tags) }))} disabled={ro} />
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="row">
           <button type="button" className={preview ? "btn" : "btn primary"} onClick={() => setPreview(false)} aria-pressed={!preview}>Edit</button>

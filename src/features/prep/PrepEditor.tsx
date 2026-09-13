@@ -23,7 +23,8 @@ export function PrepEditor({ id, onClose }: { id: string; onClose: () => void })
   if (!item) return <Drawer open title="Prep item not found" onClose={onClose}><p className="muted">This item no longer exists.</p></Drawer>;
   const ro = repo.readOnly;
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
-  const patch = (p: Partial<PrepItem>) => run(() => repo.update("prep", id, p));
+  type PrepPatch = Partial<PrepItem> | ((current: PrepItem) => Partial<PrepItem>);
+  const patch = (p: PrepPatch) => run(() => (typeof p === "function" ? repo.modify("prep", id, p) : repo.update("prep", id, p)));
   const remove = async () => {
     const ok = await confirm({ title: `Delete "${item.title}"?`, message: "Its notes are removed. This cannot be undone.", confirmLabel: "Delete" });
     if (ok && (await run(() => repo.remove("prep", id)))) onClose();
@@ -37,8 +38,8 @@ export function PrepEditor({ id, onClose }: { id: string; onClose: () => void })
         <TextField label="Source URL" type="url" value={item.sourceUrl ?? ""} onCommit={(v) => patch({ sourceUrl: opt(v) })} placeholder="https://leetcode.com/problems/…" disabled={ro} />
         <SelectField label="Difficulty" value={item.difficulty ?? ""} options={DIFFICULTIES} onChange={(v) => void patch({ difficulty: (v || null) as PrepItem["difficulty"] })} disabled={ro} />
       </div>
-      <TagInput label="Patterns" value={item.patterns} onChange={(v) => void patch({ patterns: v })} suggestions={allPatterns(Object.values(state.prep))} placeholder="two pointers, BFS, consistent hashing…" disabled={ro} />
-      <TagInput label="Company tags" value={item.companyTags} onChange={(v) => void patch({ companyTags: v })} suggestions={Object.values(state.companies).map((c) => c.name)} disabled={ro} />
+      <TagInput label="Patterns" value={item.patterns} onChange={(fn) => void patch((cur) => ({ patterns: fn(cur.patterns) }))} suggestions={allPatterns(Object.values(state.prep))} placeholder="two pointers, BFS, consistent hashing…" disabled={ro} />
+      <TagInput label="Company tags" value={item.companyTags} onChange={(fn) => void patch((cur) => ({ companyTags: fn(cur.companyTags) }))} suggestions={Object.values(state.companies).map((c) => c.name)} disabled={ro} />
       <div className="row" style={{ alignItems: "end" }}>
         <RatingField label="Confidence" value={item.confidence} onChange={(v) => void patch({ confidence: v as Rating | null })} disabled={ro} />
         <div className="field">

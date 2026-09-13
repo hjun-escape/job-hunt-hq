@@ -81,6 +81,25 @@ describe("ApplicationDetail", () => {
     expect(screen.getByLabelText("Filter by country")).toBeTruthy();
     expect(screen.getByLabelText("Filter by status")).toBeTruthy();
   });
+
+  it("computes a tag addition on the overview tab from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const { db } = await open();
+      const tagsInput = screen.getByLabelText("Tags");
+      fireEvent.change(tagsInput, { target: { value: "urgent" } });
+      fireEvent.keyDown(tagsInput, { key: "Enter" });
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "applications" && docId === "app_1");
+      expect(call).toBeTruthy();
+      expect(typeof call?.[2]).toBe("function");
+      await waitFor(async () => {
+        const a = (await db.doc("applications/app_1").get()).data() as unknown as Application;
+        expect(a.tags).toEqual(["urgent"]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
+  });
 });
 
 describe("OverviewTab compensation patch", () => {

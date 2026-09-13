@@ -5,6 +5,7 @@ import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildAnswer, buildApplication } from "../../src/domain/factories";
+import { Repository } from "../../src/store/repository";
 import type { Answer } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -74,5 +75,27 @@ describe("Answers", () => {
     const openKinds = s.pickLists.answerKinds.filter((k) => !k.archived);
     const added = (await db.collection("answers").get()).docs[0].data() as unknown as Answer;
     expect(added.kindId).toBe(openKinds[0].id);
+  });
+
+  it("computes a tag addition from the current record, not the one it rendered", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const db = await open("#/answers/an_1", async (d) => {
+        await put(d, "answers/an_1", buildAnswer({ kindId: "answer", title: "Why us" }, "an_1", NOW));
+      });
+      await screen.findByRole("dialog");
+      const tagsInput = screen.getByLabelText("Tags");
+      fireEvent.change(tagsInput, { target: { value: "growth" } });
+      fireEvent.keyDown(tagsInput, { key: "Enter" });
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "answers" && docId === "an_1");
+      expect(call).toBeTruthy();
+      expect(typeof call?.[2]).toBe("function");
+      await waitFor(async () => {
+        const a = (await db.doc("answers/an_1").get()).data() as unknown as Answer;
+        expect(a.tags).toEqual(["growth"]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
   });
 });

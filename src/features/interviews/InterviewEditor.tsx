@@ -26,7 +26,8 @@ export function InterviewEditor({ id, onClose }: { id: string; onClose: () => vo
   const ro = repo.readOnly;
   const pl = settings.pickLists;
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
-  const patch = (p: Partial<Interview>) => run(() => repo.update("interviews", id, p));
+  type InterviewPatch = Partial<Interview> | ((current: Interview) => Partial<Interview>);
+  const patch = (p: InterviewPatch) => run(() => (typeof p === "function" ? repo.modify("interviews", id, p) : repo.update("interviews", id, p)));
   const contacts = Object.values(state.contacts)
     .sort((a, b) => Number(b.companyId === app?.companyId) - Number(a.companyId === app?.companyId) || a.name.localeCompare(b.name))
     .map((c) => ({ id: c.id, label: c.companyId && c.companyId !== app?.companyId ? `${c.name} (${state.companies[c.companyId]?.name ?? "?"})` : c.name }));
@@ -50,9 +51,9 @@ export function InterviewEditor({ id, onClose }: { id: string; onClose: () => vo
         <TextField label="Location" value={iv.location ?? ""} onCommit={(v) => patch({ location: opt(v) })} placeholder="Office address or 'remote'" disabled={ro} />
         <TextField label="Meeting link" type="url" value={iv.meetingUrl ?? ""} onCommit={(v) => patch({ meetingUrl: opt(v) })} disabled={ro} />
       </div>
-      <MultiPick label="Interviewers" options={contacts} value={iv.interviewerContactIds} onChange={(v) => void patch({ interviewerContactIds: v })} disabled={ro} />
+      <MultiPick label="Interviewers" options={contacts} value={iv.interviewerContactIds} onChange={(fn) => void patch((cur) => ({ interviewerContactIds: fn(cur.interviewerContactIds) }))} disabled={ro} />
       <TextField label="Other interviewer names" value={iv.interviewerNames ?? ""} onCommit={(v) => patch({ interviewerNames: opt(v) })} placeholder="Names not in Contacts" disabled={ro} />
-      <ChecklistEditor items={iv.prepChecklist} onChange={(items) => void patch({ prepChecklist: items })} disabled={ro} />
+      <ChecklistEditor items={iv.prepChecklist} onChange={(fn) => void patch((cur) => ({ prepChecklist: fn(cur.prepChecklist) }))} disabled={ro} />
 
       <div className="section">
         <h3>Afterwards</h3>
