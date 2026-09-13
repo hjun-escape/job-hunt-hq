@@ -95,7 +95,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
           {company.sources.map((s, i) => (
             <li key={`${s.url}-${i}`}>
               {isSafeUrl(s.url) ? <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a> : <span>{s.label || s.url}</span>}{" "}
-              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((_, j) => j !== i) }))}>×</button>
+              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((x) => !(x.url === s.url && x.label === s.label)) }))}>×</button>
             </li>
           ))}
         </ul>

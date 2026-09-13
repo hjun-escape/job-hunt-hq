@@ -130,4 +130,36 @@ describe("Companies", () => {
     const del = screen.getByRole("button", { name: "Delete company" }) as HTMLButtonElement;
     expect(del.disabled).toBe(true);
   });
+
+  it("removes a source by identity, not by its rendered index", async () => {
+    const modifySpy = vi.spyOn(Repository.prototype, "modify");
+    try {
+      const db = await open("#/companies/co_6", async (d) => {
+        await put(d, "companies/co_6", buildCompany({ name: "Source Co", sources: [{ label: "Blind", url: "https://teamblind.com/x" }, { label: "Glassdoor", url: "https://glassdoor.com/y" }] }, "co_6", NOW));
+      });
+      await screen.findByRole("dialog");
+      fireEvent.click(screen.getByRole("button", { name: "Remove source Blind" }));
+      const call = modifySpy.mock.calls.find(([collection, docId]) => collection === "companies" && docId === "co_6");
+      expect(call).toBeTruthy();
+      const updater = call?.[2] as (cur: Company) => Partial<Company>;
+
+      // Simulate a concurrent write that prepended a third source before this click's write
+      // lands -- removing "Blind" by its rendered index (0) would instead drop that new entry.
+      const cur: Company = buildCompany(
+        { name: "Source Co", sources: [{ label: "Extra", url: "https://extra.example/z" }, { label: "Blind", url: "https://teamblind.com/x" }, { label: "Glassdoor", url: "https://glassdoor.com/y" }] },
+        "co_6",
+        NOW,
+      );
+      const patch = updater(cur);
+      expect(patch.sources).toEqual([{ label: "Extra", url: "https://extra.example/z" }, { label: "Glassdoor", url: "https://glassdoor.com/y" }]);
+
+      // Let the real click's write (against the actual current company) settle.
+      await waitFor(async () => {
+        const c = (await db.doc("companies/co_6").get()).data() as unknown as Company;
+        expect(c.sources).toEqual([{ label: "Glassdoor", url: "https://glassdoor.com/y" }]);
+      });
+    } finally {
+      modifySpy.mockRestore();
+    }
+  });
 });
