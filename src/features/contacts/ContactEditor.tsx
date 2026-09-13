@@ -20,13 +20,10 @@ export function ContactEditor({ id, onClose }: { id: string; onClose: () => void
   const { status, run } = useSaver();
   const confirm = useConfirm();
   const [useFor, setUseFor] = useState("");
-  const referenceRef = useRef<{ consentAt?: string; lastNotifiedAt?: string; usedInApplicationIds: string[] }>({ usedInApplicationIds: [] });
   const contact = state.contacts[id];
   if (!contact) {
     return <Drawer open title="Contact not found" onClose={onClose}><p className="muted">This contact no longer exists.</p></Drawer>;
   }
-  // Update ref whenever contact.reference changes
-  if (contact.reference) referenceRef.current = contact.reference;
 
   const apps = Object.values(state.applications);
   const interviews = Object.values(state.interviews);
@@ -35,6 +32,9 @@ export function ContactEditor({ id, onClose }: { id: string; onClose: () => void
   const ro = repo.readOnly;
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
   const patch = (p: Partial<Contact>) => run(() => repo.update("contacts", id, p));
+  const modify = (fn: (c: Contact) => Partial<Contact>) => run(() => repo.modify("contacts", id, fn));
+  const refOf = (c: Contact) => c.reference ?? { usedInApplicationIds: [] };
+  const referralOf = (c: Contact) => c.referral ?? { status: "not_asked" as ReferralStatus };
   const companies = Object.values(state.companies).map((c) => ({ id: c.id, label: c.name }));
   const appLabel = (appId: string) => { const a = state.applications[appId]; return a ? `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}` : appId; };
   const isReference = contact.relationshipId === "reference";
@@ -65,9 +65,9 @@ export function ContactEditor({ id, onClose }: { id: string; onClose: () => void
         <div className="section">
           <h3>Referral</h3>
           <div className="grid-3">
-            <SelectField label="Referral status" value={contact.referral?.status ?? "not_asked"} options={REFERRAL} onChange={(v) => { if (v) void patch({ referral: { ...contact.referral, status: v as ReferralStatus } }); }} allowEmpty={false} disabled={ro} />
-            <DateField label="Asked on" value={contact.referral?.askedAt ?? ""} onCommit={(v) => void patch({ referral: { status: contact.referral?.status ?? "not_asked", ...contact.referral, askedAt: opt(v) } })} disabled={ro} />
-            <DateField label="Submitted on" value={contact.referral?.submittedAt ?? ""} onCommit={(v) => void patch({ referral: { status: contact.referral?.status ?? "not_asked", ...contact.referral, submittedAt: opt(v) } })} disabled={ro} />
+            <SelectField label="Referral status" value={contact.referral?.status ?? "not_asked"} options={REFERRAL} onChange={(v) => { if (v) void modify((c) => ({ referral: { ...referralOf(c), status: v as ReferralStatus } })); }} allowEmpty={false} disabled={ro} />
+            <DateField label="Asked on" value={contact.referral?.askedAt ?? ""} onCommit={(v) => void modify((c) => ({ referral: { ...referralOf(c), askedAt: opt(v) } }))} disabled={ro} />
+            <DateField label="Submitted on" value={contact.referral?.submittedAt ?? ""} onCommit={(v) => void modify((c) => ({ referral: { ...referralOf(c), submittedAt: opt(v) } }))} disabled={ro} />
           </div>
         </div>
       ) : null}
@@ -76,14 +76,14 @@ export function ContactEditor({ id, onClose }: { id: string; onClose: () => void
         <div className="section">
           <h3>Reference</h3>
           <div className="grid-2">
-            <DateField label="Consent given on" value={reference.consentAt ?? ""} onCommit={(v) => { referenceRef.current.consentAt = opt(v); void patch({ reference: { ...referenceRef.current, consentAt: opt(v) } }); }} disabled={ro} />
-            <DateField label="Last told to expect a call" value={reference.lastNotifiedAt ?? ""} onCommit={(v) => { referenceRef.current.lastNotifiedAt = opt(v); void patch({ reference: { ...referenceRef.current, lastNotifiedAt: opt(v) } }); }} disabled={ro} />
+            <DateField label="Consent given on" value={reference.consentAt ?? ""} onCommit={(v) => void modify((c) => ({ reference: { ...refOf(c), consentAt: opt(v) } }))} disabled={ro} />
+            <DateField label="Last told to expect a call" value={reference.lastNotifiedAt ?? ""} onCommit={(v) => void modify((c) => ({ reference: { ...refOf(c), lastNotifiedAt: opt(v) } }))} disabled={ro} />
           </div>
           <h4>Used for</h4>
           {reference.usedInApplicationIds.length === 0 ? <p className="muted">Not used yet.</p> : (
             <ul>{reference.usedInApplicationIds.map((appId) => (
               <li key={appId}><a href={`#/applications/${appId}`}>{appLabel(appId)}</a>{" "}
-                <button type="button" className="btn ghost" aria-label={`Remove use for ${appLabel(appId)}`} disabled={ro} onClick={() => { const filtered = referenceRef.current.usedInApplicationIds.filter((x) => x !== appId); referenceRef.current.usedInApplicationIds = filtered; void patch({ reference: { ...referenceRef.current, usedInApplicationIds: filtered } }); }}>×</button></li>
+                <button type="button" className="btn ghost" aria-label={`Remove use for ${appLabel(appId)}`} disabled={ro} onClick={() => void modify((c) => ({ reference: { ...refOf(c), usedInApplicationIds: refOf(c).usedInApplicationIds.filter((x) => x !== appId) } }))}>×</button></li>
             ))}</ul>
           )}
           <div className="row">
@@ -93,7 +93,7 @@ export function ContactEditor({ id, onClose }: { id: string; onClose: () => void
                 {apps.filter((a) => !reference.usedInApplicationIds.includes(a.id)).map((a) => <option key={a.id} value={a.id}>{appLabel(a.id)}</option>)}
               </select>
             </Field>
-            <button type="button" className="btn" disabled={!useFor || ro} onClick={() => { const updated = [...referenceRef.current.usedInApplicationIds, useFor]; referenceRef.current.usedInApplicationIds = updated; void patch({ reference: { ...referenceRef.current, usedInApplicationIds: updated } }); setUseFor(""); }}>Record use</button>
+            <button type="button" className="btn" disabled={!useFor || ro} onClick={() => { void modify((c) => ({ reference: { ...refOf(c), usedInApplicationIds: [...refOf(c).usedInApplicationIds, useFor] } })); setUseFor(""); }}>Record use</button>
           </div>
         </div>
       ) : null}

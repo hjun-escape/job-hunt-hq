@@ -72,7 +72,7 @@ export function ContactsPage({ parts }: PageProps) {
         <button type="button" className="btn primary" onClick={create} disabled={repo.readOnly}>Add contact</button>
       </div>
       <Table rows={rows} columns={columns} sortKey={sort.sortKey} sortDir={sort.sortDir} onSort={sort.onSort} onRowClick={(c) => navigate(`/contacts/${c.id}`)} selectedId={parts[0]} emptyText="No contacts yet. Add recruiters, referrers, interviewers and references here." />
-      {parts[0] ? <ContactEditor id={parts[0]} onClose={() => navigate("/contacts")} /> : null}
+      {parts[0] ? <ContactEditor key={parts[0]} id={parts[0]} onClose={() => navigate("/contacts")} /> : null}
     </section>
   );
 }

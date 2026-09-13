@@ -193,3 +193,12 @@ describe("Repository", () => {
     expect(repo.readOnly).toBe(true);
   });
 });
+
+  it("modify reads the document at write time so un-awaited nested patches both land", async () => {
+    const { repo, store } = await boot();
+    const c = await repo.createContact({ name: "Prof", relationshipId: "reference" });
+    const p1 = repo.modify("contacts", c.id, (cur) => ({ reference: { ...(cur.reference ?? { usedInApplicationIds: [] }), consentAt: "2026-09-01" } }));
+    const p2 = repo.modify("contacts", c.id, (cur) => ({ reference: { ...(cur.reference ?? { usedInApplicationIds: [] }), usedInApplicationIds: ["app_1"] } }));
+    await Promise.all([p1, p2]);
+    expect(store.getState().contacts[c.id].reference).toEqual({ consentAt: "2026-09-01", usedInApplicationIds: ["app_1"] });
+  });

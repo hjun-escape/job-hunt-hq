@@ -109,6 +109,18 @@ export class Repository {
     });
   }
 
+  /** Read-modify-write inside the per-document chain: `fn` sees the document as it is at write
+   * time, so a nested-object patch built while an earlier write is still in flight never
+   * clobbers the sibling field that write just set. Use it whenever a patch spreads a nested object. */
+  async modify<K extends CollectionName>(collection: K, id: string, fn: (current: EntityMap[K]) => Partial<EntityMap[K]>): Promise<EntityMap[K]> {
+    return this.serialize(`${collection}/${id}`, async () => {
+      const current = this.get(collection, id);
+      if (!current) throw new RepoError("not_found", `No ${collection} record ${id}.`);
+      const next = { ...current, ...fn(current), updatedAt: this.now() } as EntityMap[K];
+      return this.write(collection, next);
+    });
+  }
+
   async remove(collection: CollectionName, id: string): Promise<void> {
     const db = this.requireDb();
     await this.guard(() => db.doc(`${collection}/${id}`).delete());

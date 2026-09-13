@@ -78,3 +78,18 @@ describe("Contacts", () => {
     });
   });
 });
+
+  it("does not carry one reference's data into another when switching contacts", async () => {
+    const db = await open("#/contacts/ct_a", async (d) => {
+      await put(d, "contacts/ct_a", buildContact({ name: "Ref A", relationshipId: "reference", reference: { consentAt: "2026-01-01", usedInApplicationIds: ["app_x"] } }, "ct_a", NOW));
+      await put(d, "contacts/ct_b", buildContact({ name: "Ref B", relationshipId: "reference" }, "ct_b", NOW));
+    });
+    await screen.findByRole("dialog");
+    await act(async () => { window.location.hash = "#/contacts/ct_b"; });
+    await screen.findByText("Ref B", { selector: ".drawer-title" });
+    fireEvent.change(screen.getByLabelText("Last told to expect a call"), { target: { value: "2026-09-10" } });
+    await waitFor(async () => {
+      const b = (await db.doc("contacts/ct_b").get()).data() as unknown as Contact;
+      expect(b.reference).toEqual({ usedInApplicationIds: [], lastNotifiedAt: "2026-09-10" });
+    });
+  });
