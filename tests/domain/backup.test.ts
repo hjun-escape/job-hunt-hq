@@ -147,4 +147,10 @@ describe("backup", () => {
     expect(doc.title).toBe(b.applications[0].title);
     expect(doc.createdAt).toBe(b.applications[0].createdAt);
   });
+  it("merge tolerates current settings that lack a list the backup carries", () => {
+    const b = buildBackup(state(), NOW);
+    const current = { ...empty(), settings: { ...defaultSettings("America/Toronto", NOW), pickLists: { ...defaultPickLists(), extraList: undefined } } };
+    delete (current.settings.pickLists as Record<string, unknown>).prepKinds;
+    expect(() => planRestore(b, current as unknown as Parameters<typeof planRestore>[1], "merge")).not.toThrow();
+  });
 });

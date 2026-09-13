@@ -125,7 +125,7 @@ function unionPickLists(backupLists: PickLists, currentLists: PickLists): PickLi
   const merged: Record<string, PickEntry[]> = {};
   for (const key of Object.keys(backupLists) as (keyof PickLists)[]) {
     const backupList = backupLists[key] as PickEntry[];
-    const currentList = currentLists[key] as PickEntry[];
+    const currentList = (currentLists[key] ?? []) as PickEntry[];
     const ids = new Set(backupList.map((e) => e.id));
     merged[key] = [...backupList, ...currentList.filter((e) => !ids.has(e.id))];
   }
