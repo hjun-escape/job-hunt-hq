@@ -192,7 +192,6 @@ describe("Repository", () => {
     store.setState({ readOnly: true });
     expect(repo.readOnly).toBe(true);
   });
-});
 
   it("modify reads the document at write time so un-awaited nested patches both land", async () => {
     const { repo, store } = await boot();
@@ -202,3 +201,4 @@ describe("Repository", () => {
     await Promise.all([p1, p2]);
     expect(store.getState().contacts[c.id].reference).toEqual({ consentAt: "2026-09-01", usedInApplicationIds: ["app_1"] });
   });
+});

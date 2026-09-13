@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { contactLinks, isContactReferenced } from "../../domain/contacts";
 import type { Contact, ReferralStatus } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
