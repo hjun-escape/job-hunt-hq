@@ -1,18 +1,11 @@
 import { useSyncExternalStore } from "react";
-import type { Answer, Application, AssetDoc, Company, Contact, Interview, PrepItem, Profile, Settings } from "../domain/types";
+import type { Profile, RecordSets, Settings } from "../domain/types";
 
-export interface StoreState {
+export interface StoreState extends RecordSets {
   ready: boolean;
   readOnly: boolean;
   settings: Settings | null;
   profile: Profile | null;
-  applications: Record<string, Application>;
-  companies: Record<string, Company>;
-  contacts: Record<string, Contact>;
-  assets: Record<string, AssetDoc>;
-  answers: Record<string, Answer>;
-  interviews: Record<string, Interview>;
-  prep: Record<string, PrepItem>;
 }
 
 export type StorePatch = Partial<StoreState> | ((state: StoreState) => Partial<StoreState>);

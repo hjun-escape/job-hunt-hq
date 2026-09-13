@@ -18,6 +18,42 @@ export interface SyncHandle {
 export const SETTINGS_PATH = "settings/main";
 export const PROFILE_PATH = "profile/main";
 
+export interface RetryOptions {
+  isStopped: () => boolean;
+  fail: (e: DbError) => void;
+}
+
+/** Spec §9: re-subscribe a terminated listener once, then give up via `fail`. Safe when `attach`
+ * invokes the error callback synchronously (the first attempt's unsubscribe is still torn down and
+ * `current` always points at the live listener). */
+export function retryOnce(attach: (onError: (e: DbError) => void) => Unsubscribe, opts: RetryOptions): Unsubscribe {
+  let current: Unsubscribe | null = null;
+  let attempted = false;
+  let retryRequested = false;
+  const onError = (e: DbError) => {
+    if (opts.isStopped()) return;
+    if (attempted) {
+      opts.fail(e);
+      return;
+    }
+    attempted = true;
+    if (current) {
+      current();
+      current = attach(onError);
+    } else {
+      retryRequested = true; // errored inside the first attach(): re-attach below, once it returns
+    }
+  };
+  const first = attach(onError);
+  if (retryRequested) {
+    first();
+    current = attach(onError);
+  } else {
+    current = first;
+  }
+  return () => current?.();
+}
+
 function hasSchema(snap: DocumentSnapshot): boolean {
   return snap.exists && typeof snap.data()?.schemaVersion === "number";
 }
@@ -71,67 +107,53 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
     if (!seeded) await ref.set(build());
   }
 
-  /** Spec §9: "a terminated listener is re-subscribed once, then the banner shows." Wraps one
-   * subscription so its first terminal error tears it down and re-attaches it; a second
-   * terminal error for the same subscription gives up via `fail`. */
-  function retryOnce(attach: (onError: (e: DbError) => void) => Unsubscribe): Unsubscribe {
-    let current: Unsubscribe = () => {};
-    let attempted = false;
-    const onError = (e: DbError) => {
-      if (stopped) return;
-      if (!attempted) {
-        attempted = true;
-        current();
-        current = attach(onError);
-      } else {
-        fail(e);
-      }
-    };
-    current = attach(onError);
-    return () => current();
-  }
-
   unsubs.push(
-    retryOnce((onError) =>
-      db.doc(SETTINGS_PATH).onSnapshot((snap) => {
-        if (stopped) return;
-        if (!hasSchema(snap)) {
-          void seed(SETTINGS_PATH, () => defaultSettings(opts.homeTz, now()) as unknown as Record<string, unknown>).catch(fail);
-          return;
-        }
-        const raw = snap.data() as unknown as Settings;
-        const migrated = migrateSettings(raw);
-        store.setState({ settings: migrated });
-        if (migrated !== raw) void db.doc(SETTINGS_PATH).set(migrated as unknown as Record<string, unknown>).catch(fail);
-        markReady("settings");
-      }, onError),
+    retryOnce(
+      (onError) =>
+        db.doc(SETTINGS_PATH).onSnapshot((snap) => {
+          if (stopped) return;
+          if (!hasSchema(snap)) {
+            void seed(SETTINGS_PATH, () => defaultSettings(opts.homeTz, now()) as unknown as Record<string, unknown>).catch(fail);
+            return;
+          }
+          const raw = snap.data() as unknown as Settings;
+          const migrated = migrateSettings(raw);
+          store.setState({ settings: migrated });
+          if (migrated !== raw) void db.doc(SETTINGS_PATH).set(migrated as unknown as Record<string, unknown>).catch(fail);
+          markReady("settings");
+        }, onError),
+      { isStopped: () => stopped, fail },
     ),
   );
 
   unsubs.push(
-    retryOnce((onError) =>
-      db.doc(PROFILE_PATH).onSnapshot((snap) => {
-        if (stopped) return;
-        if (!hasUpdatedAt(snap)) {
-          void seed(PROFILE_PATH, () => defaultProfile(now()) as unknown as Record<string, unknown>).catch(fail);
-          return;
-        }
-        store.setState({ profile: snap.data() as unknown as Profile });
-        markReady("profile");
-      }, onError),
+    retryOnce(
+      (onError) =>
+        db.doc(PROFILE_PATH).onSnapshot((snap) => {
+          if (stopped) return;
+          if (!hasUpdatedAt(snap)) {
+            void seed(PROFILE_PATH, () => defaultProfile(now()) as unknown as Record<string, unknown>).catch(fail);
+            return;
+          }
+          store.setState({ profile: snap.data() as unknown as Profile });
+          markReady("profile");
+        }, onError),
+      { isStopped: () => stopped, fail },
     ),
   );
 
   for (const name of COLLECTIONS) {
     unsubs.push(
-      retryOnce((onError) =>
-        db.collection(name).onSnapshot((snap) => {
-          if (stopped) return;
-          const map: Record<string, unknown> = {};
-          for (const d of snap.docs) map[d.id] = d.data();
-          store.setState({ [name]: map } as unknown as Partial<StoreState>);
-          markReady(name);
-        }, onError),
+      retryOnce(
+        (onError) =>
+          db.collection(name).onSnapshot((snap) => {
+            if (stopped) return;
+            const map: Record<string, unknown> = {};
+            for (const d of snap.docs) map[d.id] = d.data();
+            store.setState({ [name]: map } as unknown as Partial<StoreState>);
+            markReady(name);
+          }, onError),
+        { isStopped: () => stopped, fail },
       ),
     );
   }

@@ -12,4 +12,8 @@ describe("parseHash", () => {
     expect(r.path).toBe("/applications/app_1");
     expect(r.query.get("tab")).toBe("notes");
   });
+  it("keeps a malformed percent-escape as raw text instead of throwing", () => {
+    expect(() => parseHash("#/applications/%E0")).not.toThrow();
+    expect(parseHash("#/applications/%E0").parts).toEqual(["applications", "%E0"]);
+  });
 });

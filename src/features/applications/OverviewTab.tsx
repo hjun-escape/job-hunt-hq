@@ -1,7 +1,7 @@
 import { assetsOfKind } from "../../domain/assets";
 import { formatMoney, normalizeAmount } from "../../domain/money";
 import type { Application, Comp, Rating, Settings } from "../../domain/types";
-import { useAppState, useSettings } from "../../store/context";
+import { useApp, useAppState, useSettings } from "../../store/context";
 import { DateField, NumberField, RatingField, SelectField, TagInput, TextArea, TextField, TriStateField } from "../../ui/fields";
 import { DeadlineField } from "./DeadlineField";
 
@@ -19,6 +19,7 @@ function normalizedText(comp: Comp, settings: Settings): string | null {
 export function OverviewTab({ app, patch }: { app: Application; patch: (p: Partial<Application>) => Promise<boolean> }) {
   const state = useAppState();
   const settings = useSettings();
+  const { repo } = useApp();
   const pl = settings.pickLists;
   const companies = Object.values(state.companies).map((c) => ({ id: c.id, label: c.name }));
   const allAssets = Object.values(state.assets);
@@ -75,7 +76,7 @@ export function OverviewTab({ app, patch }: { app: Application; patch: (p: Parti
 
       <div className="section">
         <h3>Timeline</h3>
-        <DeadlineField value={app.deadline} homeTz={settings.homeTz} onCommit={(d) => patch({ deadline: d })} />
+        <DeadlineField value={app.deadline} homeTz={settings.homeTz} onCommit={(d) => patch({ deadline: d })} disabled={repo.readOnly} />
         <div className="grid-3">
           <DateField label="Applied on" value={app.appliedAt ?? ""} onCommit={(v) => patch({ appliedAt: opt(v) })} />
           <TextField label="Next action" value={app.nextAction ?? ""} onCommit={(v) => patch({ nextAction: opt(v) })} placeholder="Follow up with recruiter" />
