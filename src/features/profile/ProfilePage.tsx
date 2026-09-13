@@ -14,7 +14,7 @@ type Education = Profile["education"][number];
 type Employment = Profile["employment"][number];
 
 export function ProfilePage() {
-  const { repo, store } = useApp();
+  const { repo } = useApp();
   const profile = useProfile();
   const settings = useSettings();
   const { status, run } = useSaver();
@@ -23,12 +23,7 @@ export function ProfilePage() {
   const ro = repo.readOnly;
 
   type ProfilePatch = Partial<Profile> | ((current: Profile) => Partial<Profile>);
-  const save = (p: ProfilePatch) =>
-    run(() => {
-      const current = store.getState().profile ?? profile;
-      const patch = typeof p === "function" ? p(current) : p;
-      return repo.saveProfile({ ...current, ...patch });
-    });
+  const save = (p: ProfilePatch) => run(() => repo.modifyProfile((cur) => (typeof p === "function" ? p(cur) : p)));
 
   const opt = (v: string) => (v.trim() ? v.trim() : undefined);
   const copySection = async (section: ProfileSection) => {

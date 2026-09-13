@@ -135,12 +135,41 @@ export class Repository {
     });
   }
 
+  /** Read-modify-write the settings singleton inside its own write chain. See modifyProfile. */
+  async modifySettings(fn: (current: Settings) => Partial<Settings>): Promise<Settings> {
+    const db = this.requireDb();
+    return this.serialize(SETTINGS_PATH, async () => {
+      const current = this.store.getState().settings;
+      if (!current) throw new RepoError("not_found", "Settings are not loaded yet.");
+      const next = stripUndefined({ ...current, ...fn(current), updatedAt: this.now() });
+      await this.guard(() => db.doc(SETTINGS_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ settings: next });
+      return next;
+    });
+  }
+
   async saveProfile(profile: Profile): Promise<void> {
     const db = this.requireDb();
     await this.serialize(PROFILE_PATH, async () => {
       const next = stripUndefined({ ...profile, updatedAt: this.now() });
       await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
       this.store.setState({ profile: next });
+    });
+  }
+
+  /** Read-modify-write the singleton inside its own write chain -- like `modify`, but for the
+   * one-per-app profile/settings documents. `fn` sees the document as it is at write time, so two
+   * un-awaited calls (each patching a different field) both land instead of the second clobbering
+   * the first with a copy of the document read before either write settled. */
+  async modifyProfile(fn: (current: Profile) => Partial<Profile>): Promise<Profile> {
+    const db = this.requireDb();
+    return this.serialize(PROFILE_PATH, async () => {
+      const current = this.store.getState().profile;
+      if (!current) throw new RepoError("not_found", "Profile is not loaded yet.");
+      const next = stripUndefined({ ...current, ...fn(current), updatedAt: this.now() });
+      await this.guard(() => db.doc(PROFILE_PATH).set(next as unknown as Record<string, unknown>));
+      this.store.setState({ profile: next });
+      return next;
     });
   }
 

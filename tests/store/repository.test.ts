@@ -239,4 +239,46 @@ describe("Repository", () => {
     await Promise.all([p1, p2]);
     expect(store.getState().contacts[c.id].reference).toEqual({ consentAt: "2026-09-01", usedInApplicationIds: ["app_1"] });
   });
+
+  it("modifyProfile reads the singleton at write time so two un-awaited saves both land", async () => {
+    const { db, store } = await boot();
+    const base = store.getState().profile!;
+    // Same lag as the saveProfile echo test above: the write resolves immediately, but the
+    // document (and therefore a naive re-read) only reflects it 20ms later.
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    const p1 = slowRepo.modifyProfile(() => ({ name: "Ada" }));
+    const p2 = slowRepo.modifyProfile(() => ({ email: "me@example.com" }));
+    await Promise.all([p1, p2]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().profile).toMatchObject({ name: "Ada", email: "me@example.com" });
+    expect((await db.doc("profile/main").get()).data()).toMatchObject({ name: "Ada", email: "me@example.com" });
+    expect(base.name).not.toBe("Ada");
+  });
+
+  it("modifySettings reads the singleton at write time so two un-awaited saves both land", async () => {
+    const { db, store } = await boot();
+    const base = store.getState().settings!;
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    const p1 = slowRepo.modifySettings(() => ({ displayCurrency: "KRW" }));
+    const p2 = slowRepo.modifySettings(() => ({ followUpCadenceDays: 14 }));
+    await Promise.all([p1, p2]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().settings).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
+    expect((await db.doc("settings/main").get()).data()).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
+    expect(base.displayCurrency).not.toBe("KRW");
+  });
 });
