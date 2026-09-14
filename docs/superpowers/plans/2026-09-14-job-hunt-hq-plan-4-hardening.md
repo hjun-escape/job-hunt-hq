@@ -415,7 +415,8 @@ Append to `tests/capabilities/fakeSample.test.ts`:
 Append to `tests/features/useSample.test.tsx` (the file already imports `act`, `renderHook`, `waitFor`, `createFakeSample`, `useSample`, and resets the policy in `beforeEach`):
 ```tsx
   it("exposes the prompt budget once the capability resolves", async () => {
-    const { result } = renderHook(() => useSample(createFakeSample({ maxPromptBytes: 2048 })));
+    const sample = createFakeSample({ maxPromptBytes: 2048 });
+    const { result } = renderHook(() => useSample(sample));
     await waitFor(() => expect(result.current.maxPromptBytes).toBe(2048));
   });
 
@@ -433,18 +434,23 @@ Append to `tests/features/useSample.test.tsx` (the file already imports `act`, `
     }
   });
 ```
-(import `vi` from vitest and `RATE_LIMIT_MS` from `../../src/capabilities/ai`; the fake streams on `setTimeout(0)` ticks, so with fake timers the `run` call needs `await vi.runAllTimersAsync()` inside the same `act` if it does not settle — try the simple form first and adapt, saying so.)
+(import `vi` from vitest and `RATE_LIMIT_MS` from `../../src/capabilities/ai`; the ai.test budget case imports `buildDraftPrompt`/`profileSummary` from `../../src/capabilities/ai` and `defaultProfile` from `../../src/domain/defaults`; the fake streams on `setTimeout(0)` ticks, so with fake timers the `run` call needs `await vi.runAllTimersAsync()` inside the same `act` if it does not settle — try the simple form first and adapt, saying so.)
 
 Append to `tests/features/ai.test.tsx` (reuse `open`, `openTab`, `createFakeSample`):
 ```tsx
   it("disables Draft and explains when the prompt exceeds the budget", async () => {
-    const sample = createFakeSample({ reply: () => "x", maxPromptBytes: 200 });
+    // A budget strictly between the smallest prompt (everything unticked) and the fullest one (JD, background, one source).
+    const base = { question: "Why Shopify?", company: "Shopify", role: "Backend Engineer", language: "en" as const, length: "medium" as const };
+    const min = new TextEncoder().encode(buildDraftPrompt({ ...base, sources: [] })).length;
+    const max = new TextEncoder().encode(buildDraftPrompt({ ...base, jobDescription: "We need Go and gRPC experience.", sources: [{ title: "STAR: outage", body: "Situation: the checkout went down." }], profileSummary: profileSummary({ ...defaultProfile(NOW), employment: [{ company: "Kakao", title: "Backend Engineer", start: "2021", end: "2024", summary: "Payments." }] }) })).length;
+    expect(max).toBeGreaterThan(min);
+    const sample = createFakeSample({ reply: () => "x", maxPromptBytes: Math.floor((min + max) / 2) });
     await open("#/applications/app_1", { sample: Promise.resolve(sample) });
     await openTab("Answers");
     fireEvent.click(await screen.findByRole("button", { name: "Draft with Claude" }));
     const panel = screen.getByRole("region", { name: "Draft with Claude" });
     fireEvent.change(within(panel).getByRole("textbox", { name: "Question to answer" }), { target: { value: "Why Shopify?" } });
-    expect(await within(panel).findByRole("status")).toHaveTextContent(/over the limit/);
+    expect((await within(panel).findByRole("status")).textContent).toMatch(/over the limit/);
     expect((within(panel).getByRole("button", { name: "Draft" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(within(panel).getByRole("checkbox", { name: "Include job description" }));
     fireEvent.click(within(panel).getByRole("checkbox", { name: "Include background summary" }));
