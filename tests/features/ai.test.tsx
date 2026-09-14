@@ -178,6 +178,33 @@ describe("AI draft assist", () => {
     expect(sample.calls).toHaveLength(1);
   });
 
+  it("asks before replacing text edited after Stop", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let calls = 0;
+    const sample = createFakeSample({ reply: () => "First half, second half.", chunks: 2, pace: () => (calls++ === 0 ? Promise.resolve() : gate) });
+    await open("#/applications/app_1", { sample: Promise.resolve(sample) });
+    await openTab("Answers");
+    fireEvent.click(await screen.findByRole("button", { name: "Draft with Claude" }));
+    const panel = screen.getByRole("region", { name: "Draft with Claude" });
+    fireEvent.change(within(panel).getByRole("textbox", { name: "Question to answer" }), { target: { value: "Q" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Draft" }));
+    await waitFor(() => expect(within(panel).getByRole("button", { name: "Stop" })).toBeTruthy());
+    fireEvent.click(within(panel).getByRole("button", { name: "Stop" }));
+    release();
+    await waitFor(() => expect((within(panel).getByRole("textbox", { name: "Draft" }) as HTMLTextAreaElement).readOnly).toBe(false));
+    const textarea = within(panel).getByRole("textbox", { name: "Draft" }) as HTMLTextAreaElement;
+    const partial = textarea.value;
+    expect(partial.length).toBeGreaterThan(0);
+    fireEvent.change(textarea, { target: { value: `${partial} edited` } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Draft" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toMatch(/Replace your edits\?/);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect((within(panel).getByRole("textbox", { name: "Draft" }) as HTMLTextAreaElement).value).toBe(`${partial} edited`);
+    expect(sample.calls).toHaveLength(1);
+  });
+
   it("replaces an existing requirements block in the notes instead of appending another", async () => {
     const sample = createFakeSample({ json: () => ({ must: ["Go"], nice: [] }) });
     const db = await open("#/applications/app_1", { sample: Promise.resolve(sample) });

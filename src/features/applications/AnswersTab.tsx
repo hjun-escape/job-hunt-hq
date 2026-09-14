@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { navigate } from "../../app/router";
 import type { Application } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
@@ -29,6 +29,7 @@ export function AnswersTab({ app, patch, onDraftDirty }: { app: Application; pat
   const copy = async (id: string, body: string) => {
     if (await copyText(body)) { setCopiedId(id); setTimeout(() => setCopiedId(null), 1500); } else toast.show("Could not copy.", "error");
   };
+  const handleDraftDirty = useCallback((d: boolean) => { setDirty(d); onDraftDirty?.(d); }, [onDraftDirty]);
   return (
     <div>
       <div className="row" style={{ alignItems: "end" }}>
@@ -46,7 +47,7 @@ export function AnswersTab({ app, patch, onDraftDirty }: { app: Application; pat
         }}>Manage the bank</a>
         {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}
       </div>
-      {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} onDirtyChange={(d) => { setDirty(d); onDraftDirty?.(d); }} /> : null}
+      {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} onDirtyChange={handleDraftDirty} /> : null}
       {attached.length === 0 ? <p className="muted">No answers attached. Attach the ones you used or plan to use for this application.</p> : (
         <ul className="activity">
           {attached.map((a) => (

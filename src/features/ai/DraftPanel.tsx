@@ -38,7 +38,7 @@ export function DraftPanel({ app, answer, sample: sampleCapability, onClose, onD
   const bank = Object.values(state.answers).sort((a, b) => a.title.localeCompare(b.title));
   const busy = sample.phase === "thinking" || sample.phase === "streaming";
   const dirty = busy || sample.text.trim().length > 0;
-  const edited = sample.phase === "done" && sample.text !== generated;
+  const edited = !busy && sample.text.trim().length > 0 && sample.text !== generated;
 
   const draftInput = {
     question, company, role: app?.title ?? "the role",
@@ -56,12 +56,14 @@ export function DraftPanel({ app, answer, sample: sampleCapability, onClose, onD
   }, [dirty, onDirtyChange]);
   useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
   useEffect(() => {
-    // Only on the transition into "done" -- sample.text is deliberately not a dependency,
+    // Only on the falling edge of "busy" -- sample.text is deliberately not a dependency,
     // else every keystroke in the textarea (which also sets sample.text) would re-sync
-    // `generated` to match and the edit guard below could never see a diff.
-    if (sample.phase === "done") setGenerated(sample.text);
+    // `generated` to match and the edit guard below could never see a diff. Syncing on
+    // "not busy" (rather than only phase === "done") also covers Stop and a message-class
+    // failure, both of which leave partial text editable without ever reaching "done".
+    if (!busy) setGenerated(sample.text);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sample.phase]);
+  }, [busy]);
 
   if (!sample.available) {
     return <section className="section ai-panel" aria-label="Draft with Claude"><p className="muted">Claude drafting is not available in this view.</p><button type="button" className="btn" onClick={onClose}>Close</button></section>;
