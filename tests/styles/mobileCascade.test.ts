@@ -34,6 +34,10 @@ describe("src/styles/app.css mobile drawer overrides", () => {
     expect(tail).toContain(".topbar input { max-width: none; }");
   });
 
+  it("spaces the dashboard stat cards from the section below them", () => {
+    expect(css).toMatch(/\.cards \{[^}]*margin-bottom: 14px;/);
+  });
+
   it("keeps exactly one mobile breakpoint block, as the last rule in the file", () => {
     const occurrences = css.split("@media (max-width: 720px)").length - 1;
     expect(occurrences).toBe(1);
