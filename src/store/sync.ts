@@ -10,6 +10,12 @@ export interface SyncOptions {
   now?: () => string;
   onError?: (e: DbError) => void;
   migrations?: Migration[];
+  /** Spec §9: how long a singleton subscription may deliver only cache-only misses before the
+   * banner shows instead of "Connecting…" forever. Default 15000ms. */
+  definitiveTimeoutMs?: number;
+  /** Injectable timer for the definitive-snapshot watchdog; defaults to setTimeout/clearTimeout.
+   * Tests pass a synchronous fake so the timeout path is deterministic. */
+  timer?: (fn: () => void, ms: number) => () => void;
 }
 export interface SyncHandle {
   stop(): void;
@@ -65,6 +71,8 @@ function hasUpdatedAt(snap: DocumentSnapshot): boolean {
 /** Subscribe the store to every collection plus the two singletons; seed defaults once when missing. */
 export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHandle {
   const now = opts.now ?? nowIso;
+  const timer = opts.timer ?? ((fn: () => void, ms: number) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); });
+  const timeoutMs = opts.definitiveTimeoutMs ?? 15000;
   const unsubs: Unsubscribe[] = [];
   const pending = new Set<string>([...COLLECTIONS, "settings", "profile"]);
   let stopped = false;
@@ -88,6 +96,8 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
   const fail = (e: DbError) => {
     if (stopped || failed) return;
     failed = true;
+    for (const cancel of definitive.values()) cancel();
+    definitive.clear();
     opts.onError?.(e);
     const s = store.getState();
     store.setState({
@@ -98,6 +108,14 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
     });
     resolveReady();
   };
+
+  /** Spec §9: a cache-only miss should be followed by a definitive snapshot; if none arrives, show the banner instead of "Connecting…" forever. */
+  const definitive = new Map<string, () => void>();
+  const armDefinitive = (key: string) => {
+    if (definitive.has(key)) return;
+    definitive.set(key, timer(() => { definitive.delete(key); fail({ code: "unavailable", message: "Storage never became definitive." }); }, timeoutMs));
+  };
+  const settleDefinitive = (key: string) => { definitive.get(key)?.(); definitive.delete(key); };
 
   async function seed(path: string, build: () => Record<string, unknown>): Promise<void> {
     const ref = db.doc(path);
@@ -124,16 +142,23 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
       (onError) =>
         db.doc(SETTINGS_PATH).onSnapshot((snap) => {
           if (stopped) return;
+          // A cache-only miss is not proof the document is absent; the definitive snapshot follows on
+          // its own -- arm the watchdog instead of seeding, and settle it below on any other outcome.
+          if (snap.metadata.fromCache) {
+            if (!hasSchema(snap)) armDefinitive("settings");
+            return;
+          }
+          settleDefinitive("settings");
           if (!hasSchema(snap)) {
-            // A cache-only miss is not proof the document is absent; the definitive snapshot follows on its own.
-            if (snap.metadata.fromCache) return;
             void seed(SETTINGS_PATH, () => defaultSettings(opts.homeTz, now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
           const raw = snap.data() as unknown as Settings;
           const migrated = migrateSettings(raw, opts.migrations);
           store.setState({ settings: migrated });
-          if (migrated !== raw) void migrateWithLease(migrated.schemaVersion).catch(fail);
+          // The store already holds the migrated settings; a failed write just means the next page
+          // load retries the migration, so report it without flipping the page read-only.
+          if (migrated !== raw) void migrateWithLease(migrated.schemaVersion).catch((e) => opts.onError?.(e as DbError));
           markReady("settings");
         }, onError),
       { isStopped: () => stopped, fail },
@@ -145,8 +170,12 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
       (onError) =>
         db.doc(PROFILE_PATH).onSnapshot((snap) => {
           if (stopped) return;
+          if (snap.metadata.fromCache) {
+            if (!hasUpdatedAt(snap)) armDefinitive("profile");
+            return;
+          }
+          settleDefinitive("profile");
           if (!hasUpdatedAt(snap)) {
-            if (snap.metadata.fromCache) return;
             void seed(PROFILE_PATH, () => defaultProfile(now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
@@ -177,6 +206,8 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
     stop() {
       stopped = true;
       unsubs.forEach((u) => u());
+      for (const cancel of definitive.values()) cancel();
+      definitive.clear();
     },
     ready,
   };

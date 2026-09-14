@@ -4,6 +4,7 @@ import { buildCompany } from "../../src/domain/factories";
 import { createStore } from "../../src/store/store";
 import { startSync } from "../../src/store/sync";
 import { Repository, RepoError, stripUndefined } from "../../src/store/repository";
+import { gatedDb } from "./gatedDb";
 
 const NOW = "2026-09-11T00:00:00.000Z";
 
@@ -104,19 +105,13 @@ describe("Repository", () => {
   it("saveProfile echoes into the store so a follow-up save built from the store keeps the first change", async () => {
     const { db, store } = await boot();
     const base = store.getState().profile!;
-    // Like the real platform, the write confirms before the subscription echoes it back: the fake
-    // notifies synchronously inside `set`, so delay the real write by 20ms to reproduce that lag.
-    const delayed = {
-      ...db,
-      doc: (path: string) => {
-        const real = db.doc(path);
-        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
-      },
-    } as unknown as DB;
-    const slowRepo = new Repository(delayed, store, () => NOW);
+    // Like the real platform, the write confirms before the subscription echoes it back: gate the
+    // real write behind flush() instead of a fake wall-clock delay to reproduce that lag.
+    const { db: slow, flush } = gatedDb(db);
+    const slowRepo = new Repository(slow, store, () => NOW);
     await slowRepo.saveProfile({ ...base, name: "Ada" });
     await slowRepo.saveProfile({ ...store.getState().profile!, email: "me@example.com" });
-    await new Promise((r) => setTimeout(r, 50));
+    await flush();
     expect(store.getState().profile).toMatchObject({ name: "Ada", email: "me@example.com" });
     expect((await db.doc("profile/main").get()).data()).toMatchObject({ name: "Ada", email: "me@example.com" });
   });
@@ -124,17 +119,11 @@ describe("Repository", () => {
   it("saveSettings echoes into the store so a follow-up save built from the store keeps the first change", async () => {
     const { db, store } = await boot();
     const base = store.getState().settings!;
-    const delayed = {
-      ...db,
-      doc: (path: string) => {
-        const real = db.doc(path);
-        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
-      },
-    } as unknown as DB;
-    const slowRepo = new Repository(delayed, store, () => NOW);
+    const { db: slow, flush } = gatedDb(db);
+    const slowRepo = new Repository(slow, store, () => NOW);
     await slowRepo.saveSettings({ ...base, displayCurrency: "KRW" });
     await slowRepo.saveSettings({ ...store.getState().settings!, followUpCadenceDays: 14 });
-    await new Promise((r) => setTimeout(r, 50));
+    await flush();
     expect(store.getState().settings).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
     expect((await db.doc("settings/main").get()).data()).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
   });
@@ -174,28 +163,15 @@ describe("Repository", () => {
     const app = await repo.createApplication({ companyId: "co_1", title: "x", countryId: "CA", channelId: "linkedin", statusId: "saved" });
 
     // The real platform confirms a write before its own subscription echoes it back into the
-    // store -- unlike the fake, which notifies synchronously inside `set`. Simulate that lag:
-    // the write resolves immediately, but the document actually changes 20ms later.
-    const delayed = {
-      ...db,
-      doc: (path: string) => {
-        const real = db.doc(path);
-        return {
-          ...real,
-          set: (body: Record<string, unknown>) =>
-            new Promise<void>((resolve) => {
-              resolve();
-              setTimeout(() => void real.set(body), 20);
-            }),
-        };
-      },
-    } as unknown as DB;
-    const slowRepo = new Repository(delayed, store, () => NOW);
+    // store -- unlike the fake, which notifies synchronously inside `set`. Gate the real write
+    // behind flush() to reproduce that lag deterministically.
+    const { db: slow, flush } = gatedDb(db);
+    const slowRepo = new Repository(slow, store, () => NOW);
 
     const p1 = slowRepo.update("applications", app.id, { city: "A" });
     const p2 = slowRepo.update("applications", app.id, { team: "B" });
     await Promise.all([p1, p2]);
-    await new Promise((r) => setTimeout(r, 50));
+    await flush();
 
     const stored = (await db.doc(`applications/${app.id}`).get()).data();
     expect(stored?.city).toBe("A");
@@ -243,20 +219,14 @@ describe("Repository", () => {
   it("modifyProfile reads the singleton at write time so two un-awaited saves both land", async () => {
     const { db, store } = await boot();
     const base = store.getState().profile!;
-    // Same lag as the saveProfile echo test above: the write resolves immediately, but the
-    // document (and therefore a naive re-read) only reflects it 20ms later.
-    const delayed = {
-      ...db,
-      doc: (path: string) => {
-        const real = db.doc(path);
-        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
-      },
-    } as unknown as DB;
-    const slowRepo = new Repository(delayed, store, () => NOW);
+    // Same lag as the saveProfile echo test above: gate the real write behind flush() so the
+    // document only reflects it once we let it through.
+    const { db: slow, flush } = gatedDb(db);
+    const slowRepo = new Repository(slow, store, () => NOW);
     const p1 = slowRepo.modifyProfile(() => ({ name: "Ada" }));
     const p2 = slowRepo.modifyProfile(() => ({ email: "me@example.com" }));
     await Promise.all([p1, p2]);
-    await new Promise((r) => setTimeout(r, 50));
+    await flush();
     expect(store.getState().profile).toMatchObject({ name: "Ada", email: "me@example.com" });
     expect((await db.doc("profile/main").get()).data()).toMatchObject({ name: "Ada", email: "me@example.com" });
     expect(base.name).not.toBe("Ada");
@@ -265,18 +235,12 @@ describe("Repository", () => {
   it("modifySettings reads the singleton at write time so two un-awaited saves both land", async () => {
     const { db, store } = await boot();
     const base = store.getState().settings!;
-    const delayed = {
-      ...db,
-      doc: (path: string) => {
-        const real = db.doc(path);
-        return { ...real, set: (body: Record<string, unknown>) => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.set(body), 20); }) };
-      },
-    } as unknown as DB;
-    const slowRepo = new Repository(delayed, store, () => NOW);
+    const { db: slow, flush } = gatedDb(db);
+    const slowRepo = new Repository(slow, store, () => NOW);
     const p1 = slowRepo.modifySettings(() => ({ displayCurrency: "KRW" }));
     const p2 = slowRepo.modifySettings(() => ({ followUpCadenceDays: 14 }));
     await Promise.all([p1, p2]);
-    await new Promise((r) => setTimeout(r, 50));
+    await flush();
     expect(store.getState().settings).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
     expect((await db.doc("settings/main").get()).data()).toMatchObject({ displayCurrency: "KRW", followUpCadenceDays: 14 });
     expect(base.displayCurrency).not.toBe("KRW");
@@ -299,18 +263,12 @@ describe("Repository", () => {
   it("remove is serialized on the document path and echoes the deletion into the store", async () => {
     const { repo, db, store } = await boot();
     const co = await repo.createCompany({ name: "Gone soon" });
-    const delayed = {
-      ...db,
-      doc: (path: string) => {
-        const real = db.doc(path);
-        return { ...real, delete: () => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.delete(), 20); }) };
-      },
-    } as unknown as DB;
-    const slowRepo = new Repository(delayed, store, () => NOW);
+    const { db: slow, flush } = gatedDb(db);
+    const slowRepo = new Repository(slow, store, () => NOW);
     await slowRepo.remove("companies", co.id);
     expect(store.getState().companies[co.id]).toBeUndefined();
     await expect(slowRepo.update("companies", co.id, { name: "x" })).rejects.toMatchObject({ code: "not_found" });
-    await new Promise((r) => setTimeout(r, 50));
+    await flush();
     expect((await db.doc(`companies/${co.id}`).get()).exists).toBe(false);
   });
 

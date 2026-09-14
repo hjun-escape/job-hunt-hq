@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { defaultSettings } from "../../src/domain/defaults";
 import { createStore } from "../../src/store/store";
@@ -130,7 +130,7 @@ describe("startSync", () => {
     const a = startSync(db, createStore(), { homeTz: "America/Toronto", now: () => NOW, migrations: bump });
     const b = startSync(db, createStore(), { homeTz: "America/Toronto", now: () => NOW, migrations: bump });
     await Promise.all([a.ready, b.ready]);
-    await new Promise((r) => setTimeout(r, 20));
+    await vi.waitFor(async () => expect(((await db.doc("settings/main").get()).data() as unknown as Settings).schemaVersion).toBe(1));
     const stored = (await db.doc("settings/main").get()).data() as unknown as Settings;
     expect(stored.schemaVersion).toBe(1);
     expect(stored.followUpCadenceDays).toBe(8);
@@ -158,6 +158,66 @@ describe("startSync", () => {
     await handle.ready;
     expect(acquires).toBe(1); // the definitive miss seeded; the cache-only miss did not
     expect(store.getState().settings?.schemaVersion).toBeTypeOf("number");
+    handle.stop();
+  });
+
+  it("shows the banner when storage only ever delivers cache-only misses", async () => {
+    const db = createFakeDb();
+    const cacheMiss: DocumentSnapshot = { id: "main", exists: false, data: () => undefined, metadata: { fromCache: true, hasPendingWrites: false } };
+    const wrapped = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        if (path !== "settings/main") return real;
+        return { ...real, onSnapshot: (next: (s: DocumentSnapshot) => void) => { next(cacheMiss); return () => {}; } };
+      },
+    } as unknown as DB;
+    const fired: (() => void)[] = [];
+    const store = createStore();
+    const errors: string[] = [];
+    const handle = startSync(wrapped, store, { homeTz: "America/Toronto", now: () => NOW, onError: (e) => errors.push(e.code), timer: (fn) => { fired.push(fn); return () => { fired.splice(fired.indexOf(fn), 1); }; } });
+    expect(store.getState().ready).toBe(false);
+    fired[0]?.();
+    await handle.ready;
+    expect(store.getState()).toMatchObject({ ready: true, readOnly: true });
+    expect(store.getState().settings?.schemaVersion).toBeTypeOf("number");
+    expect(errors).toEqual(["unavailable"]);
+    handle.stop();
+  });
+
+  it("cancels the definitive-snapshot timer once a real snapshot arrives", async () => {
+    const db = createFakeDb();
+    await db.doc("settings/main").set(defaultSettings("America/Toronto", NOW) as unknown as Record<string, unknown>);
+    const cacheMiss: DocumentSnapshot = { id: "main", exists: false, data: () => undefined, metadata: { fromCache: true, hasPendingWrites: false } };
+    const wrapped = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        if (path !== "settings/main") return real;
+        return { ...real, onSnapshot: (next: (s: DocumentSnapshot) => void, error?: (e: DbError) => void) => { next(cacheMiss); return real.onSnapshot(next, error); } };
+      },
+    } as unknown as DB;
+    let cancelled = 0;
+    const store = createStore();
+    const handle = startSync(wrapped, store, { homeTz: "America/Toronto", now: () => NOW, timer: () => () => { cancelled++; } });
+    await handle.ready;
+    expect(cancelled).toBe(1); // one timer armed by the cache miss on settings, cleared by the definitive snapshot
+    expect(store.getState().readOnly).toBe(false);
+    handle.stop();
+  });
+
+  it("keeps the page writable when a migration write fails", async () => {
+    const db = createFakeDb();
+    await db.doc("settings/main").set({ ...defaultSettings("America/Toronto", NOW), schemaVersion: 0 } as unknown as Record<string, unknown>);
+    const broken = { ...db, doc: (path: string) => { const real = db.doc(path); return path === "settings/main" ? { ...real, acquire: async () => { throw { code: "unavailable", message: "lease down" }; } } : real; } } as unknown as DB;
+    const errors: string[] = [];
+    const store = createStore();
+    const handle = startSync(broken, store, { homeTz: "America/Toronto", now: () => NOW, onError: (e) => errors.push(e.code), migrations: [{ to: 1, apply: (s: Settings) => s }] });
+    await handle.ready;
+    await new Promise((r) => queueMicrotask(() => r(undefined)));
+    expect(store.getState().readOnly).toBe(false);
+    expect(store.getState().settings?.schemaVersion).toBe(1);
+    expect(errors).toEqual(["unavailable"]);
     handle.stop();
   });
 });
