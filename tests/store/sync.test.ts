@@ -214,10 +214,46 @@ describe("startSync", () => {
     const store = createStore();
     const handle = startSync(broken, store, { homeTz: "America/Toronto", now: () => NOW, onError: (e) => errors.push(e.code), migrations: [{ to: 1, apply: (s: Settings) => s }] });
     await handle.ready;
-    await new Promise((r) => queueMicrotask(() => r(undefined)));
+    await vi.waitFor(() => expect(errors).toEqual(["unavailable"]));
     expect(store.getState().readOnly).toBe(false);
     expect(store.getState().settings?.schemaVersion).toBe(1);
-    expect(errors).toEqual(["unavailable"]);
+    handle.stop();
+  });
+
+  it("a cache-only hit after a cache-only miss settles the watchdog", async () => {
+    const db = createFakeDb();
+    const stored = { ...defaultSettings("America/Toronto", NOW), schemaVersion: 0 } as unknown as Record<string, unknown>;
+    await db.doc("settings/main").set(stored);
+    const cacheMiss: DocumentSnapshot = { id: "main", exists: false, data: () => undefined, metadata: { fromCache: true, hasPendingWrites: false } };
+    const cacheHit: DocumentSnapshot = { id: "main", exists: true, data: () => stored, metadata: { fromCache: true, hasPendingWrites: false } };
+    const wrapped = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        if (path !== "settings/main") return real;
+        return {
+          ...real,
+          onSnapshot: (next: (s: DocumentSnapshot) => void) => {
+            next(cacheMiss);
+            next(cacheHit);
+            return () => {};
+          },
+        };
+      },
+    } as unknown as DB;
+    const armed: (() => void)[] = [];
+    let cancelled = 0;
+    const store = createStore();
+    const handle = startSync(wrapped, store, {
+      homeTz: "America/Toronto",
+      now: () => NOW,
+      timer: (fn) => { armed.push(fn); return () => { cancelled++; }; },
+    });
+    await handle.ready;
+    expect(store.getState().ready).toBe(true);
+    expect(store.getState().readOnly).toBe(false);
+    expect(armed).toHaveLength(1); // armed once by the cache-only miss
+    expect(cancelled).toBe(1); // settled once by the cache-only hit that followed, never by a definitive snapshot
     handle.stop();
   });
 

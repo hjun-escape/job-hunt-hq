@@ -13,7 +13,7 @@ Private job-search tracker for a multi-market search (Canada, US, Korea), publis
 - **Answers** — reusable answers, STAR stories and email templates, searchable by kind, theme and language, with a "Tailor with Claude" action to draft a new one.
 - **Prep** — coding, system design and behavioral prep items with pattern, difficulty and confidence tracking.
 - **Profile** — a form-fill sheet (identity, links, education, employment, salary, work authorization) with copy-to-clipboard sections.
-- **Settings** — home timezone, exchange rates, priority weights, pick-list editing, a JSON backup download and restore (merge or replace), a per-collection CSV export, a storage meter, and a reset-to-defaults action, and restores report how far they got if storage refuses a document.
+- **Settings** — home timezone, exchange rates, priority weights, pick-list editing, a JSON backup download and restore (merge or replace), a per-collection CSV export, a storage meter, and a reset-to-defaults action. Restores report how far they got if storage refuses a document.
 - **Search** — a top search box that finds companies, applications, contacts and answers at once.
 
 ## AI drafting

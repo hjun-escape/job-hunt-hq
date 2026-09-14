@@ -150,10 +150,12 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
             void seed(SETTINGS_PATH, () => defaultSettings(opts.homeTz, now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
-          // A cache-only hit is real data (an offline viewer's own cache), so populate the store and
-          // mark ready exactly like a definitive hit -- but never write from it: only a definitive
-          // snapshot settles the watchdog or triggers the migration write.
-          if (!snap.metadata.fromCache) settleDefinitive("settings");
+          // A cache-only hit is real data (an offline viewer's own cache), so populate the store,
+          // mark ready, and settle the watchdog on it just like a definitive hit -- the page has
+          // data, so the "never became definitive" banner must not fire. The migration write stays
+          // gated on a definitive snapshot, though: writing from a cache-only read risks writing
+          // back stale data before the definitive one arrives.
+          settleDefinitive("settings");
           const raw = snap.data() as unknown as Settings;
           const migrated = migrateSettings(raw, opts.migrations);
           store.setState({ settings: migrated });
@@ -177,7 +179,7 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
             void seed(PROFILE_PATH, () => defaultProfile(now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
-          if (!snap.metadata.fromCache) settleDefinitive("profile");
+          settleDefinitive("profile");
           store.setState({ profile: snap.data() as unknown as Profile });
           markReady("profile");
         }, onError),
