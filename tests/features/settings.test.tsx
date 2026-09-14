@@ -214,4 +214,19 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     expect((await screen.findByText(/Restore stopped after 3 of 4 documents/)).textContent).toMatch(/invalid/i);
   });
+
+  it("refuses a pick-list label that already exists in the list", async () => {
+    const db = await open("#/settings");
+    fireEvent.change(screen.getByLabelText("New entry"), { target: { value: "  applied " } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect((await screen.findByRole("alert", { name: "New entry label problem" })).textContent).toMatch(/already exists/);
+    const before = ((await db.doc("settings/main").get()).data() as unknown as Settings).pickLists.statuses.length;
+    expect(before).toBe(defaultSettings("America/Toronto", NOW).pickLists.statuses.length);
+    const rename = screen.getByLabelText("Label saved") as HTMLInputElement;
+    fireEvent.change(rename, { target: { value: "Applied" } });
+    fireEvent.blur(rename);
+    expect(await screen.findByText(/already exists/)).toBeTruthy();
+    await waitFor(() => expect(rename.value).toBe("Saved"));
+    expect(((await db.doc("settings/main").get()).data() as unknown as Settings).pickLists.statuses.find((x) => x.id === "saved")?.label).toBe("Saved");
+  });
 });

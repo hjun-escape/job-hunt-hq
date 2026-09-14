@@ -24,8 +24,23 @@ export function KanbanBoard({ apps, includeClosed, selectedId, onOpen }: Props) 
   const [over, setOver] = useState<string | null>(null);
   const columns = kanbanColumns(apps, settings, includeClosed);
   const targets = settings.pickLists.statuses.filter((s) => !s.archived);
-  const move = (appId: string, statusId: string) => void run(() => repo.changeStatus(appId, statusId));
+  const move = (appId: string, statusId: string) =>
+    void run(() => repo.changeStatus(appId, statusId)).then(() => {
+      const el = document.getElementById(`kanban-card-${appId}`);
+      if (el) el.focus();
+      else requestAnimationFrame(() => document.getElementById(`kanban-card-${appId}`)?.focus());
+    });
   const label = (a: Application) => `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}`;
+  // Later occurrences of a status label (two statuses sharing a display name) get a
+  // disambiguated region name so screen readers and tests can tell the columns apart.
+  const labelCounts = new Map<string, number>();
+  for (const { status: s } of columns) labelCounts.set(s.label, (labelCounts.get(s.label) ?? 0) + 1);
+  const seenLabels = new Set<string>();
+  const regionName = (s: { id: string; label: string }) => {
+    const isRepeat = (labelCounts.get(s.label) ?? 0) > 1 && seenLabels.has(s.label);
+    seenLabels.add(s.label);
+    return isRepeat ? `${s.label} (${s.id})` : s.label;
+  };
   const onDrop = (e: DragEvent<HTMLElement>, statusId: string) => {
     e.preventDefault();
     setOver(null);
@@ -37,13 +52,13 @@ export function KanbanBoard({ apps, includeClosed, selectedId, onOpen }: Props) 
       <div className="row" style={{ justifyContent: "flex-end" }}><SaveIndicator status={status} /></div>
       <div className="kanban">
         {columns.map(({ status: s, apps: cards }) => (
-          <section key={s.id} className={over === s.id ? "kanban-col over" : "kanban-col"} aria-label={s.label}
+          <section key={s.id} className={over === s.id ? "kanban-col over" : "kanban-col"} aria-label={regionName(s)}
             onDragOver={(e) => { e.preventDefault(); if (over !== s.id) setOver(s.id); }} onDragLeave={() => setOver(null)} onDrop={(e) => onDrop(e, s.id)}>
             <h3 className="kanban-head">{s.label} <span className="muted">{cards.length}</span></h3>
             {cards.map((a) => {
               const deadline = a.deadline ? formatForHome(a.deadline, settings.homeTz) : null;
               return (
-                <article key={a.id} className={selectedId === a.id ? "kanban-card selected" : "kanban-card"} draggable={!repo.readOnly} tabIndex={0}
+                <article key={a.id} id={`kanban-card-${a.id}`} className={selectedId === a.id ? "kanban-card selected" : "kanban-card"} draggable={!repo.readOnly} tabIndex={0}
                   onDragStart={(e) => { e.dataTransfer.setData("text/plain", a.id); e.dataTransfer.effectAllowed = "move"; }}
                   onClick={() => onOpen(a.id)} onKeyDown={(e) => { if (e.key === "Enter") onOpen(a.id); }}>
                   <div><strong>{state.companies[a.companyId]?.name ?? "?"}</strong></div>

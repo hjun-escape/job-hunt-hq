@@ -3,6 +3,7 @@ import { addEntry, moveEntry, PICK_LIST_LABELS, referencedPickIds, removeEntry, 
 import type { ColorToken, PickEntry, PickListName, StatusEntry } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { SaveIndicator } from "../../ui/SaveIndicator";
+import { useToast } from "../../ui/Toast";
 import { useSaver } from "../../ui/useSaver";
 
 const COLORS: ColorToken[] = ["gray", "blue", "purple", "green", "red", "amber"];
@@ -13,12 +14,15 @@ export function PickListEditor() {
   const state = useAppState();
   const settings = useSettings();
   const { status, run } = useSaver();
+  const toast = useToast();
   const [name, setName] = useState<PickListName>("statuses");
   const [label, setLabel] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const list = settings.pickLists[name] as PickEntry[];
   const used = referencedPickIds(state, name);
   const isStatus = name === "statuses";
+  const clash = (curList: PickEntry[], text: string, exceptId?: string) =>
+    curList.some((e) => e.id !== exceptId && e.label.trim().toLowerCase() === text.toLowerCase());
 
   /** Applies `fn` to this list as it stands at write time, inside the settings singleton's
    * write chain -- so switching lists (or two edits landing close together) never clobbers a
@@ -31,6 +35,10 @@ export function PickListEditor() {
     const text = label.trim();
     if (!text) {
       setAddError("Enter a label for the new entry.");
+      return;
+    }
+    if (clash(list, text)) {
+      setAddError(`An entry labelled "${text}" already exists in this list.`);
       return;
     }
     setAddError(null);
@@ -81,7 +89,19 @@ export function PickListEditor() {
                 <tr key={`${name}:${e.id}`}>
                   <td>
                     <input key={`${name}:${e.id}:${e.label}`} aria-label={`Label ${e.id}`} defaultValue={e.label}
-                      onBlur={(ev) => { const v = ev.target.value.trim(); if (v && v !== e.label) void commit((curList) => updateEntry(curList, e.id, { label: v })); }} />
+                      onBlur={(ev) => {
+                        // Renaming a row is a separate action from the "New entry" add flow above;
+                        // clear any stale add-error so it doesn't linger alongside this row's own feedback.
+                        setAddError(null);
+                        const v = ev.target.value.trim();
+                        if (!v || v === e.label) return;
+                        if (clash(list, v, e.id)) {
+                          toast.show(`An entry labelled "${v}" already exists in this list.`, "error");
+                          ev.target.value = e.label;
+                          return;
+                        }
+                        void commit((curList) => updateEntry(curList, e.id, { label: v }));
+                      }} />
                   </td>
                   <td>
                     <select aria-label={`Color ${e.id}`} value={e.color ?? "gray"} onChange={(ev) => void commit((curList) => updateEntry(curList, e.id, { color: ev.target.value as ColorToken }))}>

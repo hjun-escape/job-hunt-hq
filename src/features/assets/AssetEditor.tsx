@@ -34,6 +34,7 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
   const referenced = isAssetReferenced(id, apps);
   const ro = repo.readOnly;
   const pl = settings.pickLists;
+  const stages = openStages(settings);
   type AssetPatch = Partial<AssetDoc> | ((current: AssetDoc) => Partial<AssetDoc>);
   const patch = (p: AssetPatch) => run(() => (typeof p === "function" ? repo.modify("assets", id, p) : repo.update("assets", id, p)));
   const appLabel = (a: { companyId: string; title: string }) => `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}`;
@@ -118,8 +119,8 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
         </ul>
       )}
       {usage.asResume.length > 0 ? (() => {
-        const rate = screenRate(usage.asResume, openStages(settings));
-        const reached = usage.asResume.filter((a) => a.maxStageRank >= (openStages(settings).find((s) => s.id === "screening")?.stageRank ?? Infinity)).length;
+        const rate = screenRate(usage.asResume, stages);
+        const reached = usage.asResume.filter((a) => a.maxStageRank >= (stages.find((s) => s.id === "screening")?.stageRank ?? Infinity)).length;
         return rate == null ? null : <p className="muted">{`Screen-rate ${Math.round(rate * 100)}%: ${reached} of ${usage.asResume.length} applications using this resume reached Screening.`}</p>;
       })() : null}
     </Drawer>

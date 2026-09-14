@@ -5,7 +5,7 @@ import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
-import { loadColumnPrefs } from "../../src/features/applications/columnPrefs";
+import { loadColumnPrefs, saveColumnPrefs } from "../../src/features/applications/columnPrefs";
 
 const NOW = "2026-09-11T00:00:00.000Z";
 
@@ -137,5 +137,35 @@ describe("Applications", () => {
     expect(await screen.findByRole("region", { name: "Saved" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Table view" }));
     expect(window.location.hash).toBe("#/applications");
+  });
+
+  it("keeps focus on a card moved with the select", async () => {
+    await open("#/applications?view=board", async (d) => {
+      await d.doc("companies/co_1").set(buildCompany({ name: "Shopify" }, "co_1", NOW) as unknown as Record<string, unknown>);
+      await d.doc("applications/app_1").set(buildApplication({ companyId: "co_1", title: "Backend", countryId: "CA", channelId: "linkedin", statusId: "saved", maxStageRank: 1 }, "app_1", NOW) as unknown as Record<string, unknown>);
+    });
+    await screen.findByRole("region", { name: "Saved" });
+    fireEvent.change(screen.getByLabelText("Move Shopify · Backend to"), { target: { value: "applied" } });
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Applied" })).getByText("Backend")).toBeTruthy());
+    await waitFor(() => expect(document.activeElement?.id).toBe("kanban-card-app_1"));
+  });
+
+  it("names duplicate-label columns with the status id", async () => {
+    const db = createFakeDb();
+    const s = defaultSettings("America/Toronto", NOW);
+    s.pickLists.statuses = s.pickLists.statuses.map((st) => (st.id === "preparing" ? { ...st, label: "Saved" } : st));
+    await db.doc("settings/main").set(s as unknown as Record<string, unknown>);
+    window.location.hash = "#/applications?view=board";
+    render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
+    expect(await screen.findByRole("region", { name: "Saved" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Saved (preparing)" })).toBeTruthy();
+  });
+
+  it("starts sorted by company when the deadline column is hidden by a saved preference", async () => {
+    localStorage.clear();
+    saveColumnPrefs(["company", "title", "status"]);
+    await open("#/applications");
+    expect(screen.getByRole("columnheader", { name: /Company/ }).getAttribute("aria-sort")).toBe("ascending");
+    localStorage.clear();
   });
 });
