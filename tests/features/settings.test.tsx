@@ -200,4 +200,33 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     expect(await screen.findByText("Storage is full: wrote 3 of 4 documents before stopping.")).toBeTruthy();
   });
+
+  it("reports a restore that stopped on an error with the counts so far", async () => {
+    const db = await open("#/settings");
+    const realDoc = db.doc.bind(db);
+    db.doc = ((path: string) => {
+      const ref = realDoc(path);
+      return path.startsWith("applications/") ? { ...ref, set: async () => { throw { code: "invalid_argument", message: "bad" }; } } : ref;
+    }) as typeof db.doc;
+    const backup = buildBackup({ settings: defaultSettings("America/Toronto", NOW), profile: defaultProfile(NOW), applications: { app_1: buildApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied" }, "app_1", NOW) }, companies: { co_1: buildCompany({ name: "Imported Co" }, "co_1", NOW) }, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} }, NOW);
+    fireEvent.change(screen.getByLabelText("Restore from backup"), { target: { files: [new File([JSON.stringify(backup)], "good.json", { type: "application/json" })] } });
+    await screen.findByText(/good\.json/);
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect((await screen.findByText(/Restore stopped after 3 of 4 documents/)).textContent).toMatch(/invalid/i);
+  });
+
+  it("refuses a pick-list label that already exists in the list", async () => {
+    const db = await open("#/settings");
+    fireEvent.change(screen.getByLabelText("New entry"), { target: { value: "  applied " } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect((await screen.findByRole("alert", { name: "New entry label problem" })).textContent).toMatch(/already exists/);
+    const before = ((await db.doc("settings/main").get()).data() as unknown as Settings).pickLists.statuses.length;
+    expect(before).toBe(defaultSettings("America/Toronto", NOW).pickLists.statuses.length);
+    const rename = screen.getByLabelText("Label saved") as HTMLInputElement;
+    fireEvent.change(rename, { target: { value: "Applied" } });
+    fireEvent.blur(rename);
+    expect(await screen.findByText(/already exists/)).toBeTruthy();
+    await waitFor(() => expect(rename.value).toBe("Saved"));
+    expect(((await db.doc("settings/main").get()).data() as unknown as Settings).pickLists.statuses.find((x) => x.id === "saved")?.label).toBe("Saved");
+  });
 });

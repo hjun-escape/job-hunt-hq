@@ -22,7 +22,7 @@ export function App({ capabilities }: { capabilities: Capabilities }) {
       if (cancelled) return;
       const repo = new Repository(db, store);
       if (db) {
-        handle = startSync(db, store, { homeTz: browserTimeZone() });
+        handle = startSync(db, store, { homeTz: browserTimeZone(), onError: (e) => console.warn("storage", e.code, e.message) });
       } else {
         const now = nowIso();
         store.setState({ readOnly: true, ready: true, settings: defaultSettings(browserTimeZone(), now), profile: defaultProfile(now) });

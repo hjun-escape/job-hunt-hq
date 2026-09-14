@@ -26,7 +26,7 @@ export function ApplicationsPage({ parts, query }: PageProps) {
   const state = useAppState();
   const settings = useSettings();
   const [filter, setFilter] = useState<AppFilter>(emptyFilter());
-  const [sortKey, setSortKey] = useState("deadline");
+  const [sortKey, setSortKey] = useState(() => (loadColumnPrefs().includes("deadline") ? "deadline" : "company"));
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [adding, setAdding] = useState(false);
   const [visible, setVisible] = useState<string[]>(loadColumnPrefs);

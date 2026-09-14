@@ -22,4 +22,9 @@ describe("csv", () => {
     expect(toCsv([{ a: 1, b: 2 }], ["b"]).slice(CSV_BOM.length)).toBe("b\r\n2\r\n");
     expect(collectionCsv([])).toBe(`${CSV_BOM}\r\n`);
   });
+
+  it("neutralizes spreadsheet formulas in text cells but leaves numbers alone", () => {
+    const row = toCsv([{ a: "=SUM(A1)", b: -5, c: "-note", d: ["+x", "y"], e: "@handle", f: "\tlead" }]).slice(CSV_BOM.length).split("\r\n")[1];
+    expect(row).toBe("'=SUM(A1),-5,'-note,'+x; y,'@handle,'\tlead");
+  });
 });

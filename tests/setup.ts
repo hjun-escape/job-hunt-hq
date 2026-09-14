@@ -14,7 +14,10 @@ class MemoryStorage implements Storage {
 
 const stubbed = (() => {
   try {
-    return typeof localStorage === "undefined" || typeof localStorage.clear !== "function";
+    if (typeof localStorage === "undefined") return true;
+    localStorage.setItem("__probe__", "1");
+    localStorage.removeItem("__probe__");
+    return typeof localStorage.clear !== "function";
   } catch {
     return true;
   }

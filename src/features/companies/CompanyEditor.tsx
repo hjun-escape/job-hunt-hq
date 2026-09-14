@@ -17,6 +17,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
   const confirm = useConfirm();
   const [newSource, setNewSource] = useState({ label: "", url: "" });
   const company = state.companies[id];
+  const ro = repo.readOnly;
 
   if (!company) {
     return (
@@ -60,14 +61,14 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       }
     >
       <div className="grid-2">
-        <TextField label="Name" value={company.name} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} />
-        <UrlField label="Website" value={company.website ?? ""} onCommit={(v) => patch({ website: v || undefined })} />
-        <TextField label="Industry" value={company.industry ?? ""} onCommit={(v) => patch({ industry: v || undefined })} />
-        <TextField label="Size" value={company.size ?? ""} onCommit={(v) => patch({ size: v || undefined })} />
-        <TextField label="HQ" value={company.hq ?? ""} onCommit={(v) => patch({ hq: v || undefined })} />
+        <TextField label="Name" value={company.name} disabled={ro} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} />
+        <UrlField label="Website" value={company.website ?? ""} disabled={ro} onCommit={(v) => patch({ website: v || undefined })} />
+        <TextField label="Industry" value={company.industry ?? ""} disabled={ro} onCommit={(v) => patch({ industry: v || undefined })} />
+        <TextField label="Size" value={company.size ?? ""} disabled={ro} onCommit={(v) => patch({ size: v || undefined })} />
+        <TextField label="HQ" value={company.hq ?? ""} disabled={ro} onCommit={(v) => patch({ hq: v || undefined })} />
       </div>
-      <TagInput label="Office cities" value={company.cities} onChange={(fn) => void modify((cur) => ({ cities: fn(cur.cities) }))} />
-      <TagInput label="Tech stack" value={company.techStack} onChange={(fn) => void modify((cur) => ({ techStack: fn(cur.techStack) }))} />
+      <TagInput label="Office cities" value={company.cities} disabled={ro} onChange={(fn) => void modify((cur) => ({ cities: fn(cur.cities) }))} />
+      <TagInput label="Tech stack" value={company.techStack} disabled={ro} onChange={(fn) => void modify((cur) => ({ techStack: fn(cur.techStack) }))} />
 
       <h3>Sponsorship by country</h3>
       {settings.pickLists.countries.map((co) => {
@@ -75,18 +76,18 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         return (
           <div className="grid-2" key={co.id}>
             <Field label={`${co.label} sponsorship`} htmlFor={`sp-${co.id}`}>
-              <select id={`sp-${co.id}`} value={p?.policy ?? "unknown"} onChange={(e) => void setPolicy(co.id, { policy: e.target.value as SponsorshipPolicy["policy"] })}>
+              <select id={`sp-${co.id}`} value={p?.policy ?? "unknown"} disabled={ro} onChange={(e) => void setPolicy(co.id, { policy: e.target.value as SponsorshipPolicy["policy"] })}>
                 <option value="unknown">Unknown</option>
                 <option value="yes">Sponsors</option>
                 <option value="no">Does not sponsor</option>
               </select>
             </Field>
-            <TextField label={`${co.label} note`} value={p?.note ?? ""} onCommit={(v) => setPolicy(co.id, { note: v || undefined })} />
+            <TextField label={`${co.label} note`} value={p?.note ?? ""} disabled={ro} onCommit={(v) => setPolicy(co.id, { note: v || undefined })} />
           </div>
         );
       })}
 
-      <TextArea label="Interview process" rows={6} value={company.interviewProcess} onCommit={(v) => patch({ interviewProcess: v })}
+      <TextArea label="Interview process" rows={6} value={company.interviewProcess} disabled={ro} onCommit={(v) => patch({ interviewProcess: v })}
         placeholder="Rounds, formats, what people report on Blind / Glassdoor / 잡플래닛" />
 
       <h3>Sources</h3>
@@ -95,15 +96,15 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
           {company.sources.map((s, i) => (
             <li key={`${s.url}-${i}`}>
               {isSafeUrl(s.url) ? <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a> : <span>{s.label || s.url}</span>}{" "}
-              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((x) => !(x.url === s.url && x.label === s.label)) }))}>×</button>
+              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} disabled={ro} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((x) => !(x.url === s.url && x.label === s.label)) }))}>×</button>
             </li>
           ))}
         </ul>
       ) : null}
       <div className="row">
-        <input placeholder="Label" aria-label="Source label" value={newSource.label} onChange={(e) => setNewSource({ ...newSource, label: e.target.value })} />
-        <input placeholder="https://" aria-label="Source URL" value={newSource.url} onChange={(e) => setNewSource({ ...newSource, url: e.target.value })} />
-        <button type="button" className="btn" onClick={() => {
+        <input placeholder="Label" aria-label="Source label" value={newSource.label} disabled={ro} onChange={(e) => setNewSource({ ...newSource, label: e.target.value })} />
+        <input placeholder="https://" aria-label="Source URL" value={newSource.url} disabled={ro} onChange={(e) => setNewSource({ ...newSource, url: e.target.value })} />
+        <button type="button" className="btn" disabled={ro} onClick={() => {
           if (!newSource.url.trim()) return;
           const toAdd = { label: newSource.label.trim(), url: newSource.url.trim() };
           void modify((cur) => ({ sources: [...cur.sources, toAdd] }));
@@ -111,7 +112,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         }}>Add source</button>
       </div>
 
-      <TextArea label="Notes" rows={6} value={company.notes} onCommit={(v) => patch({ notes: v })} />
+      <TextArea label="Notes" rows={6} value={company.notes} disabled={ro} onCommit={(v) => patch({ notes: v })} />
 
       <h3>Applications ({linked.length})</h3>
       {linked.length === 0 ? <p className="muted">None yet.</p> : (

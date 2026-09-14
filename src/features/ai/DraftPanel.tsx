@@ -3,6 +3,7 @@ import { buildDraftPrompt, profileSummary } from "../../capabilities/ai";
 import type { SampleLike } from "../../capabilities/types";
 import type { Answer, Application } from "../../domain/types";
 import { useApp, useAppState, useProfile } from "../../store/context";
+import { useConfirm } from "../../ui/Confirm";
 import { Field } from "../../ui/fields";
 import { useToast } from "../../ui/Toast";
 import { useSaver } from "../../ui/useSaver";
@@ -23,6 +24,7 @@ export function DraftPanel({ app, answer, sample: sampleCapability, onClose, onD
   const state = useAppState();
   const profile = useProfile();
   const sample = useSample(sampleCapability);
+  const confirm = useConfirm();
   const toast = useToast();
   const { status, run } = useSaver();
   const company = app ? (state.companies[app.companyId]?.name ?? "the company") : "the company";
@@ -32,27 +34,45 @@ export function DraftPanel({ app, answer, sample: sampleCapability, onClose, onD
   const [includeJd, setIncludeJd] = useState(!!app?.jobDescription?.trim());
   const [includeProfile, setIncludeProfile] = useState(true);
   const [ticked, setTicked] = useState<string[]>(() => (answer ? [answer.id] : (app?.answerIds ?? [])));
+  const [generated, setGenerated] = useState("");
   const bank = Object.values(state.answers).sort((a, b) => a.title.localeCompare(b.title));
   const busy = sample.phase === "thinking" || sample.phase === "streaming";
-  const rateLimited = sample.disabledUntil > Date.now();
   const dirty = busy || sample.text.trim().length > 0;
+  const edited = !busy && sample.text.trim().length > 0 && sample.text !== generated;
 
-  useEffect(() => {
-    onDirtyChange?.(dirty);
-  }, [dirty, onDirtyChange]);
-  useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
-
-  if (!sample.available) {
-    return <section className="section ai-panel" aria-label="Draft with Claude"><p className="muted">Claude drafting is not available in this view.</p><button type="button" className="btn" onClick={onClose}>Close</button></section>;
-  }
-
-  const draft = () => void sample.run(buildDraftPrompt({
+  const draftInput = {
     question, company, role: app?.title ?? "the role",
     jobDescription: includeJd ? app?.jobDescription : undefined,
     sources: ticked.map((id) => state.answers[id]).filter((a): a is Answer => !!a).map((a) => ({ title: a.title, body: a.body })),
     profileSummary: includeProfile ? profileSummary(profile) : undefined,
     language, length,
-  }), { cache: false });
+  };
+  const prompt = buildDraftPrompt(draftInput);
+  const promptBytes = new TextEncoder().encode(prompt).length;
+  const overBy = sample.maxPromptBytes != null ? promptBytes - sample.maxPromptBytes : 0;
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
+  useEffect(() => {
+    // Only on the falling edge of "busy" -- sample.text is deliberately not a dependency,
+    // else every keystroke in the textarea (which also sets sample.text) would re-sync
+    // `generated` to match and the edit guard below could never see a diff. Syncing on
+    // "not busy" (rather than only phase === "done") also covers Stop and a message-class
+    // failure, both of which leave partial text editable without ever reaching "done".
+    if (!busy) setGenerated(sample.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
+
+  if (!sample.available) {
+    return <section className="section ai-panel" aria-label="Draft with Claude"><p className="muted">Claude drafting is not available in this view.</p><button type="button" className="btn" onClick={onClose}>Close</button></section>;
+  }
+
+  const draft = async () => {
+    if (edited && !(await confirm({ title: "Replace your edits?", message: "Drafting again discards the changes you made to this text.", confirmLabel: "Replace" }))) return;
+    void sample.run(prompt, { cache: false });
+  };
 
   const save = (attach: boolean) => void run(async () => {
     const title = question.trim() || `Draft for ${company}`;
@@ -91,10 +111,11 @@ export function DraftPanel({ app, answer, sample: sampleCapability, onClose, onD
         ))}
       </fieldset>
       <div className="row">
-        <button type="button" className="btn primary" onClick={draft} disabled={!question.trim() || busy || rateLimited}>Draft</button>
+        <button type="button" className="btn primary" onClick={() => void draft()} disabled={!question.trim() || busy || sample.rateLimited || overBy > 0}>Draft</button>
         {busy ? <button type="button" className="btn" onClick={sample.stop}>Stop</button> : null}
         <span className="muted" aria-live="polite">{sample.phase === "thinking" ? "Thinking…" : sample.phase === "streaming" ? "Writing…" : sample.truncated ? "Cut short — ask for a shorter answer." : ""}</span>
       </div>
+      {overBy > 0 ? <p className="field-hint danger-text" role="status">{`Prompt is ${Math.ceil(overBy / 1024)} KB over the limit — untick sources or shorten the job description.`}</p> : null}
       {sample.error ? <p className="field-hint danger-text" role="alert">{sample.error}</p> : null}
       {sample.phase !== "idle" || sample.text ? (
         <Field label="Draft" htmlFor="ai-draft" hint="Edit freely before saving.">

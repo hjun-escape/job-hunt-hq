@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DateTime } from "luxon";
 import { dueThisWeek, followUpFlags, overdue, upcomingInterviews } from "../../domain/agenda";
 import { formatSlot } from "../../domain/interviews";
@@ -10,8 +10,7 @@ import { FunnelChart } from "./FunnelChart";
 export function DashboardPage() {
   const state = useAppState();
   const settings = useSettings();
-  const now = DateTime.utc();
-  const records = { applications: state.applications, companies: state.companies, contacts: state.contacts, interviews: state.interviews };
+  const [now] = useState(() => DateTime.utc());
   const apps = useMemo(() => Object.values(state.applications), [state.applications]);
   const counts = useMemo(() => {
     const m = new Map<string, number>();
@@ -19,10 +18,15 @@ export function DashboardPage() {
     return m;
   }, [apps]);
   const open = settings.pickLists.statuses.filter((s) => s.group === "open" && !s.archived);
-  const due = dueThisWeek(records, settings, now);
-  const late = overdue(records, settings, now);
-  const flags = followUpFlags(records, settings, now);
-  const upcoming = upcomingInterviews(Object.values(state.interviews), settings.homeTz, now, 5);
+  const { due, late, flags, upcoming } = useMemo(() => {
+    const records = { applications: state.applications, companies: state.companies, contacts: state.contacts, interviews: state.interviews };
+    return {
+      due: dueThisWeek(records, settings, now),
+      late: overdue(records, settings, now),
+      flags: followUpFlags(records, settings, now),
+      upcoming: upcomingInterviews(Object.values(state.interviews), settings.homeTz, now, 5, state.applications),
+    };
+  }, [state.applications, state.companies, state.contacts, state.interviews, settings, now]);
   const label = (applicationId: string) => {
     const a = state.applications[applicationId];
     return a ? `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}` : "(deleted application)";

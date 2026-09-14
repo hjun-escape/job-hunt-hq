@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createFakeSample } from "../../src/capabilities/fakeSample";
+import { RATE_LIMIT_MS } from "../../src/capabilities/ai";
 import { resetSamplePolicy, useSample } from "../../src/features/ai/useSample";
 
 describe("useSample", () => {
@@ -78,6 +79,8 @@ describe("useSample", () => {
     const working = createFakeSample({ reply: () => "hello" });
     const h2 = renderHook(() => useSample(working));
     expect(h2.result.current.available).toBe(false);
+    // Drain h2's own limits() fetch (new in this hook) inside act() so it doesn't settle after the test returns.
+    await act(async () => {});
   });
 
   it("keeps the rate-limit window across instances", async () => {
@@ -89,5 +92,31 @@ describe("useSample", () => {
     const working = createFakeSample({ reply: () => "hello" });
     const h2 = renderHook(() => useSample(working));
     expect(h2.result.current.disabledUntil).toBeGreaterThan(Date.now());
+    // Drain h2's own limits() fetch (new in this hook) inside act() so it doesn't settle after the test returns.
+    await act(async () => {});
+  });
+
+  it("exposes the prompt budget once the capability resolves", async () => {
+    const sample = createFakeSample({ maxPromptBytes: 2048 });
+    const { result } = renderHook(() => useSample(sample));
+    await waitFor(() => expect(result.current.maxPromptBytes).toBe(2048));
+  });
+
+  it("lifts the rate limit on its own when the window ends", async () => {
+    vi.useFakeTimers();
+    try {
+      const limited = createFakeSample({ error: { code: "rate_limited", message: "" } });
+      const { result } = renderHook(() => useSample(limited));
+      await act(async () => {
+        const p = result.current.run("q");
+        await vi.runAllTimersAsync();
+        await p;
+      });
+      expect(result.current.rateLimited).toBe(true);
+      await act(async () => { await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS + 10); });
+      expect(result.current.rateLimited).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

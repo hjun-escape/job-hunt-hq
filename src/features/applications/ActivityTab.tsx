@@ -2,6 +2,7 @@ import { useState } from "react";
 import { formatInstant } from "../../domain/dates";
 import type { Application } from "../../domain/types";
 import { useApp, useSettings } from "../../store/context";
+import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 
 export function ActivityTab({ app }: { app: Application }) {
@@ -25,6 +26,7 @@ export function ActivityTab({ app }: { app: Application }) {
         <input aria-label="New note" value={note} placeholder="Log a note (emailed recruiter, got the OA link…)"
           onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} />
         <button type="button" className="btn" onClick={add} disabled={status === "saving" || repo.readOnly}>Add note</button>
+        <SaveIndicator status={status} />
       </div>
       {entries.length === 0 ? (
         <p className="muted">No activity yet. Status changes and notes appear here.</p>

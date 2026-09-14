@@ -25,4 +25,9 @@ describe("createFakeSample", () => {
     const p = sample("x", { signal: ctl.signal, onText: ({ text }) => { if (text.length >= 3) ctl.abort(); } });
     await expect(p).rejects.toMatchObject({ code: "cancelled" });
   });
+
+  it("reports a configurable prompt budget", async () => {
+    expect((await createFakeSample({ maxPromptBytes: 1000 }).limits()).maxPromptBytes).toBe(1000);
+    expect((await createFakeSample().limits()).maxPromptBytes).toBe(65536);
+  });
 });

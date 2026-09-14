@@ -67,4 +67,15 @@ describe("agenda", () => {
     expect(upcomingInterviews(list, "America/Toronto", now).map((i) => i.id)).toEqual(["soon", "late"]);
     expect(upcomingInterviews(list, "America/Toronto", now, 1).map((i) => i.id)).toEqual(["soon"]);
   });
+
+  it("ignores interviews whose application no longer exists", () => {
+    const records = base();
+    records.applications = { a: app("a") };
+    records.interviews = {
+      keep: buildInterview({ applicationId: "a", roundTypeId: "coding", scheduledAt: { at: "2026-09-16T14:00:00.000Z", tz: "America/Toronto" } }, "keep", NOW),
+      orphan: buildInterview({ applicationId: "gone", roundTypeId: "coding", scheduledAt: { at: "2026-09-16T15:00:00.000Z", tz: "America/Toronto" } }, "orphan", NOW),
+    };
+    expect(dueThisWeek(records, settings, now).map((i) => i.interviewId)).toEqual(["keep"]);
+    expect(upcomingInterviews(Object.values(records.interviews), "America/Toronto", now, 5, records.applications).map((i) => i.id)).toEqual(["keep"]);
+  });
 });

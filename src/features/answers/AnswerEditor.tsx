@@ -49,7 +49,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
   };
   return (
     <Drawer open wide title={answer.title} onClose={onClose}
-      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard" })}
+      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard draft" })}
       footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" disabled={used.length > 0 || ro} title={used.length ? "Detach it from applications first" : undefined} onClick={() => void remove()}>Delete answer</button></>}>
       <div className="grid-2">
         <SelectField label="Kind" value={answer.kindId} options={pl.answerKinds} onChange={(v) => { if (v) void patch({ kindId: v }); }} allowEmpty={false} disabled={ro} />

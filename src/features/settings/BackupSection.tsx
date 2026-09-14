@@ -80,7 +80,8 @@ export function BackupSection() {
     setProgress({ done: 0, total: steps.length });
     try {
       const r = await runRestore(repo, steps, { onProgress: setProgress });
-      if (r.stopped) toast.show(`Storage is full: wrote ${r.written} of ${writes} documents before stopping.`, "error");
+      if (r.stopped === "quota_exceeded") toast.show(`Storage is full: wrote ${r.written} of ${writes} documents before stopping.`, "error");
+      else if (r.stopped === "error") toast.show(`Restore stopped after ${r.written} of ${writes} documents: ${r.error}`, "error");
       else toast.show(`Restored ${r.written} documents${r.deleted ? ` and deleted ${r.deleted}` : ""}.`, "success");
       setPending(null);
     } catch (e) {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
@@ -120,6 +120,14 @@ describe("ApplicationDetail", () => {
     fireEvent.keyDown(document.activeElement as HTMLElement, { key: "End" });
     expect(screen.getByRole("tab", { name: "Notes" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("shows the save indicator after logging a note", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("tab", { name: "Activity" }));
+    fireEvent.change(screen.getByLabelText("New note"), { target: { value: "Emailed recruiter" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(await within(screen.getByRole("tabpanel")).findByText("Saved")).toBeTruthy();
   });
 });
 

@@ -11,7 +11,8 @@ export interface RestoreResult {
   written: number;
   deleted: number;
   total: number;
-  stopped?: "quota_exceeded";
+  stopped?: "quota_exceeded" | "error";
+  error?: string;
 }
 
 const MAX_RETRIES = 5;
@@ -46,7 +47,9 @@ export async function runRestore(repo: Repository, steps: RestoreStep[], opts: R
           await wait(Math.min(8000, 500 * 2 ** attempt));
           continue;
         }
-        throw e;
+        result.stopped = "error";
+        result.error = e instanceof Error ? e.message : String(e);
+        return result;
       }
     }
     if (step.kind === "delete") result.deleted++;

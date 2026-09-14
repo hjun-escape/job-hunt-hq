@@ -71,4 +71,17 @@ describe("runRestore", () => {
     expect(r.deleted).toBe(1);
     expect((await db.doc(`companies/${oldId}`).get()).exists).toBe(false);
   });
+
+  it("stops with counts and a message on a non-retryable error instead of throwing", async () => {
+    const { repo } = await boot((real) => ({
+      ...real,
+      doc: (path: string) => {
+        const ref = real.doc(path);
+        return { ...ref, set: async (body: Record<string, unknown>) => { if (path.startsWith("applications/")) throw { code: "invalid_argument", message: "bad" }; return ref.set(body); } };
+      },
+    }) as unknown as DB);
+    const r = await runRestore(repo, planRestore(backup(), { applications: {}, companies: {}, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} }, "merge"), { wait: async () => {} });
+    expect(r).toMatchObject({ written: 3, stopped: "error", total: 4 });
+    expect(r.error).toMatch(/invalid/i);
+  });
 });

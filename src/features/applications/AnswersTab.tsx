@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { navigate } from "../../app/router";
 import type { Application } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useCapability } from "../../store/useCapability";
 import { PickChip } from "../../ui/Chip";
+import { useConfirm } from "../../ui/Confirm";
 import { copyText } from "../../ui/copyText";
 import { Field } from "../../ui/fields";
 import { useToast } from "../../ui/Toast";
@@ -15,9 +17,11 @@ export function AnswersTab({ app, patch, onDraftDirty }: { app: Application; pat
   const state = useAppState();
   const settings = useSettings();
   const toast = useToast();
+  const confirm = useConfirm();
   const sampleCap = useCapability(caps.sample);
   const samplePolicy = useSamplePolicy();
   const [drafting, setDrafting] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [pick, setPick] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const attached = app.answerIds.map((id) => state.answers[id]).filter((a): a is NonNullable<typeof a> => !!a);
@@ -25,6 +29,7 @@ export function AnswersTab({ app, patch, onDraftDirty }: { app: Application; pat
   const copy = async (id: string, body: string) => {
     if (await copyText(body)) { setCopiedId(id); setTimeout(() => setCopiedId(null), 1500); } else toast.show("Could not copy.", "error");
   };
+  const handleDraftDirty = useCallback((d: boolean) => { setDirty(d); onDraftDirty?.(d); }, [onDraftDirty]);
   return (
     <div>
       <div className="row" style={{ alignItems: "end" }}>
@@ -35,10 +40,14 @@ export function AnswersTab({ app, patch, onDraftDirty }: { app: Application; pat
           </select>
         </Field>
         <button type="button" className="btn primary" disabled={!pick || repo.readOnly} onClick={() => { void patch((cur) => ({ answerIds: [...cur.answerIds, pick] })); setPick(""); }}>Attach</button>
-        <a href="#/answers" className="muted">Manage the bank</a>
+        <a href="#/answers" className="muted" onClick={(e) => {
+          if (!dirty) return;
+          e.preventDefault();
+          void confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard draft" }).then((ok) => { if (ok) navigate("/answers"); });
+        }}>Manage the bank</a>
         {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}
       </div>
-      {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} onDirtyChange={onDraftDirty} /> : null}
+      {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} onDirtyChange={handleDraftDirty} /> : null}
       {attached.length === 0 ? <p className="muted">No answers attached. Attach the ones you used or plan to use for this application.</p> : (
         <ul className="activity">
           {attached.map((a) => (
