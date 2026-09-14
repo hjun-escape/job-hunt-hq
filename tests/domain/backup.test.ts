@@ -194,4 +194,26 @@ describe("backup", () => {
     expect(step.settings.followUpCadenceDays).toBe(7);
     expect(step.settings.fxRates).toEqual({});
   });
+
+  it("rejects a mistyped settings.schemaVersion and falls back to the top-level value when planning", () => {
+    const b = buildBackup(state(), NOW);
+    const bad = { ...b, settings: { ...b.settings, schemaVersion: "1" } };
+    const v = validateBackup(bad);
+    expect(v.ok).toBe(false);
+    if (v.ok) return;
+    expect(v.problems).toContain("settings.schemaVersion has the wrong type.");
+    const step = planRestore(bad as unknown as typeof b, empty(), "merge")[0];
+    expect(step.kind).toBe("settings");
+    if (step.kind !== "settings") return;
+    expect(step.settings.schemaVersion).toBe(b.schemaVersion);
+  });
+
+  it("rejects fxRates entries that are not finite numbers", () => {
+    const b = buildBackup(state(), NOW);
+    const bad = { ...b, settings: { ...b.settings, fxRates: { USD: NaN } } };
+    const v = validateBackup(bad);
+    expect(v.ok).toBe(false);
+    if (v.ok) return;
+    expect(v.problems).toContain("settings.fxRates is missing or has the wrong type.");
+  });
 });

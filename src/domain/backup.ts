@@ -63,7 +63,7 @@ const SETTINGS_SCALARS: [field: keyof Settings, check: (v: unknown) => boolean][
   ["homeTz", (v) => typeof v === "string" && v.length > 0],
   ["displayCurrency", (v) => typeof v === "string" && v.length > 0],
   ["followUpCadenceDays", (v) => typeof v === "number" && Number.isFinite(v)],
-  ["fxRates", (v) => isObject(v) && Object.values(v).every((n) => typeof n === "number")],
+  ["fxRates", (v) => isObject(v) && Object.values(v).every((n) => typeof n === "number" && Number.isFinite(n))],
   ["priorityWeights", (v) => isObject(v) && ["desire", "fit", "likelihood"].every((k) => typeof v[k] === "number")],
 ];
 
@@ -92,6 +92,9 @@ export function validateBackup(raw: unknown, currentVersion: number = SCHEMA_VER
     problems.push("settings is missing.");
   } else {
     for (const [field, ok] of SETTINGS_SCALARS) if (!ok(settings[field])) problems.push(`settings.${field} is missing or has the wrong type.`);
+    if (settings.schemaVersion !== undefined && !(typeof settings.schemaVersion === "number" && Number.isFinite(settings.schemaVersion))) {
+      problems.push("settings.schemaVersion has the wrong type.");
+    }
     if (!isObject(settings.pickLists)) {
       problems.push("settings.pickLists is missing.");
     } else {
@@ -183,7 +186,9 @@ export function planRestore(
   const migrations = opts.migrations ?? MIGRATIONS;
   const now = opts.now ?? nowIso();
   const homeTz = opts.homeTz ?? current.settings?.homeTz ?? "UTC";
-  const schemaVersion = backup.settings?.schemaVersion ?? backup.schemaVersion;
+  const schemaVersion = typeof backup.settings?.schemaVersion === "number" && Number.isFinite(backup.settings.schemaVersion)
+    ? backup.settings.schemaVersion
+    : backup.schemaVersion;
   const normalizedBackupSettings: Settings = { ...defaultSettings(homeTz, now) };
   for (const [field, ok] of SETTINGS_SCALARS) {
     const v = (backup.settings as unknown as Record<string, unknown> | undefined)?.[field];
