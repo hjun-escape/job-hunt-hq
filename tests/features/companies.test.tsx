@@ -200,5 +200,9 @@ describe("Companies", () => {
     expect((within(dialog).getByLabelText("Source label") as HTMLInputElement).disabled).toBe(true);
     expect((within(dialog).getByRole("button", { name: "Add source" }) as HTMLButtonElement).disabled).toBe(true);
     expect((within(dialog).getByRole("button", { name: "Remove source Blind" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText("Name") as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText("Website") as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText("Notes") as HTMLTextAreaElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText("Office cities") as HTMLInputElement).disabled).toBe(true);
   });
 });

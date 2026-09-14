@@ -61,14 +61,14 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
       }
     >
       <div className="grid-2">
-        <TextField label="Name" value={company.name} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} />
-        <UrlField label="Website" value={company.website ?? ""} onCommit={(v) => patch({ website: v || undefined })} />
-        <TextField label="Industry" value={company.industry ?? ""} onCommit={(v) => patch({ industry: v || undefined })} />
-        <TextField label="Size" value={company.size ?? ""} onCommit={(v) => patch({ size: v || undefined })} />
-        <TextField label="HQ" value={company.hq ?? ""} onCommit={(v) => patch({ hq: v || undefined })} />
+        <TextField label="Name" value={company.name} disabled={ro} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} />
+        <UrlField label="Website" value={company.website ?? ""} disabled={ro} onCommit={(v) => patch({ website: v || undefined })} />
+        <TextField label="Industry" value={company.industry ?? ""} disabled={ro} onCommit={(v) => patch({ industry: v || undefined })} />
+        <TextField label="Size" value={company.size ?? ""} disabled={ro} onCommit={(v) => patch({ size: v || undefined })} />
+        <TextField label="HQ" value={company.hq ?? ""} disabled={ro} onCommit={(v) => patch({ hq: v || undefined })} />
       </div>
-      <TagInput label="Office cities" value={company.cities} onChange={(fn) => void modify((cur) => ({ cities: fn(cur.cities) }))} />
-      <TagInput label="Tech stack" value={company.techStack} onChange={(fn) => void modify((cur) => ({ techStack: fn(cur.techStack) }))} />
+      <TagInput label="Office cities" value={company.cities} disabled={ro} onChange={(fn) => void modify((cur) => ({ cities: fn(cur.cities) }))} />
+      <TagInput label="Tech stack" value={company.techStack} disabled={ro} onChange={(fn) => void modify((cur) => ({ techStack: fn(cur.techStack) }))} />
 
       <h3>Sponsorship by country</h3>
       {settings.pickLists.countries.map((co) => {
@@ -87,7 +87,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         );
       })}
 
-      <TextArea label="Interview process" rows={6} value={company.interviewProcess} onCommit={(v) => patch({ interviewProcess: v })}
+      <TextArea label="Interview process" rows={6} value={company.interviewProcess} disabled={ro} onCommit={(v) => patch({ interviewProcess: v })}
         placeholder="Rounds, formats, what people report on Blind / Glassdoor / 잡플래닛" />
 
       <h3>Sources</h3>
@@ -112,7 +112,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         }}>Add source</button>
       </div>
 
-      <TextArea label="Notes" rows={6} value={company.notes} onCommit={(v) => patch({ notes: v })} />
+      <TextArea label="Notes" rows={6} value={company.notes} disabled={ro} onCommit={(v) => patch({ notes: v })} />
 
       <h3>Applications ({linked.length})</h3>
       {linked.length === 0 ? <p className="muted">None yet.</p> : (
