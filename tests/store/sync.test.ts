@@ -220,6 +220,35 @@ describe("startSync", () => {
     expect(errors).toEqual(["unavailable"]);
     handle.stop();
   });
+
+  it("populates the store and becomes ready from a cache-only hit, deferring the migration write", async () => {
+    const db = createFakeDb();
+    const stored = { ...defaultSettings("America/Toronto", NOW), schemaVersion: 0 } as unknown as Record<string, unknown>;
+    await db.doc("settings/main").set(stored);
+    const cacheHit: DocumentSnapshot = { id: "main", exists: true, data: () => stored, metadata: { fromCache: true, hasPendingWrites: false } };
+    const wrapped = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        if (path !== "settings/main") return real;
+        return { ...real, onSnapshot: (next: (s: DocumentSnapshot) => void) => { next(cacheHit); return () => {}; } };
+      },
+    } as unknown as DB;
+    let armed = 0;
+    const store = createStore();
+    const handle = startSync(wrapped, store, {
+      homeTz: "America/Toronto",
+      now: () => NOW,
+      migrations: [{ to: 1, apply: (s: Settings) => ({ ...s, followUpCadenceDays: 9 }) }],
+      timer: () => { armed++; return () => {}; },
+    });
+    await handle.ready;
+    expect(store.getState().settings?.followUpCadenceDays).toBe(9);
+    expect(store.getState().readOnly).toBe(false);
+    expect(((await db.doc("settings/main").get()).data() as unknown as Settings).schemaVersion).toBe(0);
+    expect(armed).toBe(0);
+    handle.stop();
+  });
 });
 
 describe("retryOnce", () => {

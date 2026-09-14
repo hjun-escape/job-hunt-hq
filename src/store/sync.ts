@@ -143,22 +143,23 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
         db.doc(SETTINGS_PATH).onSnapshot((snap) => {
           if (stopped) return;
           // A cache-only miss is not proof the document is absent; the definitive snapshot follows on
-          // its own -- arm the watchdog instead of seeding, and settle it below on any other outcome.
-          if (snap.metadata.fromCache) {
-            if (!hasSchema(snap)) armDefinitive("settings");
-            return;
-          }
-          settleDefinitive("settings");
+          // its own -- arm the watchdog instead of seeding.
           if (!hasSchema(snap)) {
+            if (snap.metadata.fromCache) { armDefinitive("settings"); return; }
+            settleDefinitive("settings");
             void seed(SETTINGS_PATH, () => defaultSettings(opts.homeTz, now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
+          // A cache-only hit is real data (an offline viewer's own cache), so populate the store and
+          // mark ready exactly like a definitive hit -- but never write from it: only a definitive
+          // snapshot settles the watchdog or triggers the migration write.
+          if (!snap.metadata.fromCache) settleDefinitive("settings");
           const raw = snap.data() as unknown as Settings;
           const migrated = migrateSettings(raw, opts.migrations);
           store.setState({ settings: migrated });
           // The store already holds the migrated settings; a failed write just means the next page
           // load retries the migration, so report it without flipping the page read-only.
-          if (migrated !== raw) void migrateWithLease(migrated.schemaVersion).catch((e) => opts.onError?.(e as DbError));
+          if (!snap.metadata.fromCache && migrated !== raw) void migrateWithLease(migrated.schemaVersion).catch((e) => opts.onError?.(e as DbError));
           markReady("settings");
         }, onError),
       { isStopped: () => stopped, fail },
@@ -170,15 +171,13 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
       (onError) =>
         db.doc(PROFILE_PATH).onSnapshot((snap) => {
           if (stopped) return;
-          if (snap.metadata.fromCache) {
-            if (!hasUpdatedAt(snap)) armDefinitive("profile");
-            return;
-          }
-          settleDefinitive("profile");
           if (!hasUpdatedAt(snap)) {
+            if (snap.metadata.fromCache) { armDefinitive("profile"); return; }
+            settleDefinitive("profile");
             void seed(PROFILE_PATH, () => defaultProfile(now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
+          if (!snap.metadata.fromCache) settleDefinitive("profile");
           store.setState({ profile: snap.data() as unknown as Profile });
           markReady("profile");
         }, onError),
