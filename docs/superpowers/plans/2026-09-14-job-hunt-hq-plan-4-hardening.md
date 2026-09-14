@@ -377,7 +377,7 @@ Run: `npx vitest run tests/store/sync.test.ts tests/store/repository.test.ts` �
   };
   const settleDefinitive = (key: string) => { definitive.get(key)?.(); definitive.delete(key); };
 ```
-  In both singleton subscriptions: `if (snap.metadata.fromCache) { if (!has(snap)) armDefinitive(key); return; }` becomes the first branch for the miss case (`has` = `hasSchema`/`hasUpdatedAt`), and every other path (definitive hit or miss) calls `settleDefinitive(key)` first. `stop()` clears every armed timer. `fail` also clears them.
+  In both singleton subscriptions: a cache-only MISS arms the watchdog and returns (no seeding); a cache-only HIT is processed like any hit (`store.setState`, `markReady`) but never writes — the migration write runs only when `!snap.metadata.fromCache`; `settleDefinitive(key)` is called only by a definitive snapshot (hit or miss). `stop()` clears every armed timer. `fail` also clears them.
 - The migration write: replace `.catch(fail)` with `.catch((e) => opts.onError?.(e as DbError))` — the store already holds the migrated settings; the next page load retries.
 
 - [ ] **Step 4: Run the tests to verify they pass**
