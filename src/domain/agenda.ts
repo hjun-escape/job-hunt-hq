@@ -56,9 +56,10 @@ export function dueThisWeek(records: AgendaRecords, settings: Settings, now: Dat
   }
   for (const i of Object.values(records.interviews)) {
     if (!i.scheduledAt || i.outcome !== "pending") continue;
-    if (!inWindow(DateTime.fromISO(i.scheduledAt.at, { zone: "utc" }).setZone(tz))) continue;
     const a = records.applications[i.applicationId];
-    items.push({ kind: "interview", at: i.scheduledAt.at, dateOnly: false, tz: i.scheduledAt.tz, applicationId: i.applicationId, interviewId: i.id, company: companyName(records, a), title: a?.title ?? "(deleted application)", detail: roundLabel(settings, i.roundTypeId) });
+    if (!a) continue;
+    if (!inWindow(DateTime.fromISO(i.scheduledAt.at, { zone: "utc" }).setZone(tz))) continue;
+    items.push({ kind: "interview", at: i.scheduledAt.at, dateOnly: false, tz: i.scheduledAt.tz, applicationId: i.applicationId, interviewId: i.id, company: companyName(records, a), title: a.title, detail: roundLabel(settings, i.roundTypeId) });
   }
   return items.sort(byTime);
 }
@@ -94,10 +95,10 @@ export function followUpFlags(records: AgendaRecords, settings: Settings, now: D
     .sort((a, b) => rank(b.followUp) - rank(a.followUp));
 }
 
-/** Pending, scheduled, not yet past — soonest first. */
-export function upcomingInterviews(interviews: Interview[], homeTz: string, now: DateTime = DateTime.utc(), limit = 5): Interview[] {
+/** Pending, scheduled, not yet past — soonest first. Skips interviews whose application is gone when `applications` is given. */
+export function upcomingInterviews(interviews: Interview[], homeTz: string, now: DateTime = DateTime.utc(), limit = 5, applications?: Record<string, Application>): Interview[] {
   return interviews
-    .filter((i): i is Interview & { scheduledAt: NonNullable<Interview["scheduledAt"]> } => !!i.scheduledAt && i.outcome === "pending" && bucketFor(i.scheduledAt, homeTz, now) !== "past")
+    .filter((i): i is Interview & { scheduledAt: NonNullable<Interview["scheduledAt"]> } => !!i.scheduledAt && i.outcome === "pending" && bucketFor(i.scheduledAt, homeTz, now) !== "past" && (!applications || i.applicationId in applications))
     .sort((a, b) => a.scheduledAt.at.localeCompare(b.scheduledAt.at))
     .slice(0, limit);
 }

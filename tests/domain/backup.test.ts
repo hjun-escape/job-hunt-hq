@@ -153,4 +153,45 @@ describe("backup", () => {
     delete (current.settings.pickLists as Record<string, unknown>).prepKinds;
     expect(() => planRestore(b, current as unknown as Parameters<typeof planRestore>[1], "merge")).not.toThrow();
   });
+
+  it("names a missing settings object precisely and skips derivative problems", () => {
+    const b = buildBackup(state(), NOW) as unknown as Record<string, unknown>;
+    const noSettings = validateBackup({ ...b, settings: undefined });
+    expect(noSettings.ok).toBe(false);
+    if (noSettings.ok) return;
+    expect(noSettings.problems).toContain("settings is missing.");
+    expect(noSettings.problems.some((p) => p.includes("references"))).toBe(false);
+    const noLists = validateBackup({ ...b, settings: { homeTz: "UTC" } });
+    if (noLists.ok) return;
+    expect(noLists.problems).toContain("settings.pickLists is missing.");
+    expect(noLists.problems.some((p) => p.includes("is missing or not a list"))).toBe(false);
+  });
+
+  it("rejects document ids outside the store's path grammar", () => {
+    const b = buildBackup(state(), NOW);
+    const bad = { ...b, companies: [{ ...b.companies[0], id: "co/evil" }, { ...b.companies[0], id: ".." }] };
+    const v = validateBackup(bad);
+    expect(v.ok).toBe(false);
+    if (v.ok) return;
+    expect(v.problems).toEqual(expect.arrayContaining([expect.stringMatching(/companies\[0\] has an invalid id "co\/evil"/), expect.stringMatching(/companies\[1\] has an invalid id "\.\."/)]));
+  });
+
+  it("rejects mistyped settings scalars and normalizes them away when planning", () => {
+    const b = buildBackup(state(), NOW);
+    const bad = { ...b, settings: { ...b.settings, priorityWeights: null, followUpCadenceDays: "7", fxRates: "x" } };
+    const v = validateBackup(bad);
+    expect(v.ok).toBe(false);
+    if (v.ok) return;
+    expect(v.problems).toEqual(expect.arrayContaining([
+      "settings.priorityWeights is missing or has the wrong type.",
+      "settings.followUpCadenceDays is missing or has the wrong type.",
+      "settings.fxRates is missing or has the wrong type.",
+    ]));
+    const step = planRestore(bad as unknown as typeof b, empty(), "replace")[0];
+    expect(step.kind).toBe("settings");
+    if (step.kind !== "settings") return;
+    expect(step.settings.priorityWeights).toEqual({ desire: 0.4, fit: 0.35, likelihood: 0.25 });
+    expect(step.settings.followUpCadenceDays).toBe(7);
+    expect(step.settings.fxRates).toEqual({});
+  });
 });

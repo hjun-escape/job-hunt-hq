@@ -1,11 +1,15 @@
 /** Spec §4 CSV rules: scalar columns, arrays joined with "; ", nested objects as JSON, RFC 4180 quoting, UTF-8 BOM, CRLF. */
 export const CSV_BOM = "﻿";
 
+/** A leading =, +, -, @, tab or CR makes spreadsheets evaluate the cell; a quote prefix keeps it text. Numbers are never prefixed. */
+const FORMULA_PREFIX = /^[=+\-@\t\r]/;
 function cell(value: unknown): string {
   if (value == null) return "";
-  if (Array.isArray(value)) return value.map((v) => (typeof v === "object" && v !== null ? JSON.stringify(v) : String(v))).join("; ");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  const text = Array.isArray(value)
+    ? value.map((v) => (typeof v === "object" && v !== null ? JSON.stringify(v) : String(v))).join("; ")
+    : typeof value === "object" ? JSON.stringify(value) : String(value);
+  return FORMULA_PREFIX.test(text) ? `'${text}` : text;
 }
 function quote(s: string): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

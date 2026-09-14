@@ -55,6 +55,18 @@ export function buildBackup(state: RecordSets & { settings: Settings; profile: P
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** The store's document-id path grammar: no ".", "..", or "/" -- Firestore-style path segments. */
+const DOC_ID = /^(?!\.\.?$)[A-Za-z0-9_\-.~:@+]{1,200}$/;
+
+/** Settings scalars a backup must carry with the right type before they can be trusted; anything else falls back to defaults. */
+const SETTINGS_SCALARS: [field: keyof Settings, check: (v: unknown) => boolean][] = [
+  ["homeTz", (v) => typeof v === "string" && v.length > 0],
+  ["displayCurrency", (v) => typeof v === "string" && v.length > 0],
+  ["followUpCadenceDays", (v) => typeof v === "number" && Number.isFinite(v)],
+  ["fxRates", (v) => isObject(v) && Object.values(v).every((n) => typeof n === "number")],
+  ["priorityWeights", (v) => isObject(v) && ["desire", "fit", "likelihood"].every((k) => typeof v[k] === "number")],
+];
+
 /** Which pick list each foreign key on a record must resolve against. */
 const PICK_REFS: Partial<Record<CollectionName, [field: string, list: string][]>> = {
   applications: [["statusId", "statuses"], ["channelId", "channels"], ["countryId", "countries"]],
@@ -75,26 +87,33 @@ export function validateBackup(raw: unknown, currentVersion: number = SCHEMA_VER
   else if (raw.schemaVersion > currentVersion) problems.push(`schemaVersion ${raw.schemaVersion} is newer than this app understands (${currentVersion}). Update the app first.`);
   if (typeof raw.exportedAt !== "string" || !raw.exportedAt) problems.push("exportedAt is missing.");
   const settings = raw.settings;
-  if (!isObject(settings) || !isObject(settings.pickLists)) {
-    problems.push("settings.pickLists is missing.");
+  let listsPresent = false;
+  if (!isObject(settings)) {
+    problems.push("settings is missing.");
   } else {
-    const pickLists = settings.pickLists as Record<string, unknown>;
-    for (const name of PICK_LIST_NAMES) {
-      const list = pickLists[name];
-      if (!Array.isArray(list)) { problems.push(`settings.pickLists.${name} is missing or not a list.`); continue; }
-      list.forEach((entry: unknown, i: number) => {
-        if (!isObject(entry) || typeof entry.id !== "string" || !entry.id || typeof entry.label !== "string" || !entry.label) {
-          problems.push(`settings.pickLists.${name}[${i}] needs id and label.`);
-          return;
-        }
-        if (name === "statuses") {
-          const stageRank = entry.stageRank;
-          const group = entry.group;
-          if (typeof stageRank !== "number" || (group !== "open" && group !== "won" && group !== "lost")) {
-            problems.push(`settings.pickLists.statuses[${i}] needs group and stageRank.`);
+    for (const [field, ok] of SETTINGS_SCALARS) if (!ok(settings[field])) problems.push(`settings.${field} is missing or has the wrong type.`);
+    if (!isObject(settings.pickLists)) {
+      problems.push("settings.pickLists is missing.");
+    } else {
+      listsPresent = true;
+      const pickLists = settings.pickLists as Record<string, unknown>;
+      for (const name of PICK_LIST_NAMES) {
+        const list = pickLists[name];
+        if (!Array.isArray(list)) { problems.push(`settings.pickLists.${name} is missing or not a list.`); continue; }
+        list.forEach((entry: unknown, i: number) => {
+          if (!isObject(entry) || typeof entry.id !== "string" || !entry.id || typeof entry.label !== "string" || !entry.label) {
+            problems.push(`settings.pickLists.${name}[${i}] needs id and label.`);
+            return;
           }
-        }
-      });
+          if (name === "statuses") {
+            const stageRank = entry.stageRank;
+            const group = entry.group;
+            if (typeof stageRank !== "number" || (group !== "open" && group !== "won" && group !== "lost")) {
+              problems.push(`settings.pickLists.statuses[${i}] needs group and stageRank.`);
+            }
+          }
+        });
+      }
     }
   }
   if (!isObject(raw.profile)) {
@@ -111,6 +130,8 @@ export function validateBackup(raw: unknown, currentVersion: number = SCHEMA_VER
     if (!Array.isArray(arr)) { problems.push(`${name} must be an array.`); continue; }
     arr.forEach((doc, i) => {
       if (!isObject(doc) || typeof doc.id !== "string" || !doc.id) { problems.push(`${name}[${i}] has no string id.`); return; }
+      if (!DOC_ID.test(doc.id)) { problems.push(`${name}[${i}] has an invalid id "${doc.id}" (letters, digits, _ - . ~ : @ + only).`); return; }
+      if (!listsPresent) return;
       for (const [field, list] of PICK_REFS[name] ?? []) {
         const v = doc[field];
         if (typeof v === "string" && v && !idsOf(list).has(v)) problems.push(`${name}[${i}] (${doc.id}) references ${field} "${v}" which is not in the backup's ${list}.`);
@@ -163,12 +184,13 @@ export function planRestore(
   const now = opts.now ?? nowIso();
   const homeTz = opts.homeTz ?? current.settings?.homeTz ?? "UTC";
   const schemaVersion = backup.settings?.schemaVersion ?? backup.schemaVersion;
-  const normalizedBackupSettings: Settings = {
-    ...defaultSettings(homeTz, now),
-    ...backup.settings,
-    schemaVersion,
-    pickLists: { ...defaultPickLists(), ...backup.settings?.pickLists },
-  };
+  const normalizedBackupSettings: Settings = { ...defaultSettings(homeTz, now) };
+  for (const [field, ok] of SETTINGS_SCALARS) {
+    const v = (backup.settings as unknown as Record<string, unknown> | undefined)?.[field];
+    if (ok(v)) (normalizedBackupSettings as unknown as Record<string, unknown>)[field] = v;
+  }
+  normalizedBackupSettings.schemaVersion = schemaVersion;
+  normalizedBackupSettings.pickLists = { ...defaultPickLists(), ...backup.settings?.pickLists };
   const migratedSettings = migrateSettings(normalizedBackupSettings, migrations);
   const settings: Settings = mode === "merge" && current.settings
     ? { ...migratedSettings, pickLists: unionPickLists(migratedSettings.pickLists, current.settings.pickLists) }
