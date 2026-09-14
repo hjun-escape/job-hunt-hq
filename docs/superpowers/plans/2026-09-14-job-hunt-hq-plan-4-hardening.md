@@ -302,10 +302,22 @@ Append to `tests/store/sync.test.ts` (reuse `createFakeDb`, `defaultSettings`, `
   it("cancels the definitive-snapshot timer once a real snapshot arrives", async () => {
     const db = createFakeDb();
     await db.doc("settings/main").set(defaultSettings("America/Toronto", NOW) as unknown as Record<string, unknown>);
+    const cacheMiss: DocumentSnapshot = { id: "main", exists: false, data: () => undefined, metadata: { fromCache: true, hasPendingWrites: false } };
+    // the settings listener first sees a cache-only miss (arms the timer), then the definitive hit (clears it)
+    const wrapped = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        if (path !== "settings/main") return real;
+        return { ...real, onSnapshot: (next: (s: DocumentSnapshot) => void, error?: (e: DbError) => void) => { next(cacheMiss); return real.onSnapshot(next, error); } };
+      },
+    } as unknown as DB;
     let cancelled = 0;
-    const handle = startSync(db, createStore(), { homeTz: "America/Toronto", now: () => NOW, timer: () => () => { cancelled++; } });
+    const store = createStore();
+    const handle = startSync(wrapped, store, { homeTz: "America/Toronto", now: () => NOW, timer: () => () => { cancelled++; } });
     await handle.ready;
-    expect(cancelled).toBeGreaterThanOrEqual(2); // settings and profile timers both cleared
+    expect(cancelled).toBe(1);
+    expect(store.getState().readOnly).toBe(false);
     handle.stop();
   });
 
