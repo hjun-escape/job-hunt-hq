@@ -173,7 +173,7 @@ Error handling: `not_granted`/`sampling_disabled`/`not_declared`/`capability_dis
 - `sample` null: AI buttons hidden.
 - Store errors: `quota_exceeded` and `resource_exhausted` produce toasts with the action to take; `unavailable` retries once with jitter; `revoked` switches to read-only for the page load.
 - Subscriptions pass an error callback; a terminated listener is re-subscribed once, then the banner shows.
-- The two singleton subscriptions carry a watchdog: a cache-only miss arms it (15 s) and only a snapshot with data settles it; if none arrives the banner shows. A cache-only hit renders like a definitive one but never triggers a write (seeding and migration writes wait for a definitive snapshot). A failed migration write is reported, not fatal: the page keeps the in-memory migrated settings and retries on the next load.
+- The two singleton subscriptions carry a watchdog: a cache-only miss arms it (15 s); a definitive snapshot (a miss seeds defaults) or any snapshot with data settles it; if none arrives the banner shows. A cache-only hit renders like a definitive one but never triggers a write (seeding and migration writes wait for a definitive snapshot). A failed migration write is reported, not fatal: the page keeps the in-memory migrated settings and retries on the next load.
 
 ## 10. Testing
 
