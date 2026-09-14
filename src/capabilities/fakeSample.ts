@@ -11,6 +11,8 @@ export interface FakeSampleOptions {
   chunks?: number;
   /** Awaited before each chunk; defaults to a macrotask tick. Tests pass a gate to hold the stream open. */
   pace?: () => Promise<void>;
+  /** Reported by `limits()`; defaults to 65536. */
+  maxPromptBytes?: number;
 }
 export type FakeSample = SampleLike & { calls: { input: Input; options?: Options }[] };
 
@@ -47,7 +49,7 @@ export function createFakeSample(opts: FakeSampleOptions = {}): FakeSample {
       if (opts.json) { calls.push({ input, options }); return opts.json(input) as T; }
       return JSON.parse(await stream(input, options)) as T;
     },
-    limits: async () => ({ maxPromptBytes: 65536 }),
+    limits: async () => ({ maxPromptBytes: opts.maxPromptBytes ?? 65536 }),
   });
   return withMembers as unknown as FakeSample;
 }

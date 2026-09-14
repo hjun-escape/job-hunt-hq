@@ -52,7 +52,7 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
 
   return (
     <Drawer open wide onClose={onClose}
-      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard" })}
+      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard draft" })}
       title={<span>{company?.name ?? "?"} <span className="muted">·</span> {app.title}</span>}
       footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" onClick={() => void remove()} disabled={repo.readOnly}>Delete application</button></>}>
       <div className="row" style={{ marginBottom: 12 }}>

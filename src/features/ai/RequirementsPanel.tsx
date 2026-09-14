@@ -32,7 +32,12 @@ export function RequirementsPanel({ app, patch, sample: sampleCapability }: { ap
   ].join("\n");
   const toggle = (r: string, on: boolean) => setChecked((cur) => (on ? [...cur, r] : cur.filter((x) => x !== r)));
   const copy = async () => { if (await copyText(markdown())) toast.show("Checklist copied.", "success"); else toast.show("Could not copy.", "error"); };
-  const append = () => void patch((cur) => ({ notes: `${cur.notes.trimEnd()}\n\n## Requirements\n${markdown()}\n`.trimStart() }));
+  const REQ_BLOCK = /(?:^|\n)## Requirements\n[\s\S]*?(?=\n## |\s*$)/;
+  const append = () => void patch((cur) => {
+    const block = `## Requirements\n${markdown()}\n`;
+    const notes = REQ_BLOCK.test(cur.notes) ? cur.notes.replace(REQ_BLOCK, `\n${block}`).trimStart() : `${cur.notes.trimEnd()}\n\n${block}`.trimStart();
+    return { notes };
+  });
   return (
     <div className="ai-panel">
       <div className="row">

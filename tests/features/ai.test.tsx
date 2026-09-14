@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../../src/app/App";
+import { buildDraftPrompt, profileSummary } from "../../src/capabilities/ai";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { createFakeSample } from "../../src/capabilities/fakeSample";
 import { absentCapabilities, type Capabilities } from "../../src/capabilities/types";
@@ -111,6 +112,7 @@ describe("AI draft assist", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog.textContent).toMatch(/Discard the draft\?/);
+    expect(within(dialog).getByRole("button", { name: "Discard draft" })).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(screen.getByRole("dialog")).toBeTruthy();
@@ -129,5 +131,87 @@ describe("AI draft assist", () => {
     await waitFor(() => expect((within(panel).getByRole("textbox", { name: "Draft" }) as HTMLTextAreaElement).value).toBe("Tailored version."));
     fireEvent.click(within(panel).getByRole("button", { name: "Save as new answer" }));
     await waitFor(async () => expect((await db.collection("answers").get()).size).toBe(3));
+  });
+
+  it("disables Draft and explains when the prompt exceeds the budget", async () => {
+    const jd = "We need Go and gRPC experience.";
+    const profile = { ...defaultProfile(NOW), employment: [{ company: "Kakao", title: "Backend Engineer", start: "2021", end: "2024", summary: "Payments." }] };
+    const min = new TextEncoder().encode(buildDraftPrompt({
+      question: "Why Shopify?", company: "Shopify", role: "Backend Engineer",
+      jobDescription: undefined, sources: [], profileSummary: undefined, language: "en", length: "medium",
+    })).length;
+    const max = new TextEncoder().encode(buildDraftPrompt({
+      question: "Why Shopify?", company: "Shopify", role: "Backend Engineer",
+      jobDescription: jd, sources: [{ title: "STAR: outage", body: "Situation: the checkout went down." }],
+      profileSummary: profileSummary(profile), language: "en", length: "medium",
+    })).length;
+    expect(max).toBeGreaterThan(min);
+    const sample = createFakeSample({ reply: () => "x", maxPromptBytes: Math.floor((min + max) / 2) });
+    await open("#/applications/app_1", { sample: Promise.resolve(sample) });
+    await openTab("Answers");
+    fireEvent.click(await screen.findByRole("button", { name: "Draft with Claude" }));
+    const panel = screen.getByRole("region", { name: "Draft with Claude" });
+    fireEvent.change(within(panel).getByRole("textbox", { name: "Question to answer" }), { target: { value: "Why Shopify?" } });
+    expect((await within(panel).findByRole("status")).textContent).toMatch(/over the limit/);
+    expect((within(panel).getByRole("button", { name: "Draft" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(panel).getByRole("checkbox", { name: "Include job description" }));
+    fireEvent.click(within(panel).getByRole("checkbox", { name: "Include background summary" }));
+    fireEvent.click(within(panel).getByRole("checkbox", { name: "Use STAR: outage" }));
+    await waitFor(() => expect((within(panel).getByRole("button", { name: "Draft" }) as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it("asks before a second draft replaces edited text", async () => {
+    const sample = createFakeSample({ reply: () => "First draft." });
+    await open("#/applications/app_1", { sample: Promise.resolve(sample) });
+    await openTab("Answers");
+    fireEvent.click(await screen.findByRole("button", { name: "Draft with Claude" }));
+    const panel = screen.getByRole("region", { name: "Draft with Claude" });
+    fireEvent.change(within(panel).getByRole("textbox", { name: "Question to answer" }), { target: { value: "Q" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Draft" }));
+    await waitFor(() => expect((within(panel).getByRole("textbox", { name: "Draft" }) as HTMLTextAreaElement).value).toBe("First draft."));
+    fireEvent.change(within(panel).getByRole("textbox", { name: "Draft" }), { target: { value: "First draft, edited." } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Draft" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toMatch(/Replace your edits\?/);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect((within(panel).getByRole("textbox", { name: "Draft" }) as HTMLTextAreaElement).value).toBe("First draft, edited.");
+    expect(sample.calls).toHaveLength(1);
+  });
+
+  it("replaces an existing requirements block in the notes instead of appending another", async () => {
+    const sample = createFakeSample({ json: () => ({ must: ["Go"], nice: [] }) });
+    const db = await open("#/applications/app_1", { sample: Promise.resolve(sample) });
+    fireEvent.click(await screen.findByRole("button", { name: "Extract requirements" }));
+    await screen.findByRole("checkbox", { name: "Go" });
+    fireEvent.click(screen.getByRole("button", { name: "Append to notes" }));
+    await waitFor(async () => expect((await db.doc("applications/app_1").get()).data()?.notes).toContain("## Requirements"));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Go" }));
+    fireEvent.click(screen.getByRole("button", { name: "Append to notes" }));
+    await waitFor(async () => expect((await db.doc("applications/app_1").get()).data()?.notes).toContain("- [x] Go"));
+    const notes = String((await db.doc("applications/app_1").get()).data()?.notes);
+    expect(notes.split("## Requirements")).toHaveLength(2);
+  });
+
+  it("asks before leaving through Manage the bank while a draft is in progress", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const sample = createFakeSample({ reply: () => "slow", chunks: 2, pace: () => gate });
+    await open("#/applications/app_1", { sample: Promise.resolve(sample) });
+    await openTab("Answers");
+    fireEvent.click(await screen.findByRole("button", { name: "Draft with Claude" }));
+    const panel = screen.getByRole("region", { name: "Draft with Claude" });
+    fireEvent.change(within(panel).getByRole("textbox", { name: "Question to answer" }), { target: { value: "Q" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Draft" }));
+    await waitFor(() => expect(within(panel).getByRole("button", { name: "Stop" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("link", { name: "Manage the bank" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toMatch(/Discard the draft\?/);
+    expect(within(dialog).getByRole("button", { name: "Discard draft" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(window.location.hash).toBe("#/applications/app_1");
+    // Let the held-open stream finish inside act()'s wrapping instead of leaking a pending
+    // state update past the end of the test (the fake sample's pace() gate resumes here).
+    release();
+    await waitFor(() => expect(within(panel).queryByRole("button", { name: "Stop" })).toBeNull());
   });
 });

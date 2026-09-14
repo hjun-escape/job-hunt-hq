@@ -39,9 +39,28 @@ export function useSample(sample: SampleLike | null | undefined) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
+  const [maxPromptBytes, setMaxPromptBytes] = useState<number | null>(null);
   const ctl = useRef<AbortController | null>(null);
   const live = useRef(true);
   useEffect(() => () => { live.current = false; ctl.current?.abort(); }, []);
+
+  useEffect(() => {
+    let live = true;
+    setMaxPromptBytes(null);
+    if (!sample) return;
+    sample.limits().then((l) => { if (live) setMaxPromptBytes(l.maxPromptBytes); }, () => { if (live) setMaxPromptBytes(null); });
+    return () => { live = false; };
+  }, [sample]);
+
+  /** Spec §6: a rate limit lifts itself after RATE_LIMIT_MS -- re-render once the window ends
+   * so callers relying on `rateLimited` (e.g. re-enabling the Draft button) don't need a poll. */
+  const [, retick] = useState(0);
+  useEffect(() => {
+    const ms = disabledUntil - Date.now();
+    if (ms <= 0) return;
+    const t = setTimeout(() => retick((n) => n + 1), ms + 1);
+    return () => clearTimeout(t);
+  }, [disabledUntil]);
 
   const fail = useCallback((e: unknown) => {
     const err = sampleErrorOf(e);
@@ -99,5 +118,5 @@ export function useSample(sample: SampleLike | null | undefined) {
   const stop = useCallback(() => { ctl.current?.abort(); }, []);
   const reset = useCallback(() => { ctl.current?.abort(); ctl.current = null; setPhase("idle"); setText(""); setError(null); setTruncated(false); }, []);
 
-  return { available: !!sample && !hidden, phase, text, setText, error, truncated, disabledUntil, run, runJson, stop, reset };
+  return { available: !!sample && !hidden, phase, text, setText, error, truncated, disabledUntil, rateLimited: disabledUntil > Date.now(), maxPromptBytes, run, runJson, stop, reset };
 }
