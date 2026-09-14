@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Company } from "../../src/domain/types";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
@@ -183,5 +183,22 @@ describe("Companies", () => {
     } finally {
       modifySpy.mockRestore();
     }
+  });
+
+  it("disables sponsorship and source controls in read-only mode", async () => {
+    const db = createFakeDb();
+    await db.doc("settings/main").set(defaultSettings("America/Toronto", NOW) as unknown as Record<string, unknown>);
+    await db.doc("companies/co_1").set(buildCompany({ name: "Shopify", sources: [{ label: "Blind", url: "https://teamblind.com/x" }] }, "co_1", NOW) as unknown as Record<string, unknown>);
+    const dieImmediately = (_next: unknown, error?: (e: DbError) => void) => { error?.({ code: "revoked", message: "gone" }); return () => {}; };
+    const broken = { ...db, collection: (path: string) => (path === "prep" ? ({ ...db.collection(path), onSnapshot: dieImmediately } as unknown as CollectionReference) : db.collection(path)) } as unknown as DB;
+    window.location.hash = "#/companies/co_1";
+    render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(broken) }} />);
+    await screen.findByRole("alert"); // the read-only banner
+    const dialog = await screen.findByRole("dialog");
+    expect((within(dialog).getByLabelText("Canada sponsorship") as HTMLSelectElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText("Canada note") as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByLabelText("Source label") as HTMLInputElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "Add source" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "Remove source Blind" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

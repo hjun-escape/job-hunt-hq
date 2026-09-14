@@ -17,6 +17,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
   const confirm = useConfirm();
   const [newSource, setNewSource] = useState({ label: "", url: "" });
   const company = state.companies[id];
+  const ro = repo.readOnly;
 
   if (!company) {
     return (
@@ -75,13 +76,13 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
         return (
           <div className="grid-2" key={co.id}>
             <Field label={`${co.label} sponsorship`} htmlFor={`sp-${co.id}`}>
-              <select id={`sp-${co.id}`} value={p?.policy ?? "unknown"} onChange={(e) => void setPolicy(co.id, { policy: e.target.value as SponsorshipPolicy["policy"] })}>
+              <select id={`sp-${co.id}`} value={p?.policy ?? "unknown"} disabled={ro} onChange={(e) => void setPolicy(co.id, { policy: e.target.value as SponsorshipPolicy["policy"] })}>
                 <option value="unknown">Unknown</option>
                 <option value="yes">Sponsors</option>
                 <option value="no">Does not sponsor</option>
               </select>
             </Field>
-            <TextField label={`${co.label} note`} value={p?.note ?? ""} onCommit={(v) => setPolicy(co.id, { note: v || undefined })} />
+            <TextField label={`${co.label} note`} value={p?.note ?? ""} disabled={ro} onCommit={(v) => setPolicy(co.id, { note: v || undefined })} />
           </div>
         );
       })}
@@ -95,15 +96,15 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
           {company.sources.map((s, i) => (
             <li key={`${s.url}-${i}`}>
               {isSafeUrl(s.url) ? <a href={s.url} target="_blank" rel="noreferrer">{s.label || s.url}</a> : <span>{s.label || s.url}</span>}{" "}
-              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((x) => !(x.url === s.url && x.label === s.label)) }))}>×</button>
+              <button type="button" className="btn ghost" aria-label={`Remove source ${s.label || s.url}`} disabled={ro} onClick={() => void modify((cur) => ({ sources: cur.sources.filter((x) => !(x.url === s.url && x.label === s.label)) }))}>×</button>
             </li>
           ))}
         </ul>
       ) : null}
       <div className="row">
-        <input placeholder="Label" aria-label="Source label" value={newSource.label} onChange={(e) => setNewSource({ ...newSource, label: e.target.value })} />
-        <input placeholder="https://" aria-label="Source URL" value={newSource.url} onChange={(e) => setNewSource({ ...newSource, url: e.target.value })} />
-        <button type="button" className="btn" onClick={() => {
+        <input placeholder="Label" aria-label="Source label" value={newSource.label} disabled={ro} onChange={(e) => setNewSource({ ...newSource, label: e.target.value })} />
+        <input placeholder="https://" aria-label="Source URL" value={newSource.url} disabled={ro} onChange={(e) => setNewSource({ ...newSource, url: e.target.value })} />
+        <button type="button" className="btn" disabled={ro} onClick={() => {
           if (!newSource.url.trim()) return;
           const toAdd = { label: newSource.label.trim(), url: newSource.url.trim() };
           void modify((cur) => ({ sources: [...cur.sources, toAdd] }));
