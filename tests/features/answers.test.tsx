@@ -1,11 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
+import { createFakeSample } from "../../src/capabilities/fakeSample";
 import { absentCapabilities } from "../../src/capabilities/types";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildAnswer, buildApplication } from "../../src/domain/factories";
+import { AnswerEditor } from "../../src/features/answers/AnswerEditor";
+import { AppContext } from "../../src/store/context";
 import { Repository } from "../../src/store/repository";
+import { createStore } from "../../src/store/store";
+import { ConfirmProvider } from "../../src/ui/Confirm";
+import { ToastProvider } from "../../src/ui/Toast";
 import type { Answer } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -97,5 +103,36 @@ describe("Answers", () => {
     } finally {
       modifySpy.mockRestore();
     }
+  });
+
+  it("disables Tailor with Claude in read-only mode", async () => {
+    const answer = buildAnswer({ kindId: "answer", title: "Why us" }, "an_1", NOW);
+    const store = createStore({
+      ready: true,
+      readOnly: true,
+      settings: defaultSettings("America/Toronto", NOW),
+      profile: null,
+      applications: {},
+      companies: {},
+      contacts: {},
+      assets: {},
+      answers: { [answer.id]: answer },
+      interviews: {},
+      prep: {},
+    });
+    const repo = new Repository(null, store);
+    const sample = createFakeSample({ reply: () => "hi" });
+    render(
+      <AppContext.Provider value={{ store, repo, caps: { ...absentCapabilities(), sample: Promise.resolve(sample) } }}>
+        <ToastProvider>
+          <ConfirmProvider>
+            <AnswerEditor id="an_1" onClose={() => {}} />
+          </ConfirmProvider>
+        </ToastProvider>
+      </AppContext.Provider>,
+    );
+    await act(async () => {});
+    const button = await screen.findByRole("button", { name: "Tailor with Claude" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
   });
 });

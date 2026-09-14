@@ -22,6 +22,6 @@ describe("createCapabilities", () => {
     expect(typeof db!.doc("a/b").set).toBe("function");
     expect(await caps.downloads).not.toBeNull();
     expect(await caps.assets).not.toBeNull();
-    expect(await caps.sample).toBeNull();
+    expect(typeof (await caps.sample)).toBe("function");
   });
 });

@@ -30,4 +30,8 @@ describe("migrateSettings", () => {
   it("SCHEMA_VERSION is 1 for this plan", () => {
     expect(SCHEMA_VERSION).toBe(1);
   });
+  it("refuses an unordered migration list", () => {
+    const s = defaultSettings("UTC", "2026-09-14T00:00:00.000Z");
+    expect(() => migrateSettings({ ...s, schemaVersion: 0 }, [{ to: 2, apply: (x) => x }, { to: 1, apply: (x) => x }], 2)).toThrow(/ascending/);
+  });
 });

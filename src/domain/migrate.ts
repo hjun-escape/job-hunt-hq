@@ -10,6 +10,9 @@ export interface Migration {
 export const MIGRATIONS: Migration[] = [];
 
 export function migrateSettings(settings: Settings, migrations: Migration[] = MIGRATIONS, target: number = SCHEMA_VERSION): Settings {
+  for (let i = 1; i < migrations.length; i++) {
+    if (migrations[i].to <= migrations[i - 1].to) throw new Error("Migrations must be sorted ascending by 'to'.");
+  }
   let current = settings;
   for (const m of migrations) {
     if (m.to > current.schemaVersion && m.to <= target) current = { ...m.apply(current), schemaVersion: m.to };

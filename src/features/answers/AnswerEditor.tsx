@@ -2,6 +2,7 @@ import { useState } from "react";
 import { answerUsage } from "../../domain/answers";
 import type { Answer } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
+import { useCapability } from "../../store/useCapability";
 import { useConfirm } from "../../ui/Confirm";
 import { copyText } from "../../ui/copyText";
 import { Drawer } from "../../ui/Drawer";
@@ -11,18 +12,24 @@ import { SelectField, TagInput, TextArea, TextField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useToast } from "../../ui/Toast";
 import { useSaver } from "../../ui/useSaver";
+import { DraftPanel } from "../ai/DraftPanel";
+import { useSamplePolicy } from "../ai/useSample";
 
 const LANGUAGES = [{ id: "en", label: "English" }, { id: "ko", label: "한국어" }, { id: "other", label: "Other" }];
 
 export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void }) {
-  const { repo } = useApp();
+  const { repo, caps } = useApp();
   const state = useAppState();
   const settings = useSettings();
   const { status, run } = useSaver();
   const confirm = useConfirm();
   const toast = useToast();
+  const sampleCap = useCapability(caps.sample);
+  const samplePolicy = useSamplePolicy();
   const [preview, setPreview] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [tailoring, setTailoring] = useState(false);
+  const [draftDirty, setDraftDirty] = useState(false);
   const answer = state.answers[id];
   if (!answer) return <Drawer open title="Answer not found" onClose={onClose}><p className="muted">This answer no longer exists.</p></Drawer>;
   const used = answerUsage(id, Object.values(state.applications));
@@ -42,6 +49,7 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
   };
   return (
     <Drawer open wide title={answer.title} onClose={onClose}
+      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard" })}
       footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" disabled={used.length > 0 || ro} title={used.length ? "Detach it from applications first" : undefined} onClick={() => void remove()}>Delete answer</button></>}>
       <div className="grid-2">
         <SelectField label="Kind" value={answer.kindId} options={pl.answerKinds} onChange={(v) => { if (v) void patch({ kindId: v }); }} allowEmpty={false} disabled={ro} />
@@ -56,11 +64,16 @@ export function AnswerEditor({ id, onClose }: { id: string; onClose: () => void 
           <button type="button" className={preview ? "btn" : "btn primary"} onClick={() => setPreview(false)} aria-pressed={!preview}>Edit</button>
           <button type="button" className={preview ? "btn primary" : "btn"} onClick={() => setPreview(true)} aria-pressed={preview}>Preview</button>
         </div>
-        <div className="row"><button type="button" className="btn" onClick={() => void copy()}>Copy</button>{copied ? <span className="muted">Copied</span> : null}</div>
+        <div className="row">
+          <button type="button" className="btn" onClick={() => void copy()}>Copy</button>
+          {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" disabled={ro} onClick={() => setTailoring(true)}>Tailor with Claude</button> : null}
+          {copied ? <span className="muted">Copied</span> : null}
+        </div>
       </div>
       {preview ? <div className="section"><Markdown text={answer.body} /></div> : (
         <TextArea label="Body" rows={14} value={answer.body} onCommit={(v) => patch({ body: v })} placeholder="Markdown works: **bold**, - bullets, [links](https://…)" disabled={ro} />
       )}
+      {tailoring ? <DraftPanel sample={sampleCap} answer={answer} onClose={() => setTailoring(false)} onDirtyChange={setDraftDirty} /> : null}
       <h3>Used in {used.length} application{used.length === 1 ? "" : "s"}</h3>
       {used.length ? <ul>{used.map((a) => <li key={a.id}><a href={`#/applications/${a.id}`}>{state.companies[a.companyId]?.name ?? "?"} · {a.title}</a></li>)}</ul> : <p className="muted">Attach it from an application's Answers tab.</p>}
     </Drawer>

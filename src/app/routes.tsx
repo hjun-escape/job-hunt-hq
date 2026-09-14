@@ -8,7 +8,8 @@ import { AnswersPage } from "../features/answers/AnswersPage";
 import { PrepPage } from "../features/prep/PrepPage";
 import { ProfilePage } from "../features/profile/ProfilePage";
 import { SettingsPage } from "../features/settings/SettingsPage";
-import { DashboardPage } from "./DashboardPage";
+import { DashboardPage } from "../features/dashboard/DashboardPage";
+import { SearchPage } from "../features/search/SearchPage";
 
 export interface PageProps {
   parts: string[];
@@ -44,4 +45,5 @@ export const PAGES: Record<string, ComponentType<PageProps>> = {
   prep: PrepPage,
   profile: ProfilePage,
   settings: SettingsPage,
+  search: SearchPage,
 };

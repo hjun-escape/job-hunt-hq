@@ -110,6 +110,42 @@ textarea { resize: vertical; }
 .rows-row .btn { margin-top: 20px; }
 .zoned-row > input { flex: 2 1 180px; }
 .zoned-row > select { flex: 2 1 170px; }
+/* dashboard */
+.dashboard-grid { gap: 14px; align-items: start; }
+.agenda { list-style: none; padding: 0; margin: 0; }
+.agenda-item { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.agenda-item:last-child { border-bottom: 0; }
+.funnel { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.funnel-row { display: grid; grid-template-columns: 140px 1fr auto; gap: 10px; align-items: center; }
+.funnel-label { font-size: 13px; }
+.funnel-track { display: block; height: 14px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.funnel-bar { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.funnel-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.funnel-group h3 { margin: 12px 0 6px; }
+.problems { margin: 8px 0; padding-left: 18px; color: var(--chip-red-text); background: var(--chip-red); border-radius: var(--radius); padding: 8px 8px 8px 26px; }
+/* applications: board and column chooser */
+.chooser { position: relative; }
+.chooser-menu { position: absolute; right: 0; z-index: 20; margin-top: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; box-shadow: var(--shadow); display: grid; gap: 4px; min-width: 200px; }
+.kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
+.kanban-col { flex: 0 0 230px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; min-height: 120px; }
+.kanban-col.over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.kanban-head { margin: 0 0 8px; font-size: 14px; }
+.kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; margin-bottom: 8px; cursor: grab; }
+.kanban-card.selected { border-color: var(--accent); }
+.kanban-card:focus-visible { outline: 2px solid var(--accent); }
+.kanban-move { margin-top: 6px; font-size: 12px; padding: 4px 6px; }
+.kanban-empty { font-size: 12px; text-align: center; margin: 12px 0; }
+/* search */
+.topbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.topbar input { max-width: 340px; }
+.search-results ul { margin: 0; padding-left: 18px; }
+.search-results li { padding: 3px 0; }
+.ai-panel { margin-top: 10px; }
+.ai-panel fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; }
+.ai-panel legend { padding: 0 4px; }
+.ai-panel h4 { margin: 10px 0 4px; }
+.url-field { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: end; }
+.url-open { margin-bottom: 12px; }
 /* Mobile: the bottom nav is fixed at z-index 40; drawers must sit above it and leave room for it. Kept last so it wins the cascade. */
 @media (max-width: 720px) {
   .shell { grid-template-columns: 1fr; }
@@ -121,4 +157,8 @@ textarea { resize: vertical; }
   .drawer-backdrop { z-index: 45; }
   .drawer-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
   .slot { grid-template-columns: 1fr; }
+  .funnel-row { grid-template-columns: 1fr; gap: 2px; }
+  .kanban-col { flex-basis: 82vw; }
+  .topbar form { flex: 1; }
+  .topbar input { max-width: none; }
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { priorityScore, suggestedTier } from "../../domain/scoring";
-import type { Application, Tier } from "../../domain/types";
+import type { Tier } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useConfirm } from "../../ui/Confirm";
 import { Drawer } from "../../ui/Drawer";
@@ -11,11 +11,9 @@ import { AnswersTab } from "./AnswersTab";
 import { InterviewsTab } from "./InterviewsTab";
 import { NotesTab } from "./NotesTab";
 import { OverviewTab } from "./OverviewTab";
+import type { AppPatch } from "./types";
 
-/** A patch either replaces fields directly, or is computed from the current record --
- * required for any nested object/array (e.g. answerIds) so a stale render never clobbers
- * a concurrent change. See Repository.modify. */
-export type AppPatch = Partial<Application> | ((current: Application) => Partial<Application>);
+export type { AppPatch } from "./types";
 
 type Tab = "overview" | "interviews" | "answers" | "activity" | "notes";
 const TABS: { id: Tab; label: string }[] = [
@@ -33,6 +31,7 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
   const { status, run } = useSaver();
   const confirm = useConfirm();
   const [tab, setTab] = useState<Tab>("overview");
+  const [draftDirty, setDraftDirty] = useState(false);
   const app = state.applications[id];
 
   if (!app) {
@@ -53,6 +52,7 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
 
   return (
     <Drawer open wide onClose={onClose}
+      closeGuard={() => !draftDirty || confirm({ title: "Discard the draft?", message: "The draft written so far will be lost.", confirmLabel: "Discard" })}
       title={<span>{company?.name ?? "?"} <span className="muted">·</span> {app.title}</span>}
       footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" onClick={() => void remove()} disabled={repo.readOnly}>Delete application</button></>}>
       <div className="row" style={{ marginBottom: 12 }}>
@@ -73,15 +73,23 @@ export function ApplicationDetail({ id, onClose }: { id: string; onClose: () => 
           <span>{score ?? "—"}{score != null ? <span className="muted"> (suggests {suggestedTier(score)})</span> : null}</span>
         </div>
       </div>
-      <div className="tabs" role="tablist">
+      <div className="tabs" role="tablist" onKeyDown={(e) => {
+        const idx = TABS.findIndex((t) => t.id === tab);
+        const go = (n: number) => { const next = TABS[(n + TABS.length) % TABS.length]; setTab(next.id); document.getElementById(`tab-${next.id}`)?.focus(); e.preventDefault(); };
+        if (e.key === "ArrowRight") go(idx + 1);
+        else if (e.key === "ArrowLeft") go(idx - 1);
+        else if (e.key === "Home") go(0);
+        else if (e.key === "End") go(TABS.length - 1);
+      }}>
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "tab active" : "tab"} onClick={() => setTab(t.id)}>{t.label}</button>
+          <button key={t.id} id={`tab-${t.id}`} type="button" role="tab" aria-selected={tab === t.id} aria-controls={`panel-${t.id}`} tabIndex={tab === t.id ? 0 : -1}
+            className={tab === t.id ? "tab active" : "tab"} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
-      <div role="tabpanel">
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "overview" ? <OverviewTab app={app} patch={patch} />
           : tab === "interviews" ? <InterviewsTab app={app} />
-          : tab === "answers" ? <AnswersTab app={app} patch={patch} />
+          : tab === "answers" ? <AnswersTab app={app} patch={patch} onDraftDirty={setDraftDirty} />
           : tab === "activity" ? <ActivityTab app={app} />
           : <NotesTab app={app} patch={patch} />}
       </div>

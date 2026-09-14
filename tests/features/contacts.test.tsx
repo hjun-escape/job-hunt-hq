@@ -106,3 +106,12 @@ describe("Contacts", () => {
     const added = (await db.collection("contacts").get()).docs[0].data() as unknown as Contact;
     expect(added.relationshipId).toBe(openRels[0].id);
   });
+
+  it("labels a reference use whose application was deleted", async () => {
+    await open("#/contacts/ct_1", async (db) => {
+      await db.doc("contacts/ct_1").set(buildContact({ name: "Ref Person", relationshipId: "reference", reference: { usedInApplicationIds: ["app_gone"] } }, "ct_1", NOW) as unknown as Record<string, unknown>);
+    });
+    await screen.findByRole("dialog");
+    expect(screen.getByText("(deleted application)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove use for (deleted application)" })).toBeTruthy();
+  });

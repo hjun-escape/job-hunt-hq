@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { addEntry, moveEntry, referencedPickIds, removeEntry, slugId, updateEntry } from "../../src/domain/pickLists";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
+import { defaultProfile } from "../../src/domain/defaults";
 import { emptyState } from "../../src/store/store";
 import type { PickEntry } from "../../src/domain/types";
 
@@ -47,5 +48,11 @@ describe("referencedPickIds", () => {
     expect([...referencedPickIds(state, "channels")]).toEqual(["linkedin"]);
     expect([...referencedPickIds(state, "countries")].sort()).toEqual(["CA", "KR"]);
     expect(referencedPickIds(state, "roundTypes").size).toBe(0);
+  });
+
+  it("counts countries the profile points at as referenced", () => {
+    const profile = { ...defaultProfile("2026-09-14T00:00:00.000Z"), addresses: [{ countryId: "KR", lines: "Seoul" }], salaryExpectations: { US: { currency: "USD" } }, workAuth: { CA: { status: "PR", needsSponsorship: false, formSentence: "" } } };
+    const ids = referencedPickIds({ applications: {}, companies: {}, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {}, profile }, "countries");
+    expect([...ids].sort()).toEqual(["CA", "KR", "US"]);
   });
 });

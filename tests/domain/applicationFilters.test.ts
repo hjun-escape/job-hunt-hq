@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyFilter, filterApplications } from "../../src/domain/applicationFilters";
+import { allTags, emptyFilter, filterApplications, type AppFilter } from "../../src/domain/applicationFilters";
 import { defaultSettings } from "../../src/domain/defaults";
 import { buildApplication, buildCompany } from "../../src/domain/factories";
 
@@ -33,5 +33,20 @@ describe("filterApplications", () => {
   it("matches the requisition id in text search", () => {
     const withReq = [buildApplication({ companyId: "co_1", title: "SRE", countryId: "CA", channelId: "linkedin", statusId: "applied", reqId: "REQ-4471" }, "a9", NOW)];
     expect(filterApplications(withReq, { ...emptyFilter(), text: "4471" }, ctx).map((a) => a.id)).toEqual(["a9"]);
+  });
+  it("filters by sponsorship need/offer and by tag, and lists tags in use", () => {
+    const sponsored = [
+      buildApplication({ companyId: "co_1", title: "A", countryId: "CA", channelId: "linkedin", statusId: "applied", needsSponsorship: true, tags: ["remote", "go"] }, "a", NOW),
+      buildApplication({ companyId: "co_1", title: "B", countryId: "CA", channelId: "linkedin", statusId: "applied", needsSponsorship: false, sponsorshipOffered: true, tags: ["go"] }, "b", NOW),
+      buildApplication({ companyId: "co_1", title: "C", countryId: "CA", channelId: "linkedin", statusId: "applied" }, "c", NOW),
+    ];
+    const ctxNone = { companies: {}, settings };
+    const ids = (f: Partial<AppFilter>) => filterApplications(sponsored, { ...emptyFilter(), ...f }, ctxNone).map((a) => a.id);
+    expect(ids({ sponsorship: "needs" })).toEqual(["a"]);
+    expect(ids({ sponsorship: "no_need" })).toEqual(["b"]);
+    expect(ids({ sponsorship: "offered" })).toEqual(["b"]);
+    expect(ids({ sponsorship: "not_offered" })).toEqual([]);
+    expect(ids({ tag: "go" })).toEqual(["a", "b"]);
+    expect(allTags(sponsored)).toEqual(["go", "remote"]);
   });
 });

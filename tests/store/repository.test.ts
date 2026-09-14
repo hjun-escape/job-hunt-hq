@@ -295,4 +295,28 @@ describe("Repository", () => {
     const repo = new Repository(db, store, () => NOW);
     await expect(repo.modifySettings(() => ({ displayCurrency: "KRW" }))).rejects.toMatchObject({ code: "not_ready" });
   });
+
+  it("remove is serialized on the document path and echoes the deletion into the store", async () => {
+    const { repo, db, store } = await boot();
+    const co = await repo.createCompany({ name: "Gone soon" });
+    const delayed = {
+      ...db,
+      doc: (path: string) => {
+        const real = db.doc(path);
+        return { ...real, delete: () => new Promise<void>((resolve) => { resolve(); setTimeout(() => void real.delete(), 20); }) };
+      },
+    } as unknown as DB;
+    const slowRepo = new Repository(delayed, store, () => NOW);
+    await slowRepo.remove("companies", co.id);
+    expect(store.getState().companies[co.id]).toBeUndefined();
+    await expect(slowRepo.update("companies", co.id, { name: "x" })).rejects.toMatchObject({ code: "not_found" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect((await db.doc(`companies/${co.id}`).get()).exists).toBe(false);
+  });
+
+  it("rejects writes with read_only once the store is marked read-only", async () => {
+    const { repo, store } = await boot();
+    store.setState({ readOnly: true });
+    await expect(repo.createCompany({ name: "x" })).rejects.toMatchObject({ code: "read_only" });
+  });
 });

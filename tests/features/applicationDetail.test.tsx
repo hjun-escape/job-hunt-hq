@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
@@ -10,6 +10,7 @@ import { OverviewTab } from "../../src/features/applications/OverviewTab";
 import { Repository } from "../../src/store/repository";
 import { createStore } from "../../src/store/store";
 import { AppContext } from "../../src/store/context";
+import { ToastProvider } from "../../src/ui/Toast";
 import type { Application } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
@@ -74,6 +75,11 @@ describe("ApplicationDetail", () => {
     expect(window.location.hash).toBe("#/applications");
   });
 
+  it("keeps the job description placeholder current with the shipped AI features", async () => {
+    await open();
+    expect(screen.getByLabelText("Job description").getAttribute("placeholder")).toContain("Claude uses it");
+  });
+
   it("keeps Overview field labels unique while the toolbar is visible", async () => {
     await open();
     expect(screen.getByLabelText("Country")).toBeTruthy();
@@ -100,10 +106,25 @@ describe("ApplicationDetail", () => {
       modifySpy.mockRestore();
     }
   });
+
+  it("wires tabs to panels and moves between them with arrow keys", async () => {
+    await open(); // the file's existing helper: seeds an application and opens its detail on the Overview tab
+    const overview = screen.getByRole("tab", { name: "Overview" });
+    const panel = screen.getByRole("tabpanel");
+    expect(overview.getAttribute("aria-controls")).toBe(panel.id);
+    expect(panel.getAttribute("aria-labelledby")).toBe(overview.id);
+    overview.focus();
+    fireEvent.keyDown(overview, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Interviews" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Interviews" }));
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "End" });
+    expect(screen.getByRole("tab", { name: "Notes" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("tabindex")).toBe("-1");
+  });
 });
 
 describe("OverviewTab compensation patch", () => {
-  it("computes the comp patch from the current record, not the one it rendered", () => {
+  it("computes the comp patch from the current record, not the one it rendered", async () => {
     const app = buildApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied" }, "app_1", NOW);
     app.comp = { currency: "CAD", period: "year", note: "rendered note" };
     const settings = defaultSettings("America/Toronto", NOW);
@@ -125,9 +146,12 @@ describe("OverviewTab compensation patch", () => {
 
     render(
       <AppContext.Provider value={{ store, repo, caps: absentCapabilities() }}>
-        <OverviewTab app={app} patch={patch} />
+        <ToastProvider>
+          <OverviewTab app={app} patch={patch} />
+        </ToastProvider>
       </AppContext.Provider>,
     );
+    await act(async () => {});
     const min = screen.getByLabelText("Min");
     fireEvent.change(min, { target: { value: "100000" } });
     fireEvent.blur(min);

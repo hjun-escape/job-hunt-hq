@@ -3,7 +3,7 @@ import type { Company, SponsorshipPolicy } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useConfirm } from "../../ui/Confirm";
 import { Drawer } from "../../ui/Drawer";
-import { Field, TagInput, TextArea, TextField } from "../../ui/fields";
+import { Field, TagInput, TextArea, TextField, UrlField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 
@@ -61,7 +61,7 @@ export function CompanyEditor({ id, onClose }: { id: string; onClose: () => void
     >
       <div className="grid-2">
         <TextField label="Name" value={company.name} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} />
-        <TextField label="Website" type="url" value={company.website ?? ""} onCommit={(v) => patch({ website: v || undefined })} />
+        <UrlField label="Website" value={company.website ?? ""} onCommit={(v) => patch({ website: v || undefined })} />
         <TextField label="Industry" value={company.industry ?? ""} onCommit={(v) => patch({ industry: v || undefined })} />
         <TextField label="Size" value={company.size ?? ""} onCommit={(v) => patch({ size: v || undefined })} />
         <TextField label="HQ" value={company.hq ?? ""} onCommit={(v) => patch({ hq: v || undefined })} />

@@ -4,7 +4,7 @@ import type { Contact, ReferralStatus } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useConfirm } from "../../ui/Confirm";
 import { Drawer } from "../../ui/Drawer";
-import { DateField, Field, NumberField, SelectField, TextArea, TextField } from "../../ui/fields";
+import { DateField, Field, NumberField, SelectField, TextArea, TextField, UrlField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 
@@ -36,7 +36,7 @@ export function ContactEditor({ id, onClose }: { id: string; onClose: () => void
   const refOf = (c: Contact) => c.reference ?? { usedInApplicationIds: [] };
   const referralOf = (c: Contact) => c.referral ?? { status: "not_asked" as ReferralStatus };
   const companies = Object.values(state.companies).map((c) => ({ id: c.id, label: c.name }));
-  const appLabel = (appId: string) => { const a = state.applications[appId]; return a ? `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}` : appId; };
+  const appLabel = (appId: string) => { const a = state.applications[appId]; return a ? `${state.companies[a.companyId]?.name ?? "?"} · ${a.title}` : "(deleted application)"; };
   const isReference = contact.relationshipId === "reference";
   const isReferrer = contact.relationshipId === "referrer";
   const reference = contact.reference ?? { usedInApplicationIds: [] };
@@ -56,7 +56,7 @@ export function ContactEditor({ id, onClose }: { id: string; onClose: () => void
         <TextField label="Title" value={contact.title ?? ""} onCommit={(v) => patch({ title: opt(v) })} disabled={ro} />
         <TextField label="Email" type="email" value={contact.email ?? ""} onCommit={(v) => patch({ email: opt(v) })} disabled={ro} />
         <TextField label="Phone" value={contact.phone ?? ""} onCommit={(v) => patch({ phone: opt(v) })} disabled={ro} />
-        <TextField label="LinkedIn" type="url" value={contact.linkedin ?? ""} onCommit={(v) => patch({ linkedin: opt(v) })} disabled={ro} />
+        <UrlField label="LinkedIn" value={contact.linkedin ?? ""} onCommit={(v) => patch({ linkedin: opt(v) })} disabled={ro} />
         <DateField label="Last contacted" value={contact.lastContactedAt ?? ""} onCommit={(v) => void patch({ lastContactedAt: opt(v) })} disabled={ro} />
         <NumberField label="Follow up every (days)" value={contact.followUpEveryDays ?? null} min={1} onCommit={(v) => patch({ followUpEveryDays: v ?? undefined })} disabled={ro} />
       </div>

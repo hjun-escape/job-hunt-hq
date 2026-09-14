@@ -49,6 +49,16 @@ describe("applyStatusChange", () => {
     expect(app.statusId).toBe("applied");
     expect(app.activity).toEqual([]);
   });
+
+  it("moving between two closed statuses re-stamps closedAt and keeps the reason", () => {
+    const rejected = findStatus(settings, "rejected")!;
+    const withdrawn = findStatus(settings, "withdrawn")!;
+    const closed = { ...applyStatusChange(base(), rejected, "2026-09-01T00:00:00.000Z"), closedReasonId: "no-response" };
+    const next = applyStatusChange(closed, withdrawn, "2026-09-02T00:00:00.000Z");
+    expect(next.closedAt).toBe("2026-09-02T00:00:00.000Z");
+    expect(next.closedReasonId).toBe("no-response");
+    expect(next.statusId).toBe("withdrawn");
+  });
 });
 
 describe("appendActivity", () => {

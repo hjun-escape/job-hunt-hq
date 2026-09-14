@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { TextField, TagInput, RatingField, TriStateField, NumberField } from "../../src/ui/fields";
+import { TextField, TagInput, RatingField, TriStateField, NumberField, UrlField } from "../../src/ui/fields";
 
 describe("TextField", () => {
   it("commits on blur only when changed, and on Enter", () => {
@@ -64,11 +64,12 @@ describe("TagInput", () => {
 
     fireEvent.change(input, { target: { value: "a" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledTimes(1); // "a" already in the rendered value: no-op, no call
+    expect(onChange).toHaveBeenCalledTimes(2); // re-add still calls onChange; dedupe happens at apply time
+    expect((onChange.mock.calls[1][0] as (c: string[]) => string[])(["a"])).toEqual(["a"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Remove a" }));
-    expect(onChange).toHaveBeenCalledTimes(2);
-    expect((onChange.mock.calls[1][0] as (c: string[]) => string[])(["a"])).toEqual([]);
+    expect(onChange).toHaveBeenCalledTimes(3);
+    expect((onChange.mock.calls[2][0] as (c: string[]) => string[])(["a"])).toEqual([]);
   });
 
   it("computes add/remove against the current list, not the one it rendered from", () => {
@@ -89,6 +90,26 @@ describe("TagInput", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove a" }));
     const remove = onChange.mock.calls[1][0] as (c: string[]) => string[];
     expect(remove(["a", "c"])).toEqual(["c"]);
+  });
+
+  it("TagInput emits a re-add even when the rendered value still shows the tag", () => {
+    const onChange = vi.fn();
+    render(<TagInput label="Tags" value={["a"]} onChange={onChange} />);
+    const input = screen.getByLabelText("Tags");
+    fireEvent.change(input, { target: { value: "a" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.lastCall![0]([])).toEqual(["a"]);
+    expect(onChange.mock.lastCall![0](["a"])).toEqual(["a"]);
+  });
+});
+
+describe("UrlField", () => {
+  it("offers an Open link only for http(s) values", () => {
+    const { rerender } = render(<UrlField label="Website" value="https://shopify.com" onCommit={() => {}} />);
+    expect(screen.getByRole("link", { name: "Open Website" }).getAttribute("href")).toBe("https://shopify.com");
+    rerender(<UrlField label="Website" value="javascript:alert(1)" onCommit={() => {}} />);
+    expect(screen.queryByRole("link", { name: "Open Website" })).toBeNull();
   });
 });
 

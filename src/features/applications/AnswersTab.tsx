@@ -1,17 +1,23 @@
 import { useState } from "react";
 import type { Application } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
+import { useCapability } from "../../store/useCapability";
 import { PickChip } from "../../ui/Chip";
 import { copyText } from "../../ui/copyText";
 import { Field } from "../../ui/fields";
 import { useToast } from "../../ui/Toast";
+import { DraftPanel } from "../ai/DraftPanel";
+import { useSamplePolicy } from "../ai/useSample";
 import type { AppPatch } from "./ApplicationDetail";
 
-export function AnswersTab({ app, patch }: { app: Application; patch: (p: AppPatch) => Promise<boolean> }) {
-  const { repo } = useApp();
+export function AnswersTab({ app, patch, onDraftDirty }: { app: Application; patch: (p: AppPatch) => Promise<boolean>; onDraftDirty?: (d: boolean) => void }) {
+  const { repo, caps } = useApp();
   const state = useAppState();
   const settings = useSettings();
   const toast = useToast();
+  const sampleCap = useCapability(caps.sample);
+  const samplePolicy = useSamplePolicy();
+  const [drafting, setDrafting] = useState(false);
   const [pick, setPick] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const attached = app.answerIds.map((id) => state.answers[id]).filter((a): a is NonNullable<typeof a> => !!a);
@@ -30,7 +36,9 @@ export function AnswersTab({ app, patch }: { app: Application; patch: (p: AppPat
         </Field>
         <button type="button" className="btn primary" disabled={!pick || repo.readOnly} onClick={() => { void patch((cur) => ({ answerIds: [...cur.answerIds, pick] })); setPick(""); }}>Attach</button>
         <a href="#/answers" className="muted">Manage the bank</a>
+        {sampleCap && !samplePolicy.hidden ? <button type="button" className="btn" onClick={() => setDrafting(true)} disabled={repo.readOnly}>Draft with Claude</button> : null}
       </div>
+      {drafting ? <DraftPanel sample={sampleCap} app={app} onClose={() => setDrafting(false)} onDirtyChange={onDraftDirty} /> : null}
       {attached.length === 0 ? <p className="muted">No answers attached. Attach the ones you used or plan to use for this application.</p> : (
         <ul className="activity">
           {attached.map((a) => (

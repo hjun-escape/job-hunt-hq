@@ -4,7 +4,7 @@ import { useApp, useAppState, useSettings } from "../../store/context";
 import { useConfirm } from "../../ui/Confirm";
 import { Drawer } from "../../ui/Drawer";
 import { MultiPick } from "../../ui/MultiPick";
-import { DateField, NumberField, RatingField, SelectField, TextArea, TextField } from "../../ui/fields";
+import { DateField, NumberField, RatingField, SelectField, TextArea, TextField, UrlField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
 import { ZonedTimeField } from "../../ui/ZonedTimeField";
@@ -49,7 +49,7 @@ export function InterviewEditor({ id, onClose }: { id: string; onClose: () => vo
       <div className="grid-3">
         <NumberField label="Duration (minutes)" value={iv.durationMin ?? null} min={5} step={5} onCommit={(v) => patch({ durationMin: v ?? undefined })} disabled={ro} />
         <TextField label="Location" value={iv.location ?? ""} onCommit={(v) => patch({ location: opt(v) })} placeholder="Office address or 'remote'" disabled={ro} />
-        <TextField label="Meeting link" type="url" value={iv.meetingUrl ?? ""} onCommit={(v) => patch({ meetingUrl: opt(v) })} disabled={ro} />
+        <UrlField label="Meeting link" value={iv.meetingUrl ?? ""} onCommit={(v) => patch({ meetingUrl: opt(v) })} disabled={ro} />
       </div>
       <MultiPick label="Interviewers" options={contacts} value={iv.interviewerContactIds} onChange={(fn) => void patch((cur) => ({ interviewerContactIds: fn(cur.interviewerContactIds) }))} disabled={ro} />
       <TextField label="Other interviewer names" value={iv.interviewerNames ?? ""} onCommit={(v) => patch({ interviewerNames: opt(v) })} placeholder="Names not in Contacts" disabled={ro} />

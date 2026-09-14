@@ -43,7 +43,7 @@ export class Repository {
   }
 
   private requireDb(): DbLike {
-    if (!this.db) throw new RepoError("read_only", describeDbError({ code: "read_only", message: "" }));
+    if (!this.db || this.store.getState().readOnly) throw new RepoError("read_only", describeDbError({ code: "read_only", message: "" }));
     return this.db;
   }
 
@@ -123,7 +123,12 @@ export class Repository {
 
   async remove(collection: CollectionName, id: string): Promise<void> {
     const db = this.requireDb();
-    await this.guard(() => db.doc(`${collection}/${id}`).delete());
+    await this.serialize(`${collection}/${id}`, async () => {
+      await this.guard(() => db.doc(`${collection}/${id}`).delete());
+      const current = this.store.getState()[collection] as Record<string, unknown>;
+      const { [id]: _gone, ...rest } = current;
+      this.store.setState({ [collection]: rest } as unknown as Partial<StoreState>);
+    });
   }
 
   async saveSettings(settings: Settings): Promise<void> {

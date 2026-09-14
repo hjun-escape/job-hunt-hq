@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { blobUrl, uploadDocument, validateDocument } from "../../capabilities/files";
 import { assetUsage, formatBytes, isAssetReferenced } from "../../domain/assets";
+import { openStages, screenRate } from "../../domain/funnel";
 import type { AssetDoc } from "../../domain/types";
 import { useApp, useAppState, useSettings } from "../../store/context";
 import { useCapability } from "../../store/useCapability";
@@ -66,13 +67,17 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
     if (referenced) return;
     const ok = await confirm({ title: `Delete ${asset.name}?`, message: asset.file ? "Its file is deleted from storage too. This cannot be undone." : "This cannot be undone.", confirmLabel: "Delete" });
     if (!ok) return;
-    if (asset.file) { try { await assets?.delete(asset.file.assetId); } catch { /* record delete still proceeds; storage housekeeping can prune it */ } }
-    if (await run(() => repo.remove("assets", id))) onClose();
+    const file = asset.file;
+    if (!(await run(() => repo.remove("assets", id)))) return;
+    if (file) {
+      try { await assets?.delete(file.assetId); } catch { toast.show("The record was deleted but storage could not delete its file yet.", "error"); }
+    }
+    onClose();
   };
 
   return (
     <Drawer open title={asset.name} onClose={onClose}
-      footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" disabled={referenced || ro} title={referenced ? "Unlink it from applications first" : undefined} onClick={() => void removeRecord()}>Delete asset</button></>}>
+      footer={<><SaveIndicator status={status} /><button type="button" className="btn danger" disabled={referenced || ro || (!!asset.file && assets === undefined)} title={referenced ? "Unlink it from applications first" : undefined} onClick={() => void removeRecord()}>Delete asset</button></>}>
       <div className="grid-2">
         <SelectField label="Kind" value={asset.kindId} options={pl.assetKinds} onChange={(v) => { if (v) void patch({ kindId: v }); }} allowEmpty={false} disabled={ro} />
         <TextField label="Name" value={asset.name} onCommit={(v) => (v.trim() ? patch({ name: v.trim() }) : false)} disabled={ro} />
@@ -86,7 +91,8 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
         {asset.file ? (
           <div className="row">
             <span>{asset.file.fileName} <span className="muted">· {formatBytes(asset.file.sizeBytes)} · uploaded {asset.file.uploadedAt.slice(0, 10)}</span></span>
-            {fileStatus === "missing" ? <span className="chip chip-red">file missing</span> : <a className="btn" href={blobUrl(asset.file.assetId)} target="_blank" rel="noreferrer">Open file</a>}
+            <a className="btn" href={blobUrl(asset.file.assetId)} target="_blank" rel="noreferrer">Open file</a>
+            {fileStatus === "missing" ? <span className="chip chip-red">file missing</span> : null}
             {assets ? <button type="button" className="btn ghost" onClick={() => void removeFile()} disabled={ro}>Remove file</button> : null}
           </div>
         ) : assets === null ? (
@@ -111,6 +117,11 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
           {usage.asCoverLetter.map((a) => <li key={`c-${a.id}`}><a href={`#/applications/${a.id}`}>{appLabel(a)}</a> <span className="muted">· cover letter</span></li>)}
         </ul>
       )}
+      {usage.asResume.length > 0 ? (() => {
+        const rate = screenRate(usage.asResume, openStages(settings));
+        const reached = usage.asResume.filter((a) => a.maxStageRank >= (openStages(settings).find((s) => s.id === "screening")?.stageRank ?? Infinity)).length;
+        return rate == null ? null : <p className="muted">{`Screen-rate ${Math.round(rate * 100)}%: ${reached} of ${usage.asResume.length} applications using this resume reached Screening.`}</p>;
+      })() : null}
     </Drawer>
   );
 }

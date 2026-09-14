@@ -1,21 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
-import { absentCapabilities } from "../../src/capabilities/types";
-import { defaultSettings } from "../../src/domain/defaults";
-import { buildApplication } from "../../src/domain/factories";
+import { createFakeDownloads } from "../../src/capabilities/downloads";
+import { absentCapabilities, type Capabilities } from "../../src/capabilities/types";
+import { buildBackup } from "../../src/domain/backup";
+import { defaultProfile, defaultSettings } from "../../src/domain/defaults";
+import { buildApplication, buildCompany } from "../../src/domain/factories";
 import { Repository } from "../../src/store/repository";
 import type { Settings } from "../../src/domain/types";
 
 const NOW = "2026-09-11T00:00:00.000Z";
 
-async function open(hash: string, seed?: (db: ReturnType<typeof createFakeDb>) => Promise<void>) {
+async function open(hash: string, seed?: (db: ReturnType<typeof createFakeDb>) => Promise<void>, extra: Partial<Capabilities> = {}) {
   const db = createFakeDb();
   await db.doc("settings/main").set(defaultSettings("America/Toronto", NOW) as unknown as Record<string, unknown>);
   if (seed) await seed(db);
   window.location.hash = hash;
-  render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
+  render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db), ...extra }} />);
   await screen.findByRole("heading", { name: "Settings" });
   return db;
 }
@@ -26,7 +28,7 @@ describe("SettingsPage", () => {
     const input = screen.getByLabelText("Follow-up cadence (days)");
     fireEvent.change(input, { target: { value: "10" } });
     fireEvent.blur(input);
-    await waitFor(async () => expect((await db.doc("settings/main").get()).data()?.followUpCadenceDays).toBe(10));
+    await waitFor(async () => expect((await db.doc("settings/main").get()).data()?.followUpCadenceDays).toBe(10), { timeout: 3000 });
   });
 
   it("adds an exchange rate", async () => {
@@ -115,5 +117,87 @@ describe("SettingsPage", () => {
     } finally {
       modifySpy.mockRestore();
     }
+  });
+
+  it("downloads a backup and a CSV through the downloads capability", async () => {
+    const downloads = createFakeDownloads();
+    await open("#/settings", async (db) => { await db.doc("companies/co_1").set(buildCompany({ name: "Shopify" }, "co_1", NOW) as unknown as Record<string, unknown>); }, { downloads: Promise.resolve(downloads) });
+    fireEvent.click(await screen.findByRole("button", { name: "Download backup (JSON)" }));
+    await waitFor(() => expect(downloads.saved).toHaveLength(1));
+    expect(downloads.saved[0].filename).toMatch(/^job-hunt-hq-backup-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(JSON.parse(downloads.saved[0].data)).toMatchObject({ app: "job-hunt-hq", companies: [{ name: "Shopify" }] });
+    fireEvent.change(screen.getByLabelText("Collection to export"), { target: { value: "companies" } });
+    fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    await waitFor(() => expect(downloads.saved).toHaveLength(2));
+    expect(downloads.saved[1].filename).toMatch(/^job-hunt-hq-companies-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(downloads.saved[1].data).toContain("Shopify");
+  });
+
+  it("hides the export buttons when downloads are unavailable", async () => {
+    await open("#/settings");
+    await screen.findByRole("heading", { name: "Backup and restore" });
+    expect(screen.queryByRole("button", { name: "Download backup (JSON)" })).toBeNull();
+    expect(screen.getByText(/Downloads are not available in this view/)).toBeTruthy();
+  });
+
+  it("validates a restore file, shows problems, and merges a valid one", async () => {
+    const db = await open("#/settings");
+    const input = screen.getByLabelText("Restore from backup") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([JSON.stringify({ app: "other" })], "bad.json", { type: "application/json" })] } });
+    expect((await screen.findByRole("alert", { name: "Backup problems" })).textContent).toMatch(/not a Job Hunt HQ backup/);
+    const backup = buildBackup({ settings: defaultSettings("America/Toronto", NOW), profile: defaultProfile(NOW), applications: {}, companies: { co_imp: buildCompany({ name: "Imported Co" }, "co_imp", NOW) }, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} }, NOW);
+    fireEvent.change(input, { target: { files: [new File([JSON.stringify(backup)], "good.json", { type: "application/json" })] } });
+    expect(await screen.findByText(/good\.json: 0 applications, 1 companies/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    await waitFor(async () => expect((await db.doc("companies/co_imp").get()).data()?.name).toBe("Imported Co"));
+  });
+
+  it("replace mode deletes current records after a typed confirmation", async () => {
+    const db = await open("#/settings", async (d) => { await d.doc("companies/co_old").set(buildCompany({ name: "Old" }, "co_old", NOW) as unknown as Record<string, unknown>); });
+    const backup = buildBackup({ settings: defaultSettings("America/Toronto", NOW), profile: defaultProfile(NOW), applications: {}, companies: { co_imp: buildCompany({ name: "Imported Co" }, "co_imp", NOW) }, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} }, NOW);
+    fireEvent.change(screen.getByLabelText("Restore from backup"), { target: { files: [new File([JSON.stringify(backup)], "good.json", { type: "application/json" })] } });
+    await screen.findByText(/good\.json/);
+    fireEvent.click(screen.getByRole("radio", { name: "Replace everything" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "REPLACE" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Replace" }));
+    await waitFor(async () => expect((await db.doc("companies/co_old").get()).exists).toBe(false));
+    expect((await db.doc("companies/co_imp").get()).exists).toBe(true);
+  });
+
+  it("counts settings, profile and record writes -- not just document creates -- in the quota toast", async () => {
+    const inner = createFakeDb();
+    let thrown = false;
+    const db: ReturnType<typeof createFakeDb> = {
+      ...inner,
+      doc: (path: string) => {
+        const ref = inner.doc(path);
+        if (path.startsWith("applications/") && !thrown) {
+          thrown = true;
+          return { ...ref, set: async () => { throw { code: "quota_exceeded" }; } };
+        }
+        return ref;
+      },
+    };
+    await db.doc("settings/main").set(defaultSettings("America/Toronto", NOW) as unknown as Record<string, unknown>);
+    window.location.hash = "#/settings";
+    render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
+    await screen.findByRole("heading", { name: "Settings" });
+
+    const backup = buildBackup(
+      {
+        settings: defaultSettings("America/Toronto", NOW),
+        profile: defaultProfile(NOW),
+        applications: { app_1: buildApplication({ companyId: "co_1", title: "SWE", countryId: "CA", channelId: "linkedin", statusId: "applied" }, "app_1", NOW) },
+        companies: { co_1: buildCompany({ name: "Shopify" }, "co_1", NOW) },
+        contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {},
+      },
+      NOW,
+    );
+    fireEvent.change(screen.getByLabelText("Restore from backup"), { target: { files: [new File([JSON.stringify(backup)], "good.json", { type: "application/json" })] } });
+    await screen.findByText(/good\.json/);
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect(await screen.findByText("Storage is full: wrote 3 of 4 documents before stopping.")).toBeTruthy();
   });
 });
