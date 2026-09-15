@@ -30,17 +30,18 @@ export async function saveText(downloads: DownloadsLike, filename: string, text:
 }
 
 export interface FakeDownloads extends DownloadsLike {
-  saved: { filename: string; data: string }[];
+  /** `data` is the string form; `raw` is the payload exactly as passed (a Blob for file saves). */
+  saved: { filename: string; data: string; raw: unknown }[];
 }
 
 /** Records saves instead of prompting (tests). */
 export function createFakeDownloads(opts: { fail?: { code: string; message: string } } = {}): FakeDownloads {
-  const saved: { filename: string; data: string }[] = [];
+  const saved: { filename: string; data: string; raw: unknown }[] = [];
   const fake = {
     saved,
     async save({ filename, data }: { filename: string; data: unknown }) {
       if (opts.fail) throw opts.fail;
-      saved.push({ filename, data: typeof data === "string" ? data : String(data) });
+      saved.push({ filename, data: typeof data === "string" ? data : String(data), raw: data });
       return { status: "saved" as const };
     },
   };

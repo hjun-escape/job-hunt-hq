@@ -1,14 +1,50 @@
 import { nowIso } from "../domain/ids";
 import type { StoredFile } from "../domain/types";
+import { describeDownloadsError } from "./downloads";
 import { errorCode } from "./errors";
-import type { AssetsLike } from "./types";
+import type { AssetsLike, DownloadsLike } from "./types";
 
 /** Spec §7: PDF for documents, images for portfolio previews. Word files are refused with a hint. */
 export const DOCUMENT_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);
 export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 
+/** Same-origin path of a stored file. It resolves only inside the artifact frame: a top-level tab
+ * opened on it gets "not found", so never link to it with target="_blank"; fetch it and hand the
+ * bytes to the downloads capability (see saveStoredFile). */
 export function blobUrl(assetId: string): string {
   return `/_blob/${assetId}`;
+}
+
+/** Name offered in the save prompt. Stored names may carry a folder; the platform rejects slashes. */
+export function downloadFileName(fileName: string): string {
+  const base = fileName.split(/[\\/]/).pop()?.trim();
+  return base || "file";
+}
+
+/** Fetches the stored file in-frame and offers it through the downloads capability.
+ * True when saved, false when the viewer declined; throws an Error carrying viewer copy otherwise. */
+export async function saveStoredFile(
+  downloads: DownloadsLike,
+  file: StoredFile,
+  fetchImpl: (input: string) => Promise<Response> = (input) => fetch(input),
+): Promise<boolean> {
+  let res: Response;
+  try {
+    res = await fetchImpl(blobUrl(file.assetId));
+  } catch {
+    throw new Error("The file could not be read from storage. Check your connection and try again.");
+  }
+  if (res.status === 404) throw new Error("The file is no longer in storage.");
+  if (!res.ok) throw new Error("The file could not be read from storage. Try again.");
+  const blob = await res.blob();
+  try {
+    await downloads.save({ filename: downloadFileName(file.fileName), data: blob });
+    return true;
+  } catch (e) {
+    const message = describeDownloadsError(e);
+    if (message === null) return false;
+    throw new Error(message);
+  }
 }
 
 export function validateDocument(file: File): string | null {
