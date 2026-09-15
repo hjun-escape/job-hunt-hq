@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../../src/app/App";
+import { createFakeDownloads } from "../../src/capabilities/downloads";
 import { createFakeAssets } from "../../src/capabilities/fakeAssets";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
@@ -13,14 +14,14 @@ const NOW = "2026-09-11T00:00:00.000Z";
 type Db = ReturnType<typeof createFakeDb>;
 const put = (db: Db, path: string, doc: object) => db.doc(path).set(doc as unknown as Record<string, unknown>);
 
-async function open(hash: string, seed?: (db: Db) => Promise<void>, heading = "Assets", seedAssets?: (assets: ReturnType<typeof createFakeAssets>) => Promise<void>, assetsInstance?: ReturnType<typeof createFakeAssets>) {
+async function open(hash: string, seed?: (db: Db) => Promise<void>, heading = "Assets", seedAssets?: (assets: ReturnType<typeof createFakeAssets>) => Promise<void>, assetsInstance?: ReturnType<typeof createFakeAssets>, downloads?: ReturnType<typeof createFakeDownloads>) {
   const db = createFakeDb();
   const assets = assetsInstance ?? createFakeAssets();
   if (seedAssets) await seedAssets(assets);
   await put(db, "settings/main", defaultSettings("America/Toronto", NOW));
   if (seed) await seed(db);
   window.location.hash = hash;
-  render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db), assets: Promise.resolve(assets) }} />);
+  render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db), assets: Promise.resolve(assets), ...(downloads ? { downloads: Promise.resolve(downloads) } : {}) }} />);
   await screen.findByRole("heading", { name: heading });
   return { db, assets };
 }
@@ -48,7 +49,8 @@ describe("Assets", () => {
       expect(a.file).toMatchObject({ fileName: "Backend_Resume.pdf", sizeBytes: 20, contentType: "application/pdf" });
     });
     expect((await assets.list()).usage.files).toBe(1);
-    expect(screen.getByRole("link", { name: "Open file" }).getAttribute("href")).toMatch(/^\/_blob\/[0-9a-f]{32}$/);
+    expect(within(screen.getByRole("dialog")).getByText(/Backend_Resume\.pdf/)).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Open file" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Remove file" }));
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
     await waitFor(async () => expect(((await db.doc("assets/as_1").get()).data() as unknown as AssetDoc).file).toBeUndefined());
@@ -129,7 +131,7 @@ describe("Assets", () => {
     expect(screen.getByText("Screen-rate 50%: 1 of 2 applications using this resume reached Screening.")).toBeTruthy();
   });
 
-  it("keeps the Open file link visible and flags a missing file after a HEAD 404", async () => {
+  it("keeps the file row visible and flags a missing file after a HEAD 404", async () => {
     const original = globalThis.fetch;
     globalThis.fetch = vi.fn(async () => ({ status: 404 }) as Response) as unknown as typeof fetch;
     try {
@@ -138,7 +140,7 @@ describe("Assets", () => {
       });
       await screen.findByRole("dialog");
       expect(await screen.findByText("file missing")).toBeTruthy();
-      expect(screen.getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(`/_blob/${"a".repeat(32)}`);
+      expect(within(screen.getByRole("dialog")).getByText(/r\.pdf/)).toBeTruthy();
     } finally {
       globalThis.fetch = original;
     }
@@ -157,5 +159,58 @@ describe("Assets", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete asset" }));
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(recordGoneFirst).toBe(true));
+  });
+  /** The /_blob/ path only resolves inside the artifact frame: a new tab gets "not found". The file is
+   * fetched in-frame and handed to the downloads capability instead. */
+  it("saves the stored file through the downloads capability instead of opening a new tab", async () => {
+    const original = globalThis.fetch;
+    const pdf = new Blob(["%PDF-1.4"], { type: "application/pdf" });
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      (init?.method === "HEAD" ? { status: 200, ok: true } : { status: 200, ok: true, blob: async () => pdf }) as Response);
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const downloads = createFakeDownloads();
+    try {
+      await open("#/assets/as_1", async (db) => {
+        await put(db, "assets/as_1", buildAsset({ kindId: "resume", name: "Backend resume", file: { assetId: "b".repeat(32), fileName: "Backend_Resume.pdf", sizeBytes: 8, contentType: "application/pdf", uploadedAt: NOW } }, "as_1", NOW));
+      }, "Assets", undefined, undefined, downloads);
+      await screen.findByRole("dialog");
+      expect(screen.queryByRole("link", { name: "Open file" })).toBeNull();
+      fireEvent.click(await screen.findByRole("button", { name: "Download file" }));
+      await waitFor(() => expect(downloads.saved).toHaveLength(1));
+      expect(downloads.saved[0].filename).toBe("Backend_Resume.pdf");
+      expect(downloads.saved[0].raw).toBe(pdf);
+      const gets = fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method !== "HEAD").map((c) => String(c[0]));
+      expect(gets).toEqual([`/_blob/${"b".repeat(32)}`]);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("saves under the file's base name when the stored name carries a folder", async () => {
+    const original = globalThis.fetch;
+    const pdf = new Blob(["%PDF-1.4"], { type: "application/pdf" });
+    globalThis.fetch = vi.fn(async (_i: RequestInfo | URL, init?: RequestInit) =>
+      (init?.method === "HEAD" ? { status: 200, ok: true } : { status: 200, ok: true, blob: async () => pdf }) as Response) as unknown as typeof fetch;
+    const downloads = createFakeDownloads();
+    try {
+      await open("#/assets/as_1", async (db) => {
+        await put(db, "assets/as_1", buildAsset({ kindId: "resume", name: "ML resume", file: { assetId: "c".repeat(32), fileName: "anthropic-fellows/resume.pdf", sizeBytes: 8, contentType: "application/pdf", uploadedAt: NOW } }, "as_1", NOW));
+      }, "Assets", undefined, undefined, downloads);
+      await screen.findByRole("dialog");
+      fireEvent.click(await screen.findByRole("button", { name: "Download file" }));
+      await waitFor(() => expect(downloads.saved).toHaveLength(1));
+      expect(downloads.saved[0].filename).toBe("resume.pdf");
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("explains when saving is unavailable instead of offering a dead button", async () => {
+    await open("#/assets/as_1", async (db) => {
+      await put(db, "assets/as_1", buildAsset({ kindId: "resume", name: "Backend resume", file: { assetId: "d".repeat(32), fileName: "r.pdf", sizeBytes: 8, contentType: "application/pdf", uploadedAt: NOW } }, "as_1", NOW));
+    });
+    await screen.findByRole("dialog");
+    expect(await screen.findByText("Saving files is not available in this view.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Download file" })).toBeNull();
   });
 });

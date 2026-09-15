@@ -131,7 +131,7 @@ Navigation: left rail (collapses to a bottom bar under 720 px) with Dashboard, A
 - **Applications:** table view with column chooser, sort, and filters (country, status, tier, channel, sponsorship, tag, text). Kanban view grouped by status with drag-to-move (moving triggers the status-change rule). Quick-add form: URL, title, company (creates the company if new), country; files under Saved. Detail panel with tabs: Overview (all fields), Interviews (rounds for this application, add round), Answers (attach from bank, draft with AI), Activity (log plus manual note), Notes.
 - **Companies:** list with search; detail editor including sponsorship-per-country matrix and interview-process notes; shows linked applications and contacts.
 - **Contacts:** list with relationship filter and follow-up flags; detail editor; reference section appears when relationship is Reference.
-- **Assets:** list grouped by kind; detail editor with PDF upload (drag-drop or picker), "Open file" link, "Remove file" with confirmation; shows which applications use the asset and its screen-rate from the funnel.
+- **Assets:** list grouped by kind; detail editor with PDF upload (drag-drop or picker), a "Download file" button that fetches the stored file in-frame and offers it through the downloads capability (the `/_blob/` path resolves only inside the artifact frame, so it is never opened in a new tab; the button is replaced by a note when downloads are unavailable), "Remove file" with confirmation; shows which applications use the asset and its screen-rate from the funnel.
 - **Answers:** search by text and theme; detail editor with markdown preview and a Copy button; shows usage count and applications; "Tailor with AI" action.
 - **Interviews:** calendar-style week list in home tz plus table; detail editor with prep checklist and post-interview fields.
 - **Prep:** table with kind and pattern filters, confidence and last-attempted; detail editor.
@@ -168,8 +168,8 @@ Error handling: `not_granted`/`sampling_disabled`/`not_declared`/`capability_dis
 ## 9. Degraded modes and errors
 
 - `db` null: banner "Storage unavailable in this view", all editors read-only, dashboard renders from empty data.
-- `assets` null: upload and remove hidden; existing files still open via `/_blob/<id>`.
-- `downloads` null: export buttons hidden.
+- `assets` null: upload and remove hidden; a recorded file can still be downloaded (that goes through `downloads`, not `assets`).
+- `downloads` null: export buttons hidden; the asset editor shows "Saving files is not available in this view." in place of the Download file button.
 - `sample` null: AI buttons hidden.
 - Store errors: `quota_exceeded` and `resource_exhausted` produce toasts with the action to take; `unavailable` retries once with jitter; `revoked` switches to read-only for the page load.
 - Subscriptions pass an error callback; a terminated listener is re-subscribed once, then the banner shows.

@@ -5,7 +5,7 @@ describe("downloads helper", () => {
   it("saves text through the capability and reports success", async () => {
     const fake = createFakeDownloads();
     expect(await saveText(fake, "a.csv", "x,y")).toBe(true);
-    expect(fake.saved).toEqual([{ filename: "a.csv", data: "x,y" }]);
+    expect(fake.saved).toEqual([{ filename: "a.csv", data: "x,y", raw: "x,y" }]);
   });
 
   it("treats a decline as a quiet false and maps other codes to viewer copy", async () => {

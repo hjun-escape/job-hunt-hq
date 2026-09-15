@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { blobUrl, uploadDocument, validateDocument } from "../../capabilities/files";
+import { downloadFileName, saveStoredFile, uploadDocument, validateDocument } from "../../capabilities/files";
 import { assetUsage, formatBytes, isAssetReferenced } from "../../domain/assets";
 import { openStages, screenRate } from "../../domain/funnel";
 import type { AssetDoc } from "../../domain/types";
@@ -19,11 +19,13 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
   const state = useAppState();
   const settings = useSettings();
   const assets = useCapability(caps.assets);
+  const downloads = useCapability(caps.downloads);
   const { status, run } = useSaver();
   const confirm = useConfirm();
   const toast = useToast();
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const asset = state.assets[id];
   const fileStatus = useFileStatus(asset?.file?.assetId);
@@ -53,6 +55,20 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
     } finally {
       setBusy(false);
       if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+  /** The /_blob/ path resolves only inside the artifact frame, so the file is fetched here and
+   * offered through the downloads capability instead of opened in a new tab. */
+  const download = async () => {
+    const f = asset.file;
+    if (!f || !downloads) return;
+    setSaving(true);
+    try {
+      if (await saveStoredFile(downloads, f)) toast.show(`Saved ${downloadFileName(f.fileName)}.`, "success");
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "Could not save the file.", "error");
+    } finally {
+      setSaving(false);
     }
   };
   const removeFile = async () => {
@@ -92,7 +108,11 @@ export function AssetEditor({ id, onClose }: { id: string; onClose: () => void }
         {asset.file ? (
           <div className="row">
             <span>{asset.file.fileName} <span className="muted">· {formatBytes(asset.file.sizeBytes)} · uploaded {asset.file.uploadedAt.slice(0, 10)}</span></span>
-            <a className="btn" href={blobUrl(asset.file.assetId)} target="_blank" rel="noreferrer">Open file</a>
+            {downloads ? (
+              <button type="button" className="btn" disabled={saving} onClick={() => void download()}>Download file</button>
+            ) : downloads === null ? (
+              <span className="muted">Saving files is not available in this view.</span>
+            ) : null}
             {fileStatus === "missing" ? <span className="chip chip-red">file missing</span> : null}
             {assets ? <button type="button" className="btn ghost" onClick={() => void removeFile()} disabled={ro}>Remove file</button> : null}
           </div>
