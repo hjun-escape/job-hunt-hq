@@ -168,8 +168,8 @@ Error handling: `not_granted`/`sampling_disabled`/`not_declared`/`capability_dis
 ## 9. Degraded modes and errors
 
 - `db` null: banner "Storage unavailable in this view", all editors read-only, dashboard renders from empty data.
-- `assets` null: upload and remove hidden; existing files still open via `/_blob/<id>`.
-- `downloads` null: export buttons hidden.
+- `assets` null: upload and remove hidden; a recorded file can still be downloaded (that goes through `downloads`, not `assets`).
+- `downloads` null: export buttons hidden; the asset editor shows "Saving files is not available in this view." in place of the Download file button.
 - `sample` null: AI buttons hidden.
 - Store errors: `quota_exceeded` and `resource_exhausted` produce toasts with the action to take; `unavailable` retries once with jitter; `revoked` switches to read-only for the page load.
 - Subscriptions pass an error callback; a terminated listener is re-subscribed once, then the banner shows.

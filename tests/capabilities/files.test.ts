@@ -1,6 +1,7 @@
+import { createFakeDownloads } from "../../src/capabilities/downloads";
 import { describe, it, expect } from "vitest";
 import { createFakeAssets } from "../../src/capabilities/fakeAssets";
-import { FileError, blobUrl, describeAssetError, uploadDocument, validateDocument } from "../../src/capabilities/files";
+import { FileError, blobUrl, describeAssetError, downloadFileName, saveStoredFile, uploadDocument, validateDocument } from "../../src/capabilities/files";
 
 const pdf = (name = "resume.pdf", bytes = 10) => new File([new Uint8Array(bytes)], name, { type: "application/pdf" });
 
@@ -37,5 +38,44 @@ describe("uploadDocument", () => {
     for (const code of ["too_large", "unsupported_type", "quota_or_state", "rate_limited", "upstream_auth", "store_unavailable", "not_granted", "nope"]) {
       expect(describeAssetError({ code, message: "" }).length).toBeGreaterThan(10);
     }
+  });
+});
+
+describe("saveStoredFile", () => {
+  const file = { assetId: "a".repeat(32), fileName: "docs/Backend_Resume.pdf", sizeBytes: 8, contentType: "application/pdf", uploadedAt: "2026-09-15T00:00:00.000Z" };
+  const pdf = new Blob(["%PDF-1.4"], { type: "application/pdf" });
+  const ok = async () => ({ ok: true, status: 200, blob: async () => pdf }) as unknown as Response;
+
+  it("fetches /_blob/<id> and offers the bytes under the base name", async () => {
+    const fake = createFakeDownloads();
+    const calls: string[] = [];
+    expect(await saveStoredFile(fake, file, async (u) => { calls.push(u); return ok(); })).toBe(true);
+    expect(calls).toEqual([`/_blob/${"a".repeat(32)}`]);
+    expect(fake.saved).toEqual([{ filename: "Backend_Resume.pdf", data: "[object Blob]", raw: pdf }]);
+  });
+
+  it("strips folders and falls back to a name when the stored name is empty", () => {
+    expect(downloadFileName("anthropic-fellows/resume.pdf")).toBe("resume.pdf");
+    expect(downloadFileName("C:\\Users\\me\\cv.pdf")).toBe("cv.pdf");
+    expect(downloadFileName("   ")).toBe("file");
+  });
+
+  it("explains a network failure before the fetch resolves", async () => {
+    await expect(saveStoredFile(createFakeDownloads(), file, async () => { throw new TypeError("Failed to fetch"); })).rejects.toThrow(/Check your connection/);
+  });
+
+  it("explains a body read that fails mid-stream the same way", async () => {
+    const broken = async () => ({ ok: true, status: 200, blob: async () => { throw new TypeError("network error"); } }) as unknown as Response;
+    await expect(saveStoredFile(createFakeDownloads(), file, broken)).rejects.toThrow(/Check your connection/);
+  });
+
+  it("reports a deleted file on 404 and a generic retry on other statuses", async () => {
+    await expect(saveStoredFile(createFakeDownloads(), file, async () => ({ ok: false, status: 404 }) as Response)).rejects.toThrow(/no longer in storage/);
+    await expect(saveStoredFile(createFakeDownloads(), file, async () => ({ ok: false, status: 500 }) as Response)).rejects.toThrow(/Try again/);
+  });
+
+  it("treats a decline as a quiet false and maps other download codes to viewer copy", async () => {
+    expect(await saveStoredFile(createFakeDownloads({ fail: { code: "declined", message: "" } }), file, ok)).toBe(false);
+    await expect(saveStoredFile(createFakeDownloads({ fail: { code: "rejected_extension", message: "" } }), file, ok)).rejects.toThrow(/cannot be saved/);
   });
 });

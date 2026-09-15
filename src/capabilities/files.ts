@@ -36,7 +36,12 @@ export async function saveStoredFile(
   }
   if (res.status === 404) throw new Error("The file is no longer in storage.");
   if (!res.ok) throw new Error("The file could not be read from storage. Try again.");
-  const blob = await res.blob();
+  let blob: Blob;
+  try {
+    blob = await res.blob();
+  } catch {
+    throw new Error("The file could not be read from storage. Check your connection and try again.");
+  }
   try {
     await downloads.save({ filename: downloadFileName(file.fileName), data: blob });
     return true;
