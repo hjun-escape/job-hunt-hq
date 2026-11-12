@@ -7,11 +7,9 @@ import { Drawer } from "../../ui/Drawer";
 import { DateField, Field, NumberField, SelectField, TextArea, TextField, UrlField } from "../../ui/fields";
 import { SaveIndicator } from "../../ui/SaveIndicator";
 import { useSaver } from "../../ui/useSaver";
+import { REFERRAL_STATUSES } from "./referral";
 
-const REFERRAL: { id: ReferralStatus; label: string }[] = [
-  { id: "not_asked", label: "Not asked" }, { id: "asked", label: "Asked" }, { id: "agreed", label: "Agreed" },
-  { id: "submitted", label: "Submitted" }, { id: "declined", label: "Declined" },
-];
+const REFERRAL = REFERRAL_STATUSES.map(({ id, label }) => ({ id, label }));
 
 export function ContactEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const { repo } = useApp();

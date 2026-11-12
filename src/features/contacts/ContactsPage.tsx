@@ -11,6 +11,7 @@ import type { Column } from "../../ui/sortRows";
 import { useSaver } from "../../ui/useSaver";
 import { useSort } from "../../ui/useSort";
 import { ContactEditor } from "./ContactEditor";
+import { referralEntry, referralRank } from "./referral";
 
 export function ContactsPage({ parts }: PageProps) {
   const { repo } = useApp();
@@ -41,6 +42,7 @@ export function ContactsPage({ parts }: PageProps) {
     { key: "name", header: "Name", render: (c) => <strong>{c.name}</strong>, sortValue: (c) => c.name },
     { key: "rel", header: "Relationship", render: (c) => <PickChip list={settings.pickLists.contactRelationships} id={c.relationshipId} />, sortValue: (c) => c.relationshipId },
     { key: "company", header: "Company", render: (c) => (c.companyId ? state.companies[c.companyId]?.name ?? "?" : <span className="muted">—</span>), sortValue: (c) => (c.companyId ? state.companies[c.companyId]?.name ?? null : null) },
+    { key: "referral", header: "Referral", render: (c) => { const r = referralEntry(c.referral?.status); return r.id === "not_asked" ? <span className="muted">{r.label}</span> : <Chip color={r.color}>{r.label}</Chip>; }, sortValue: (c) => referralRank(c.referral?.status) },
     { key: "last", header: "Last contacted", render: (c) => c.lastContactedAt ?? <span className="muted">never</span>, sortValue: (c) => c.lastContactedAt ?? null },
     { key: "due", header: "Follow-up", render: (c) => { const f = flag(c); return f.due ? <Chip color="amber" title={f.reason}>Follow up</Chip> : <span className="muted">—</span>; }, sortValue: (c) => (flag(c).due ? 0 : 1) },
     { key: "email", header: "Email", render: (c) => c.email ?? <span className="muted">—</span>, sortValue: (c) => c.email ?? null },
