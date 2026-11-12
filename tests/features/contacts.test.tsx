@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { App } from "../../src/app/App";
 import { createFakeDb } from "../../src/capabilities/fakeDb";
 import { absentCapabilities } from "../../src/capabilities/types";
@@ -31,6 +31,30 @@ describe("Contacts", () => {
     expect(dialog.textContent).toContain("Dana Kim");
     await waitFor(async () => expect((await db.collection("contacts").get()).size).toBe(1));
     expect(window.location.hash).toMatch(/^#\/contacts\/ct_/);
+  });
+
+  it("shows each contact's referral status in the table, defaulting to Not asked", async () => {
+    await open("#/contacts", async (db) => {
+      await put(db, "contacts/ct_1", buildContact({ name: "Grace", relationshipId: "referrer", referral: { status: "submitted" } }, "ct_1", NOW));
+      await put(db, "contacts/ct_2", buildContact({ name: "Alan", relationshipId: "peer" }, "ct_2", NOW));
+    });
+    expect(screen.getByRole("columnheader", { name: /Referral/ })).toBeTruthy();
+    const rowOf = async (name: string) => (await screen.findByText(name, { selector: "td strong" })).closest("tr") as HTMLElement;
+    expect(within(await rowOf("Grace")).getByText("Submitted")).toBeTruthy();
+    expect(within(await rowOf("Alan")).getByText("Not asked")).toBeTruthy();
+  });
+
+  it("sorts the referral column in pipeline order, not alphabetically", async () => {
+    await open("#/contacts", async (db) => {
+      await put(db, "contacts/ct_1", buildContact({ name: "A Submitted", relationshipId: "referrer", referral: { status: "submitted" } }, "ct_1", NOW));
+      await put(db, "contacts/ct_2", buildContact({ name: "B Asked", relationshipId: "referrer", referral: { status: "asked" } }, "ct_2", NOW));
+      await put(db, "contacts/ct_3", buildContact({ name: "C Agreed", relationshipId: "referrer", referral: { status: "agreed" } }, "ct_3", NOW));
+      await put(db, "contacts/ct_4", buildContact({ name: "D None", relationshipId: "peer" }, "ct_4", NOW));
+    });
+    await screen.findByText("D None");
+    fireEvent.click(within(screen.getByRole("columnheader", { name: /Referral/ })).getByRole("button"));
+    const names = screen.getAllByText(/^[A-D] /, { selector: "td strong" }).map((el) => el.textContent);
+    expect(names).toEqual(["D None", "B Asked", "C Agreed", "A Submitted"]);
   });
 
   it("flags follow-ups that are due and shows the reference block only for references", async () => {
