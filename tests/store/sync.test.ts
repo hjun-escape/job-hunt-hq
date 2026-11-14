@@ -24,6 +24,23 @@ describe("startSync", () => {
     h.stop();
   });
 
+  it("keeps defaults in memory for a viewer who cannot edit, without writing them", async () => {
+    // A path hidden by an access rule reads exactly like a missing document, so a viewer below
+    // Editor sees profile/main as absent. Seeding it would be refused and flip the page read-only.
+    const db = createFakeDb();
+    const store = createStore();
+    const h = startSync(db, store, { homeTz: "Asia/Seoul", now: () => NOW, canEdit: false });
+    await h.ready;
+    const s = store.getState();
+    expect(s.ready).toBe(true);
+    expect(s.readOnly).toBe(false);
+    expect(s.settings?.homeTz).toBe("Asia/Seoul");
+    expect(s.profile?.workAuth.KR).toBeDefined();
+    expect((await db.doc("settings/main").get()).exists).toBe(false);
+    expect((await db.doc("profile/main").get()).exists).toBe(false);
+    h.stop();
+  });
+
   it("keeps existing settings and mirrors collection changes live", async () => {
     const db = createFakeDb();
     await db.doc("settings/main").set({ ...defaultSettings("UTC", NOW), homeTz: "America/Toronto" } as unknown as Record<string, unknown>);

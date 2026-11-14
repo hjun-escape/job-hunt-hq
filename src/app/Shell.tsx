@@ -7,7 +7,9 @@ export function Shell() {
   const state = useAppState();
   const route = useRoute();
   const key = route.parts[0] ?? "";
-  const Page = PAGES[key];
+  const nav = state.canEdit ? NAV : NAV.filter((n) => !n.private);
+  const hidden = !state.canEdit && NAV.some((n) => n.private && n.key === key);
+  const Page = hidden ? undefined : PAGES[key];
   const routeQuery = key === "search" ? (route.query.get("q") ?? "") : "";
   const [q, setQ] = useState(routeQuery);
   useEffect(() => { if (key === "search") setQ(routeQuery); }, [key, routeQuery]);
@@ -15,7 +17,7 @@ export function Shell() {
     <div className="shell">
       <nav className="nav" aria-label="Main">
         <div className="brand">Job Hunt HQ</div>
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <a key={n.key} href={`#${n.to}`} className={key === n.key ? "nav-item active" : "nav-item"} aria-current={key === n.key ? "page" : undefined}>
             {n.label}
           </a>
@@ -24,7 +26,7 @@ export function Shell() {
       <main className="main">
         <div className="topbar">
           <form role="search" onSubmit={(e) => { e.preventDefault(); navigate(`/search?q=${encodeURIComponent(q.trim())}`); }}>
-            <input type="search" aria-label="Search everything" placeholder="Search companies, roles, contacts, answers" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input type="search" aria-label="Search everything" placeholder={state.canEdit ? "Search companies, roles, contacts, answers" : "Search companies and roles"} value={q} onChange={(e) => setQ(e.target.value)} />
           </form>
         </div>
         {state.readOnly && (

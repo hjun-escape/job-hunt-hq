@@ -28,4 +28,23 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Applications" }).getAttribute("aria-current")).toBeNull();
   });
+
+  it("hides the private pages from a viewer who cannot edit", async () => {
+    const caps = { ...absentCapabilities(), db: Promise.resolve(createFakeDb()), user: Promise.resolve({ canEdit: async () => false }) };
+    window.location.hash = "#/";
+    render(<App capabilities={caps} />);
+    await screen.findByText("Total");
+    for (const name of ["Contacts", "Assets", "Answers", "Profile"]) expect(screen.queryByRole("link", { name })).toBeNull();
+    expect(screen.getByRole("link", { name: "Applications" })).toBeTruthy();
+    window.location.hash = "#/contacts";
+    expect(await screen.findByRole("heading", { name: "Nothing at /contacts" })).toBeTruthy();
+  });
+
+  it("shows the private pages to an editor", async () => {
+    const caps = { ...absentCapabilities(), db: Promise.resolve(createFakeDb()), user: Promise.resolve({ canEdit: async () => true }) };
+    window.location.hash = "#/";
+    render(<App capabilities={caps} />);
+    await screen.findByText("Total");
+    for (const name of ["Contacts", "Assets", "Answers", "Profile"]) expect(screen.getByRole("link", { name })).toBeTruthy();
+  });
 });

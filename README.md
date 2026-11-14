@@ -20,6 +20,10 @@ Private job-search tracker for a multi-market search (Canada, US, Korea), publis
 
 Claude drafting (answer drafts and job-description requirement extraction) is only available inside the claude.ai artifact viewer. Every call happens on an explicit click — nothing is sent in the background. The first call in a session asks for your consent, and each call spends the viewer's own Claude usage, not a separate account. Prompts include the question, the job description, any bank answers you've ticked, and an optional background summary built from your employment history and links; they never include your contact details or the sensitive note field. Nothing is sent until you click "Draft" or "Extract requirements". Draft is disabled when the prompt would exceed Claude's input limit, and drafting again asks before replacing text you edited.
 
+## Sharing
+
+Contacts, assets (resume records), answers and the profile are visible only to you and Editors. Anyone else the page is shared with sees the dashboard, applications, companies, interviews and prep; the private tabs are hidden for them, and the server returns nothing for those records. Free-text fields on visible records (application notes, next actions, interview notes) are visible to everyone with access. Preview the viewer's page locally at `dev.html?viewer`.
+
 - Spec: `docs/superpowers/specs/2026-09-11-job-hunt-hq-design.md`
 - Plans: `docs/superpowers/plans/`
 - Published page: (link to the author's private tracker removed)
@@ -35,4 +39,4 @@ Claude drafting (answer drafts and job-description requirement extraction) is on
 ## Publish
 
 Artifact tool: `file_path: dist/index.html`, `files: {"app.js": "dist/app.js", "app.css": "dist/app.css"}`,
-`capabilities: {db: {}, assets: {}, downloads: true, sample: {}}`.
+`capabilities`: the object in `capabilities.json` (it restates every capability, because a non-empty declaration replaces the stored one).

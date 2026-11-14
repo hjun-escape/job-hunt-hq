@@ -15,6 +15,7 @@ export function createCapabilities(): Capabilities {
       assets: w.claude.use("assets"),
       downloads: w.claude.use("downloads"),
       sample: w.claude.use("sample"),
+      user: w.claude.use("user"),
     };
   }
   return {
@@ -25,5 +26,7 @@ export function createCapabilities(): Capabilities {
       reply: (input) => `(dev sample) This is a canned draft. The real page streams Claude's answer here.\n\nPrompt began: ${typeof input === "string" ? input.slice(0, 80) : "…"}`,
       json: () => ({ must: ["(dev) 3+ years backend", "(dev) Go"], nice: ["(dev) gRPC"] }),
     })),
+    // dev.html?viewer previews what someone below Editor sees.
+    user: Promise.resolve({ canEdit: async () => !new URLSearchParams(window.location.search).has("viewer") }),
   };
 }
