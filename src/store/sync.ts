@@ -16,6 +16,10 @@ export interface SyncOptions {
   /** Injectable timer for the definitive-snapshot watchdog; defaults to setTimeout/clearTimeout.
    * Tests pass a synchronous fake so the timeout path is deterministic. */
   timer?: (fn: () => void, ms: number) => () => void;
+  /** Whether this viewer is an Editor or the owner. A path hidden by an access rule reads like a
+   * missing document, so a viewer below Editor keeps default singletons in memory instead of
+   * seeding them (the write would be refused). Default true. */
+  canEdit?: boolean;
 }
 export interface SyncHandle {
   stop(): void;
@@ -73,6 +77,7 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
   const now = opts.now ?? nowIso;
   const timer = opts.timer ?? ((fn: () => void, ms: number) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); });
   const timeoutMs = opts.definitiveTimeoutMs ?? 15000;
+  const canEdit = opts.canEdit ?? true;
   const unsubs: Unsubscribe[] = [];
   const pending = new Set<string>([...COLLECTIONS, "settings", "profile"]);
   let stopped = false;
@@ -147,6 +152,7 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
           if (!hasSchema(snap)) {
             if (snap.metadata.fromCache) { armDefinitive("settings"); return; }
             settleDefinitive("settings");
+            if (!canEdit) { store.setState({ settings: defaultSettings(opts.homeTz, now()) }); markReady("settings"); return; }
             void seed(SETTINGS_PATH, () => defaultSettings(opts.homeTz, now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
@@ -176,6 +182,7 @@ export function startSync(db: DbLike, store: Store, opts: SyncOptions): SyncHand
           if (!hasUpdatedAt(snap)) {
             if (snap.metadata.fromCache) { armDefinitive("profile"); return; }
             settleDefinitive("profile");
+            if (!canEdit) { store.setState({ profile: defaultProfile(now()) }); markReady("profile"); return; }
             void seed(PROFILE_PATH, () => defaultProfile(now()) as unknown as Record<string, unknown>).catch(fail);
             return;
           }
