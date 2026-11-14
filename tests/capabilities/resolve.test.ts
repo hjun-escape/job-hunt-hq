@@ -12,7 +12,17 @@ describe("createCapabilities", () => {
     const caps = createCapabilities();
     expect(await caps.db).toEqual({ marker: "real" });
     expect(await caps.sample).toBeNull();
-    expect(calls.sort()).toEqual(["assets", "db", "downloads", "sample"]);
+    expect(calls.sort()).toEqual(["assets", "db", "downloads", "sample", "user"]);
+  });
+
+  it("lets the dev page preview what a viewer who cannot edit sees", async () => {
+    expect(await (await createCapabilities().user)!.canEdit()).toBe(true);
+    window.history.replaceState(null, "", "/dev.html?viewer");
+    try {
+      expect(await (await createCapabilities().user)!.canEdit()).toBe(false);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
   });
 
   it("falls back to a persistent fake db and anchor downloads without window.claude", async () => {

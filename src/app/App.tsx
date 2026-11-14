@@ -18,11 +18,14 @@ export function App({ capabilities }: { capabilities: Capabilities }) {
     let cancelled = false;
     let handle: SyncHandle | undefined;
     const store = createStore();
-    void capabilities.db.then((db) => {
+    // No `user` capability (an older host, or tests) keeps today's behaviour: treat the viewer as an editor.
+    const canEditP = capabilities.user.then((u) => (u ? u.canEdit() : true));
+    void Promise.all([capabilities.db, canEditP]).then(([db, canEdit]) => {
       if (cancelled) return;
       const repo = new Repository(db, store);
+      store.setState({ canEdit });
       if (db) {
-        handle = startSync(db, store, { homeTz: browserTimeZone(), onError: (e) => console.warn("storage", e.code, e.message) });
+        handle = startSync(db, store, { homeTz: browserTimeZone(), canEdit, onError: (e) => console.warn("storage", e.code, e.message) });
       } else {
         const now = nowIso();
         store.setState({ readOnly: true, ready: true, settings: defaultSettings(browserTimeZone(), now), profile: defaultProfile(now) });

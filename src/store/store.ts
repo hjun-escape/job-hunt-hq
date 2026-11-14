@@ -4,6 +4,8 @@ import type { Profile, RecordSets, Settings } from "../domain/types";
 export interface StoreState extends RecordSets {
   ready: boolean;
   readOnly: boolean;
+  /** Editor or owner. Below that, the private pages' records are hidden by the db access rules. */
+  canEdit: boolean;
   settings: Settings | null;
   profile: Profile | null;
 }
@@ -17,7 +19,7 @@ export interface Store {
 }
 
 export function emptyState(): StoreState {
-  return { ready: false, readOnly: false, settings: null, profile: null, applications: {}, companies: {}, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} };
+  return { ready: false, readOnly: false, canEdit: true, settings: null, profile: null, applications: {}, companies: {}, contacts: {}, assets: {}, answers: {}, interviews: {}, prep: {} };
 }
 
 export function createStore(initial: Partial<StoreState> = {}): Store {

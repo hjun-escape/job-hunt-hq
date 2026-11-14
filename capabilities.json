@@ -1,0 +1,14 @@
+{
+  "db": {
+    "rules": [
+      { "path": "contacts", "read": "admin", "write": "admin" },
+      { "path": "assets", "read": "admin", "write": "admin" },
+      { "path": "answers", "read": "admin", "write": "admin" },
+      { "path": "profile", "read": "admin", "write": "admin" }
+    ]
+  },
+  "user": {},
+  "assets": {},
+  "downloads": true,
+  "sample": {}
+}

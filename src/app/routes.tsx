@@ -19,18 +19,20 @@ export interface NavItem {
   key: string;
   to: string;
   label: string;
+  /** Only Editors and the owner see it. Its key is also the db path that capabilities.json hides. */
+  private?: boolean;
 }
 
 export const NAV: NavItem[] = [
   { key: "", to: "/", label: "Dashboard" },
   { key: "applications", to: "/applications", label: "Applications" },
   { key: "companies", to: "/companies", label: "Companies" },
-  { key: "contacts", to: "/contacts", label: "Contacts" },
+  { key: "contacts", to: "/contacts", label: "Contacts", private: true },
   { key: "interviews", to: "/interviews", label: "Interviews" },
-  { key: "assets", to: "/assets", label: "Assets" },
-  { key: "answers", to: "/answers", label: "Answers" },
+  { key: "assets", to: "/assets", label: "Assets", private: true },
+  { key: "answers", to: "/answers", label: "Answers", private: true },
   { key: "prep", to: "/prep", label: "Prep" },
-  { key: "profile", to: "/profile", label: "Profile" },
+  { key: "profile", to: "/profile", label: "Profile", private: true },
   { key: "settings", to: "/settings", label: "Settings" },
 ];
 
