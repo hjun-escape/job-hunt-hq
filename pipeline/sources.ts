@@ -1,5 +1,6 @@
 // Source registry for the company dataset pipeline: where files come from,
 // which columns may pass the loader, and how years are selected.
+import type { Totals } from "./schema/published";
 
 export const DOL_DOWNLOAD_MODE: "direct" | "release" = "direct";
 
@@ -69,6 +70,15 @@ export const EXPECTED_COLUMNS: { lca: string[]; perm: string[]; lmia: string[] }
     "Approved Positions",
   ],
 };
+
+/**
+ * The government's own published totals per program and year, filled in by hand when available (for example
+ * DOL's OFLC program statistics or the LMIA quarterly figures), in the same units as meta.json totals:
+ * certified filings for lca and perm, approved LMIAs for lmia. The build warns when its totals are more than
+ * 2% from these. Our totals leave out some cases (other visa classes, person-named employers), so a small
+ * gap is expected; a large one means a loader or a source changed.
+ */
+export const PUBLISHED_TOTALS: Partial<Totals> = {};
 
 export type SourceFile = {
   source: "lca" | "perm" | "lmia" | "cbsa" | "gaf" | "zcta";

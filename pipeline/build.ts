@@ -1,0 +1,333 @@
+// The build: reads the cached government files named in the cache manifest, aggregates them per owner, runs
+// the safety checks and writes the site and the committed yearly summaries. Nothing here downloads a data
+// file (dataset:download fills the cache), and the reference tables come from the data dir. Any failed check
+// gives ok: false with a problem line; the CLI then exits non-zero so the deploy never runs and the live data
+// stays. Problem and warning lines name files, ids, columns and years, never a value from a filing.
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { createAccumulator, isUnprofiledId, type OwnerResult, type YearPlans } from "./aggregate/accumulate";
+import { checkSizes } from "./check/sizes";
+import { personalText, POSTAL_CODE } from "./check/text-scan";
+import { compareTotals, compareWithPublished } from "./check/totals";
+import { selectionFor } from "./cli/download";
+import { politeFetch } from "./http";
+import { loadCa } from "./load/ca";
+import { HeaderMismatchError } from "./load/rows";
+import { loadUs, type LoadContext } from "./load/us";
+import { buildEntityMap, ownerForCa, ownerForUs } from "./match/entities";
+import { buildReport } from "./match/report";
+import { loadPlaceIndex, type PlaceIndex } from "./normalize/places";
+import { loadRoles, type RoleSet } from "./normalize/roles";
+import { loadProfiles } from "./profiles/load";
+import { summaryCsvs, writeSite, type SiteModel, type WrittenFile } from "./publish/write";
+import { Meta, type Totals } from "./schema/published";
+import { filesToRead, PUBLISHED_TOTALS, type SourceFile } from "./sources";
+import type { LoadStats } from "./types";
+
+const DATA_SOURCES = ["lca", "perm", "lmia"] as const;
+type DataSource = (typeof DATA_SOURCES)[number];
+
+export type BuildOptions = {
+  cacheDir: string;
+  outDir: string;
+  /** Holds roles.yaml, reference/ and companies/; summaries go to <dataDir>/summary/. Default "data". */
+  dataDir?: string;
+  /** The live site's meta.json, to compare totals with. Without it the build counts as a first build. */
+  liveMetaUrl?: string;
+  today: Date;
+  /** Fetches liveMetaUrl. Default politeFetch. */
+  fetchFn?: (url: string) => Promise<Response>;
+  /** Progress lines (one per file read). Default none. */
+  log?: (line: string) => void;
+};
+
+export type FileStats = LoadStats & { source: DataSource; path: string; year: number; quarter: number; seconds: number };
+
+/** Counts for the build log. Nothing here names an employer. */
+export type BuildStats = {
+  years: YearPlans | null;
+  files: FileStats[];
+  /** Published owners: US and CA count owners with data in that country, `both` those in the two. */
+  owners: { total: number; us: number; ca: number; both: number; profiled: number };
+  droppedPersonLike: number;
+  /** Unprofiled owners left out because a filed name looks like a postal code (R33). */
+  droppedPostal: number;
+  totals: Totals | null;
+};
+
+export type BuildResult = { ok: boolean; problems: string[]; warnings: string[]; files: WrittenFile[]; stats: BuildStats };
+
+// ---- Live meta.json ---------------------------------------------------------------------------------------
+
+export type LiveMeta = { ok: true; meta: Meta | null } | { ok: false; problem: string };
+
+const REFUSE = "could not read the live meta.json; refusing to compare";
+
+/** The live meta.json: null on a 404 (nothing deployed yet, a first build). Anything else unreadable is a problem. */
+export async function readLiveMeta(url: string, fetchFn: (url: string) => Promise<Response> = politeFetch): Promise<LiveMeta> {
+  let res: Response;
+  try {
+    res = await fetchFn(url);
+  } catch (e) {
+    return { ok: false, problem: `${REFUSE} (${firstLine(e)})` };
+  }
+  if (res.status === 404) return { ok: true, meta: null };
+  if (!res.ok) return { ok: false, problem: `${REFUSE} (HTTP ${res.status})` };
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, problem: "the live meta.json is not valid JSON; refusing to compare" };
+  }
+  const parsed = Meta.safeParse(body);
+  if (!parsed.success) return { ok: false, problem: "the live meta.json does not match the meta.json schema; refusing to compare" };
+  return { ok: true, meta: parsed.data };
+}
+
+// ---- R33: names that look like postal codes ----------------------------------------------------------------
+
+/**
+ * Screens every unprofiled owner's name and other names with the shared text scan. A postal-code-pattern
+ * hit (a government name such as "A1B2C3 HOLDINGS INC", which nobody can edit) leaves the owner out. An
+ * email or a personal column name means personal data got past the loader, which is a problem. Profiled
+ * owners pass through: their names come with a profile a maintainer reviewed, and the writer still scans
+ * them. Problems and `dropped` name only owner ids.
+ */
+export function screenNames(owners: Map<string, OwnerResult>): {
+  kept: Map<string, OwnerResult>;
+  dropped: string[];
+  problems: string[];
+} {
+  const kept = new Map<string, OwnerResult>();
+  const dropped: string[] = [];
+  const problems: string[] = [];
+  for (const [id, o] of owners) {
+    if (!isUnprofiledId(id)) {
+      kept.set(id, o);
+      continue;
+    }
+    const texts = [o.name, ...o.also];
+    const leak = texts.map((t) => personalText(t, { postal: false })).find((what) => what !== null);
+    if (leak) {
+      problems.push(`owner ${id}: a name it filed under contains ${leak}, so personal data got past the loader`);
+    } else if (texts.some((t) => personalText(t) === POSTAL_CODE)) {
+      dropped.push(id);
+    } else {
+      kept.set(id, o);
+    }
+  }
+  return { kept, dropped, problems };
+}
+
+// ---- Helpers --------------------------------------------------------------------------------------------
+
+function firstLine(e: unknown): string {
+  return (e instanceof Error ? e.message : String(e)).split("\n")[0].slice(0, 300);
+}
+
+/** An error message fit for a public issue: one line, the local cache path removed, nothing personal-looking. */
+function safeMessage(e: unknown, cacheDir: string): string {
+  const msg = firstLine(e).split(path.resolve(cacheDir)).join("<cache>").split(cacheDir).join("<cache>");
+  return personalText(msg) ? "(details withheld: the error text looked like personal data)" : msg;
+}
+
+async function readManifest(cacheDir: string): Promise<SourceFile[] | string> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await readFile(path.join(cacheDir, "manifest.json"), "utf8"));
+  } catch (e) {
+    const why = (e as NodeJS.ErrnoException).code === "ENOENT" ? "it does not exist" : "it is not valid JSON";
+    return `cannot read the cache manifest (manifest.json in the cache directory): ${why}; run npm run dataset:download first`;
+  }
+  const valid = (e: unknown) =>
+    typeof e === "object" && e !== null && typeof (e as SourceFile).source === "string" && typeof (e as SourceFile).path === "string";
+  if (!Array.isArray(raw) || !raw.every(valid)) return "the cache manifest is not a list of files; run npm run dataset:download again";
+  return raw as SourceFile[];
+}
+
+/** The year selection per source and the files to read for it (every quarter for LCA and LMIA, the latest for PERM). */
+function planFiles(manifest: SourceFile[]): { years: YearPlans; files: Record<DataSource, SourceFile[]> } {
+  const years = {} as YearPlans;
+  const files = {} as Record<DataSource, SourceFile[]>;
+  for (const s of DATA_SOURCES) {
+    const entries = manifest.filter(
+      (e): e is SourceFile & { year: number; quarter: number } =>
+        e.source === s && Number.isInteger(e.year) && Number.isInteger(e.quarter),
+    );
+    years[s] = selectionFor(s, entries);
+    files[s] = filesToRead(s, entries, years[s]);
+  }
+  return { years, files };
+}
+
+/** Labels for every role id and place key the owners carry; write.ts keeps the ones it publishes. */
+function labelsFor(owners: Map<string, OwnerResult>, roles: RoleSet, places: PlaceIndex) {
+  const roleIds = new Set<string>();
+  const placeKeys = new Set<string>();
+  for (const o of owners.values()) {
+    for (const p of DATA_SOURCES) {
+      for (const b of o.sponsorship[p] ?? []) {
+        if ("tooFew" in b) continue;
+        for (const c of b.cells) {
+          roleIds.add(c.role);
+          placeKeys.add(c.place);
+        }
+      }
+    }
+    if (o.region) placeKeys.add(o.region);
+  }
+  return {
+    roleLabels: Object.fromEntries([...roleIds].map((k) => [k, roles.label(k)])),
+    placeLabels: Object.fromEntries([...placeKeys].map((k) => [k, places.label(k)])),
+  };
+}
+
+function ownerCounts(owners: Map<string, OwnerResult>): BuildStats["owners"] {
+  const c = { total: owners.size, us: 0, ca: 0, both: 0, profiled: 0 };
+  for (const [id, o] of owners) {
+    const us = o.countries.includes("US");
+    const ca = o.countries.includes("CA");
+    if (us) c.us++;
+    if (ca) c.ca++;
+    if (us && ca) c.both++;
+    if (!isUnprofiledId(id)) c.profiled++;
+  }
+  return c;
+}
+
+// ---- The build ------------------------------------------------------------------------------------------
+
+export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
+  const { cacheDir, outDir, today } = opts;
+  const dataDir = opts.dataDir ?? "data";
+  const log = opts.log ?? (() => {});
+  const problems: string[] = [];
+  const warnings: string[] = [];
+  let files: WrittenFile[] = [];
+  const stats: BuildStats = {
+    years: null,
+    files: [],
+    owners: { total: 0, us: 0, ca: 0, both: 0, profiled: 0 },
+    droppedPersonLike: 0,
+    droppedPostal: 0,
+    totals: null,
+  };
+  const done = (): BuildResult => ({ ok: problems.length === 0, problems, warnings, files, stats });
+  const fail = (line: string): BuildResult => (problems.push(line), done());
+
+  // 1. The cache manifest and the files to read.
+  const manifest = await readManifest(cacheDir);
+  if (typeof manifest === "string") return fail(manifest);
+  const { years, files: toRead } = planFiles(manifest);
+  stats.years = years;
+  for (const s of DATA_SOURCES) {
+    if (toRead[s].length === 0) problems.push(`no ${s} files to read in the cache manifest; run npm run dataset:download`);
+  }
+  if (problems.length) return done();
+
+  // 2. Reference tables, roles and profiles. Any profile problem is fatal.
+  let places: PlaceIndex;
+  let roles: RoleSet;
+  try {
+    places = await loadPlaceIndex(path.join(dataDir, "reference"));
+    roles = loadRoles(path.join(dataDir, "roles.yaml"));
+  } catch (e) {
+    return fail(`could not load the reference tables or roles from the data dir: ${firstLine(e)}`);
+  }
+  const { profiles, problems: profileProblems } = await loadProfiles(path.join(dataDir, "companies"), today);
+  for (const p of profileProblems) problems.push(`profile ${p.file}: ${p.path}: ${p.message}`);
+  if (problems.length) return done();
+
+  // 3. Stream every file into the accumulator. R3: a profiled employer with a person-like name is kept.
+  const map = buildEntityMap(profiles);
+  const ctx: LoadContext = { roles, places, profiled: (e) => map.us(e) !== undefined };
+  const acc = createAccumulator();
+  const read: SourceFile[] = [];
+  for (const s of DATA_SOURCES) {
+    for (const f of toRead[s]) {
+      const file = path.join(cacheDir, f.path);
+      const label = `${f.path} (${s} ${f.year} Q${f.quarter})`;
+      const started = Date.now();
+      let fileStats: LoadStats;
+      try {
+        if (s === "lmia") {
+          const { rows, stats: st } = loadCa(file, { year: f.year!, quarter: f.quarter as 1 | 2 | 3 | 4 }, ctx);
+          for await (const a of rows) acc.addCa(ownerForCa(a.employer, map), a);
+          fileStats = st;
+        } else {
+          const { rows, stats: st } = loadUs(s, file, ctx);
+          for await (const u of rows) acc.addUs(ownerForUs(u.employer, map), u);
+          fileStats = st;
+        }
+      } catch (e) {
+        if (e instanceof HeaderMismatchError) {
+          return fail(
+            `${label}: the header row is missing ${e.missing.join(", ")}. The source layout may have changed; ` +
+              "compare the file with EXPECTED_COLUMNS in pipeline/sources.ts",
+          );
+        }
+        return fail(`${label}: could not be read: ${safeMessage(e, cacheDir)}`);
+      }
+      const seconds = Math.round((Date.now() - started) / 100) / 10;
+      stats.files.push({ source: s, path: f.path, year: f.year!, quarter: f.quarter!, seconds, ...fileStats });
+      read.push(f);
+      log(
+        `${label}: read ${fileStats.read}, kept ${fileStats.kept}, person-named ${fileStats.skippedPerson}, ` +
+          `invalid ${fileStats.skippedInvalid} (${seconds} s)`,
+      );
+    }
+  }
+
+  // 4. Owners and totals, then R33.
+  const { owners: all, totals, droppedPersonLike } = acc.finish(years);
+  stats.totals = totals;
+  stats.droppedPersonLike = droppedPersonLike;
+  const screened = screenNames(all);
+  if (screened.problems.length) {
+    problems.push(...screened.problems);
+    return done();
+  }
+  stats.droppedPostal = screened.dropped.length;
+  const owners = screened.kept;
+  stats.owners = ownerCounts(owners);
+  warnings.push(...compareWithPublished(totals, PUBLISHED_TOTALS));
+  for (const id of screened.dropped) warnings.push(`owner ${id} is not published: a name it filed under looks like a postal code`);
+
+  // 5. The site. writeSite is staged: on a throw the previous site is left as it was.
+  const model: SiteModel = {
+    owners,
+    profiles: new Map(profiles.map((p) => [p.id, p])),
+    years,
+    sources: read,
+    report: buildReport(owners, profiles),
+    totals,
+    warnings: [...warnings],
+    ...labelsFor(owners, roles, places),
+    builtAt: today.toISOString(),
+  };
+  try {
+    files = await writeSite(outDir, model);
+  } catch (e) {
+    return fail(`the site was not written (the previous site is unchanged): ${safeMessage(e, cacheDir)}`);
+  }
+
+  // 6. Sizes, then totals against the live build. Both run so one report lists every problem.
+  problems.push(...checkSizes(files));
+  if (opts.liveMetaUrl) {
+    const live = await readLiveMeta(opts.liveMetaUrl, opts.fetchFn);
+    if (!live.ok) problems.push(live.problem);
+    else if (live.meta) problems.push(...compareTotals(live.meta.totals, totals, years, live.meta.years));
+  }
+  if (problems.length) return done();
+
+  // 7. Only a build that passed everything writes the committed summaries.
+  try {
+    const csvs = summaryCsvs(model);
+    const dir = path.join(dataDir, "summary");
+    await mkdir(dir, { recursive: true });
+    for (const name of Object.keys(csvs).sort()) await writeFile(path.join(dir, name), csvs[name]);
+  } catch (e) {
+    return fail(`the summaries were not written: ${safeMessage(e, cacheDir)}`);
+  }
+  return done();
+}

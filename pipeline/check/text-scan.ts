@@ -25,20 +25,23 @@ function decoded(value: string): string {
   }
 }
 
+/** What personalText returns for a postal-code-pattern hit. */
+export const POSTAL_CODE = "what looks like a postal code";
+
 /**
  * The kind of personal text a value holds, such as "an email address", or null. Every value is checked for
  * email-shaped text and personal column names. A value that is one https URL is also refused when it carries
  * a user name or password, and its path, query and fragment are checked percent-decoded too (so
  * `logo@2x.png` or `?contact=jane%40example.org` is refused: link the page instead). Only the postal-code
  * pattern skips URLs, whose short-link paths such as `a1b2c3` look like postal codes; it is case-insensitive
- * everywhere else.
+ * everywhere else. `{ postal: false }` skips the postal-code pattern, for callers that handle it apart.
  */
-export function personalText(value: string): string | null {
+export function personalText(value: string, opts: { postal?: boolean } = {}): string | null {
   const url = httpsUrl(value);
   if (url && (url.username || url.password)) return "a user name or password in a URL";
   const texts = url ? [value, decoded(value)] : [value];
   if (texts.some((t) => EMAIL.test(t))) return "an email address";
-  if (!url && POSTAL.test(value)) return "what looks like a postal code";
+  if (opts.postal !== false && !url && POSTAL.test(value)) return POSTAL_CODE;
   if (texts.some((t) => COLUMNS.test(t))) return "a contact or preparer column name";
   return null;
 }
