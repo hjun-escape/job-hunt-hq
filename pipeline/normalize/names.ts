@@ -108,9 +108,9 @@ const ORGANISATION_WORDS = new Set([
   "AUTHORITY", "ACADEMY", "SOCIETY", "ASSOCIATION", "TRUST", "FUND", "NETWORK",
   "NETWORKS", "GLOBAL", "INTERNATIONAL", "INDUSTRIES", "ENTERPRISES", "HOLDINGS",
   "AMERICA", "USA", "US", "OF", "AND", "LABORATORY", "NATIONAL",
-  // R42: practice words, so "Smith Dental Care PLLC" stays a business once its suffix no longer cancels.
-  "DENTAL", "DENTISTRY", "ORTHODONTICS", "PEDIATRICS", "MEDICINE", "FAMILY", "CARE", "LEGAL", "ACCOUNTING",
-  "ENGINEERING", "ARCHITECTS", "THERAPY", "PHYSICIANS", "PHARMACY", "VETERINARY",
+  // R42: DENTAL, like MEDICAL, so "Smith Dental Care PLLC" stays a business once its suffix no longer cancels.
+  // Words such as FAMILY or CARE are left out on purpose: "Desai Family Household" is a household, a person.
+  "DENTAL",
 ]);
 
 /** Professional-entity suffixes (R42): the form of a practice in a person's own name, as in "Jane Smith, P.C.". */

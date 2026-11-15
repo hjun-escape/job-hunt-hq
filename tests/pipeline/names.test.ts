@@ -146,8 +146,14 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
     }
   });
   it("gives null when what is left is one word, has an organisation word, or the suffix is a corporate one", () => {
-    for (const n of ["Smith Dental Care PLLC", "Google LLC", "Smith PC", "Acme Software PA", "Jane Smith Holdings PC", "Lee Family Medicine PLLC"]) {
+    for (const n of ["Smith Dental Care PLLC", "Google LLC", "Smith PC", "Acme Software PA", "Jane Smith Holdings PC", "Lee Medical PLLC"]) {
       expect(personNameSignal(n), n).toBeNull();
+    }
+  });
+  it("keeps household and practice names that are only a person's name plus a plain word weak", () => {
+    // FAMILY, HOUSEHOLD, CARE or ARCHITECTS would bring back households and person-named firms, so they are no organisation words.
+    for (const n of ["Smith Family", "Desai Family Household", "Lily Martin Care", "Smith Architects PC"]) {
+      expect(personNameSignal(n), n).toBe("weak");
     }
   });
   it("leaves the strong rule as it was", () => {
