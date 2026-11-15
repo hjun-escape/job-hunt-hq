@@ -136,6 +136,27 @@ describe("corporate tokens and person signals", () => {
   });
 });
 
+describe("professional-entity suffixes on a person's name (R42)", () => {
+  it("keeps the weak signal when a two- or three-word name ends in PC, PA, PLLC, PSC, APC or SC", () => {
+    for (const n of [
+      "Jane Smith, P.C.", "John A. Doe PLLC", "JANE SMITH PA", "Jane Smith, P. C.", "Mary Lee APC", "John Doe PSC",
+      "Jane Roe, S.C.", "Jane Smith,P.C.", "Kim & Lee PA",
+    ]) {
+      expect(personNameSignal(n), n).toBe("weak");
+    }
+  });
+  it("gives null when what is left is one word, has an organisation word, or the suffix is a corporate one", () => {
+    for (const n of ["Smith Dental Care PLLC", "Google LLC", "Smith PC", "Acme Software PA", "Jane Smith Holdings PC", "Lee Family Medicine PLLC"]) {
+      expect(personNameSignal(n), n).toBeNull();
+    }
+  });
+  it("leaves the strong rule as it was", () => {
+    expect(personNameSignal("JANE DOE MD PC")).toBe("strong");
+    expect(personNameSignal("John Smith DDS, PLLC")).toBe("strong");
+    expect(personNameSignal("Dr. Jane Doe, DDS")).toBe("strong");
+  });
+});
+
 describe("filler and street addresses typed as names", () => {
   it("recognises placeholders in any case, with edge punctuation, dots and spaced slashes", () => {
     for (const n of ["N/A", "n/a", "NA", "N.A.", "N / A", "(none)", "None.", "SAME", "Same as above", "NOT APPLICABLE", "null", "NIL", "-", "---", "...", ". .", "", "  ", "*"]) {

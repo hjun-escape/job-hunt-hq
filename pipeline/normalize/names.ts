@@ -108,26 +108,44 @@ const ORGANISATION_WORDS = new Set([
   "AUTHORITY", "ACADEMY", "SOCIETY", "ASSOCIATION", "TRUST", "FUND", "NETWORK",
   "NETWORKS", "GLOBAL", "INTERNATIONAL", "INDUSTRIES", "ENTERPRISES", "HOLDINGS",
   "AMERICA", "USA", "US", "OF", "AND", "LABORATORY", "NATIONAL",
+  // R42: practice words, so "Smith Dental Care PLLC" stays a business once its suffix no longer cancels.
+  "DENTAL", "DENTISTRY", "ORTHODONTICS", "PEDIATRICS", "MEDICINE", "FAMILY", "CARE", "LEGAL", "ACCOUNTING",
+  "ENGINEERING", "ARCHITECTS", "THERAPY", "PHYSICIANS", "PHARMACY", "VETERINARY",
 ]);
+
+/** Professional-entity suffixes (R42): the form of a practice in a person's own name, as in "Jane Smith, P.C.". */
+const PROFESSIONAL_ENTITY = new Set(["PC", "PA", "PLLC", "PSC", "APC", "SC"]);
+
+/** The words without one trailing professional-entity suffix, written whole ("PLLC") or letter by letter ("P C"). */
+function withoutProfessionalEntity(tokens: string[]): string[] {
+  for (let k = 1; k <= 4 && k < tokens.length; k++) {
+    const tail = tokens.slice(-k);
+    if ((k === 1 || tail.every((t) => t.length === 1)) && PROFESSIONAL_ENTITY.has(tail.join(""))) return tokens.slice(0, -k);
+  }
+  return tokens;
+}
 
 const PUNCT_EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
 /**
  * "strong": a professional suffix (MD, DDS, CPA ...) in the last three words, almost always a person's practice.
  * "weak": two or three plain alphabetic words with no organisation or corporate word, which also fits many companies.
+ * For the weak test a trailing professional-entity suffix (PC, PA, PLLC, PSC, APC, SC; dots and commas ignored)
+ * is dropped first, so "Jane Smith, P.C." is weak (R42) while "Smith Dental Care PLLC" keeps its organisation word.
  */
 export function personNameSignal(raw: string): "strong" | "weak" | null {
   const tokens = raw
     .toUpperCase()
-    .split(/\s+/)
+    .split(/[\s,]+/)
     .map((t) => t.replace(PUNCT_EDGES, "").replace(/\./g, ""))
     .filter(Boolean);
   const n = tokens.length;
   if (n > 2 && tokens[n - 2] === "N" && tokens[n - 1] === "A") tokens.splice(n - 2, 2, "NA");
   if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return "strong";
-  if (tokens.length < 2 || tokens.length > 3) return null;
-  if (tokens.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return null;
-  return tokens.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t)) ? "weak" : null;
+  const words = withoutProfessionalEntity(tokens);
+  if (words.length < 2 || words.length > 3) return null;
+  if (words.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return null;
+  return words.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t)) ? "weak" : null;
 }
 
 /** Filler typed into a trade-name field, compared upper-cased with edge punctuation trimmed. */
