@@ -1,0 +1,106 @@
+name: dataset-build
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      accept_totals_change:
+        description: >-
+          Tick only after a build issue reported a totals change that you confirmed against DOL or ESDC
+          (a real government revision of more than 2%, or a year that left the window). Records it as a warning
+          instead of failing the build.
+        type: boolean
+        default: false
+
+concurrency:
+  group: dataset-build
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      issues: write
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/dataset
+          key: dataset-${{ hashFiles('pipeline/sources.ts') }}-${{ github.run_id }}
+          restore-keys: |
+            dataset-${{ hashFiles('pipeline/sources.ts') }}-
+            dataset-
+      - name: Download government files
+        run: npm run dataset:download
+      - name: Build dataset
+        env:
+          ACCEPT_TOTALS_CHANGE: ${{ inputs.accept_totals_change }}
+        run: |
+          args=(--out site --live https://hjun-escape.github.io/job-hunt-hq/data/v1/meta.json)
+          if [ "$ACCEPT_TOTALS_CHANGE" = "true" ]; then
+            args+=(--accept-totals-change)
+          fi
+          npm run dataset:build -- "${args[@]}"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: site
+      - name: Commit sponsorship summaries
+        if: github.ref == 'refs/heads/master'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/summary
+          if git diff --cached --quiet; then
+            echo "data/summary unchanged"
+          else
+            git commit -m "data: refresh sponsorship summaries"
+            git push
+          fi
+      - name: Open or update the build issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create dataset-build --color B60205 --description "Weekly dataset build failed" 2>/dev/null || true
+          {
+            if [ -f build-problems.md ]; then
+              cat build-problems.md
+            else
+              echo "The dataset build job failed before the build step wrote build-problems.md."
+            fi
+            echo
+            echo "Run: $RUN_URL"
+          } > issue-body.md
+          number=$(gh issue list --label dataset-build --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file issue-body.md
+          else
+            gh issue create --title "Dataset build failed" --label dataset-build --body-file issue-body.md
+          fi
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
