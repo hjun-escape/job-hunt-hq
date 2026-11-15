@@ -32,6 +32,67 @@ Everything you enter lives in your own artifact's database and file store, never
 
 An artifact is private until you share it, and keeping it private is the safe default. If you do share it, contacts, assets (resume records), answers and the profile stay visible only to you and Editors: the private tabs are hidden for everyone else, and the server returns nothing for those records. Everything else is visible to anyone the page is shared with, including free text on those records: application notes and next actions, and interview notes, meeting links and interviewer names. Preview what a viewer sees locally at `dev.html?viewer`.
 
+## Data
+
+This repository also builds a public company dataset: which US and Canadian employers have sponsored foreign workers, from the US Department of Labor's LCA and PERM disclosure files and Canada's positive LMIA employers list, plus hand-written profiles of companies (mission, values, application rules, hiring process, reported waiting periods), each fact with its sources. It covers the three most recent complete years and the current year to date (US fiscal years run October to September; Canada uses calendar quarters). The build publishes static JSON files that anyone can read:
+
+    https://hjun-escape.github.io/job-hunt-hq/data/v1/
+
+`v1` only ever gains fields; a breaking change would be published as `v2` alongside it.
+
+### Files
+
+| Path under `data/v1/` | What it holds |
+| --- | --- |
+| `meta.json` | Schema version, build time, the years covered, the source files (with checksums), totals, warnings, the caveats and licences below, and display labels for every role id and place key used. |
+| `index/<A to Z, or 0>.json` | The search list, split by the first letter of the normalised name (`0` for anything else). Each entry has `id`, `name`, `also` (other names), `c` (countries), `h` (a headline count for sorting) and, for profiled companies, `p`. |
+| `index/profiles.json` | The profiled companies only. |
+| `companies/<domain>.json` | A profiled company: its profile, the legal names its filings were made under, and its sponsorship. |
+| `employers/<us or ca>/<3 characters>.json` | Employers without a profile, keyed by id. The file name is characters 4 to 6 of the id, so `us-1a2b3c4d5e` is in `employers/us/1a2.json`. |
+| `reverse/<us or ca>/<role>.json` | The top 50 sponsors of one role in each place, for the latest complete year (LCA for the US, LMIA for Canada), ranked by filings (US) or positions (Canada). |
+| `report.json` | The largest sponsors without a profile, and possible matches for existing profiles. |
+| `schema/profile.json` | The JSON Schema of a profile file. |
+
+A profiled company's id is its website domain, such as `google.com`. Other employers get a short id computed from public data (`us-` or `ca-` and 10 hexadecimal characters), the same in every build. The files never show the tax ID (FEIN) of an employer without a profile. A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in this repository: id, name, region, filings and headline) is committed after each good build, so changes show in the history.
+
+### Reading the numbers
+
+- Each program (`lca`, `perm`, `lmia`) has one block per year with filings. `total` covers the whole employer; `cells` break it down by role and place. `partial` marks the current year, and `through` says how far it goes (fiscal months for the US, quarters for Canada). `months` gives the headline per fiscal month (US) or quarter (Canada), and is left out when it would reveal a withheld number.
+- The headline is new hires plus changes of employer for LCA (renewals are shown separately), certified filings for PERM, and approved positions for LMIA. `h` in the index adds the latest complete LCA and LMIA years and counts any withheld part as 0, so it is a lower bound.
+- Numbers below 3 are withheld. When any part of a group that adds up to a known total is 1 or 2 (the hire types, the wage levels, the program streams), the whole group is withheld. An employer with fewer than 3 filings in a year (approved LMIAs in Canada) shows only `tooFew` for that year.
+- Pay (median and quartiles, rounded to the nearest 1,000) needs at least 10 salaries.
+- Breakdowns by role and place show filing counts and pay only: filings (and workers for LCA) and pay in the US, LMIAs and positions in Canada. Detailed counts (denials, withdrawals, hire types, wage levels, program streams) are per employer, on `total`.
+- Breakdown cells do not add up to the total: the difference is filings in groups too small to show.
+- A place key is a metro area (`cbsa:<code>` in the US, `cma:<code>` in Canada) or a state or province (`US-CA`, `CA-ON`; `US` or `CA` alone when it is unknown). A state or province key in a breakdown means "elsewhere in this region", outside the metro areas listed for that role. Role `all` in a breakdown means roles too small to show on their own in that place; `all` on the total means everything. `meta.json` has a label for every key.
+- Connecticut worksites are placed at state level only.
+- PERM starts at fiscal year 2025, the first year whose file uses the layout of the new form (ETA-9089); older files use a legacy layout.
+- LMIA counts include positions that employers later cancelled.
+- US employers that look named after a person are left out, much as Canada's list leaves them out at source. A profile, or for less certain names at least 10 filings, brings one back.
+- Trends compare the same period a year apart (full years, or the year to date against the same months a year earlier) and appear only when both years show every part of the headline.
+- The government source files themselves list every case. This dataset summarises them; it does not replace them.
+
+### Caveats
+
+The same words are stored in `meta.json`, so every consumer shows them:
+
+- LCA: "A Labor Condition Application (LCA) is a step before an H-1B, H-1B1 or E-3 visa petition, not an approved visa. One LCA can cover several workers, and counts include renewals unless shown separately."
+- PERM: "A certified PERM labour certification is one step toward a green card, not the green card itself."
+- LMIA: "A positive LMIA is not a work permit. The list counts positions later cancelled by employers and leaves out businesses whose names include a person's name."
+- All: "These figures show past filings, not whether a company will sponsor you."
+
+### Licences
+
+- Company profiles: CC BY 4.0.
+- US-derived tables: US government work, public domain.
+- Canada-derived tables: Contains information licensed under the Open Government Licence – Canada.
+- Code: MIT.
+
+Details are in [DATA-LICENSE.md](DATA-LICENSE.md).
+
+### Request or add a company
+
+[Request a company](https://github.com/hjun-escape/job-hunt-hq/issues/new?template=request-company.yml) with the issue form, or write the profile yourself: [CONTRIBUTING.md](CONTRIBUTING.md) explains the file format and the checks.
+
 ## Run your own copy
 
 You need a Claude plan with Claude Code and Artifacts.
@@ -64,4 +125,4 @@ Stop `npm run dev` before building to publish: its watcher writes development bu
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The dataset's profiles and tables carry their own licences: see [DATA-LICENSE.md](DATA-LICENSE.md).
