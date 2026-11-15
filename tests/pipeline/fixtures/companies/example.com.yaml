@@ -1,0 +1,13 @@
+id: example.com
+name: Example Co
+countries: [US]
+officialHosts: [example-careers.org]
+entities:
+  usFeins: ["123456789"]
+mission:
+  value: { en: We build fictional widgets for testing. }
+  kind: official
+  sources:
+    - { url: "https://www.example.com/about", seen: "2026-01-10" }
+    - { url: "https://jobs.example-careers.org/faq", seen: "2026-01-10" }
+  checked: "2026-01-10"

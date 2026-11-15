@@ -1,0 +1,5 @@
+id: b.com
+name: Dup b
+countries: [US]
+entities:
+  usFeins: ["987654321"]
