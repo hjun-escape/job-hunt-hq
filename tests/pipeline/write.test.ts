@@ -626,27 +626,44 @@ describe("decision 7: JSON format, file list and determinism", () => {
     expect(snapshot(d)).toEqual(snapshot(out));
   });
   it("puts back the previous tree or page left in a killed run's staging directory", async () => {
+    const acme2025 = (m: SiteModel) => {
+      const b = m.owners.get(ACME_ID)!.sponsorship.lca!.find((x) => x.year === 2025)!;
+      if ("tooFew" in b) throw new Error("unexpected tooFew");
+      return b;
+    };
+    // Even when the next build fails, whether after the checks or at the privacy gate itself, the old site
+    // comes back and the leftover is gone.
+    const failures: [string, (m: SiteModel) => void, RegExp][] = [
+      ["a role id that cannot be a file name", (m) => (acme2025(m).cells.find((c) => c.role === "software-engineer")!.role = "Bad Role"), /Bad Role/],
+      ["the privacy gate", (m) => Object.assign(acme2025(m).cells[0], { denied: 5 }), new RegExp(`${ACME_ID} lca 2025: a cell carries denied`)],
+      ["the text scan", (m) => (m.owners.get(ACME_ID)!.name = "ACME ROBOTICS INC m5v 1j2"), /contains what looks like a postal code/],
+    ];
     // A run killed between moving the old page (or tree) away and moving the new one in.
     for (const kept of ["previous-index.html", "previous-v1"]) {
-      const d = tempDir();
-      await writeSite(d, model);
-      writeFileSync(path.join(d, "index.html"), "<p>old page</p>");
-      const files = snapshot(d);
-      const entries = listEntries(d);
-      const dead = path.join(d, ".site-staging-dead12");
-      mkdirSync(path.join(dead, "data", "v1"), { recursive: true });
-      writeFileSync(path.join(dead, "data", "v1", "partial.json"), "{}");
-      const live = kept === "previous-v1" ? path.join(d, "data", "v1") : path.join(d, "index.html");
-      renameSync(live, path.join(dead, kept));
-      // Even when the new build then fails, the old site is back and the leftover is gone.
-      const bad = buildModel();
-      const b = bad.owners.get(ACME_ID)!.sponsorship.lca!.find((x) => x.year === 2025)!;
-      if ("tooFew" in b) throw new Error("unexpected tooFew");
-      b.cells.find((c) => c.role === "software-engineer")!.role = "Bad Role";
-      await expect(writeSite(d, bad), kept).rejects.toThrow(/Bad Role/);
-      expect(listEntries(d), kept).toEqual(entries);
-      expect(snapshot(d), kept).toEqual(files);
+      for (const [what, breakIt, message] of failures) {
+        const label = `${kept}, then ${what}`;
+        const d = tempDir();
+        await writeSite(d, model);
+        writeFileSync(path.join(d, "index.html"), "<p>old page</p>");
+        const files = snapshot(d);
+        const entries = listEntries(d);
+        const dead = path.join(d, ".site-staging-dead12");
+        mkdirSync(path.join(dead, "data", "v1"), { recursive: true });
+        writeFileSync(path.join(dead, "data", "v1", "partial.json"), "{}");
+        const live = kept === "previous-v1" ? path.join(d, "data", "v1") : path.join(d, "index.html");
+        renameSync(live, path.join(dead, kept));
+        const bad = buildModel();
+        breakIt(bad);
+        await expect(writeSite(d, bad), label).rejects.toThrow(message);
+        expect(listEntries(d), label).toEqual(entries);
+        expect(snapshot(d), label).toEqual(files);
+      }
     }
+  });
+  it("starts from a missing output directory", async () => {
+    const d = path.join(tempDir(), "fresh", "site");
+    const files = await writeSite(d, model);
+    expect(listFiles(d)).toEqual(files.map((w) => w.path));
   });
   it("restores both data/v1 and index.html when the swap fails part way", async () => {
     const points: [string, (d: string, to: string) => boolean][] = [

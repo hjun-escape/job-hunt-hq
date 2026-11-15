@@ -335,19 +335,21 @@ export function summaryCsvs(model: SiteModel): Record<string, string> {
 // ---- The site -----------------------------------------------------------------------------------------
 
 /**
- * Writes the site under `outDir` and lists what it wrote, sorted by path. The model is checked (ids, the
- * privacy gate, the text scan) first. Every file is then written into a fresh staging directory inside
+ * Writes the site under `outDir` and lists what it wrote, sorted by path. A killed run's leftovers are
+ * recovered first (see recover), then the model is checked (ids, the privacy gate, the text scan). Every
+ * file is then written into a fresh staging directory inside
  * `outDir`, meta.json last as the completion marker, and only a complete tree replaces `index.html` and
  * `data/v1` (see swapIn). On any throw the staging directory is removed and the previous page and tree are
  * left exactly as they were. Nothing else in `outDir` is touched, so no file from an earlier build survives
  * in `data/v1`.
  */
 export async function writeSite(outDir: string, model: SiteModel): Promise<WrittenFile[]> {
+  // First, so a killed run's site comes back even when this build then fails a check.
+  await recover(outDir);
   checkModel(model);
   checkText(model);
   const landing = await readFile(LANDING_PAGE);
   await mkdir(outDir, { recursive: true });
-  await recover(outDir);
   const stage = await mkdtemp(path.join(outDir, STAGING_PREFIX));
   try {
     const written = await writeTree(stage, model, landing);
@@ -371,9 +373,11 @@ const at = (dir: string, rel: string) => path.join(dir, ...rel.split("/"));
 /**
  * Cleans up after a run killed mid-write. If it died inside swapIn after moving a live copy away, that copy
  * is still in its staging directory: when the live path is missing, it is renamed back first. Then every
- * leftover staging directory is removed.
+ * leftover staging directory is removed. It runs before the model checks (it only restores previous copies
+ * and removes leftovers, never live files) and does nothing when `outDir` does not exist yet.
  */
 async function recover(outDir: string): Promise<void> {
+  if (!(await exists(outDir))) return;
   const leftovers = (await readdir(outDir)).filter((n) => n.startsWith(STAGING_PREFIX)).sort(cmp);
   for (const { rel, kept } of SWAPPED) {
     if (await exists(at(outDir, rel))) continue;
