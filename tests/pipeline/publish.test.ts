@@ -115,10 +115,10 @@ describe("cellUs and cellCa (cells)", () => {
 });
 
 describe("publishUs and publishCa: trends from published values only", () => {
-  const lcaTotal = (newHires: number, changeEmployer: number): UsCell => ({
+  const lcaTotal = (newHires: number, changeEmployer: number, filings = 20): UsCell => ({
     role: "all",
     place: "all",
-    filings: 20,
+    filings,
     denied: 0,
     withdrawn: 0,
     workers: 20,
@@ -136,19 +136,19 @@ describe("publishUs and publishCa: trends from published values only", () => {
     cells: [],
   });
 
-  it("publishes an LCA full trend only when both totals show newHires and changeEmployer", () => {
-    expect(publishUs("lca", [blk(2024, lcaTotal(4, 3)), blk(2025, lcaTotal(10, 4))]).trend.full).toEqual({
+  it("trends LCA on certified filings, whether or not the worker split is shown (R41)", () => {
+    expect(publishUs("lca", [blk(2024, lcaTotal(4, 3, 10)), blk(2025, lcaTotal(10, 4, 15))]).trend.full).toEqual({
       from: 2024,
       to: 2025,
       period: "full",
-      change: 1,
+      change: 0.5,
     });
-    expect(publishUs("lca", [blk(2024, lcaTotal(4, 3)), blk(2025, lcaTotal(10, 2))]).trend.full).toBeNull();
-    // A zero part is omitted like a withheld one, so it blocks the trend too.
-    expect(publishUs("lca", [blk(2024, lcaTotal(4, 0)), blk(2025, lcaTotal(10, 4))]).trend.full).toBeNull();
+    // changeEmployer 2 withholds 2025's worker split, and a zero part is omitted: neither blocks the trend now.
+    expect(publishUs("lca", [blk(2024, lcaTotal(4, 3, 10)), blk(2025, lcaTotal(10, 2, 15))]).trend.full).toMatchObject({ change: 0.5 });
+    expect(publishUs("lca", [blk(2024, lcaTotal(4, 0, 10)), blk(2025, lcaTotal(10, 4, 15))]).trend.full).toMatchObject({ change: 0.5 });
   });
 
-  it("publishes a ytd trend only when both blocks publish months and the headline parts", () => {
+  it("publishes LCA months unless an entry is 1 or 2, and a ytd trend only when both blocks publish them", () => {
     const prev = blk(2025, lcaTotal(6, 6), [3, 3, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     const cur = (months: number[], t = lcaTotal(9, 8)) => blk(2026, t, months, true);
     const ok = publishUs("lca", [prev, cur([6, 6, 6, ...zeros(9)])]);
@@ -157,8 +157,10 @@ describe("publishUs and publishCa: trends from published values only", () => {
     const hidden = publishUs("lca", [prev, cur([6, 2, 10, ...zeros(9)])]);
     expect("months" in hidden.blocks[1]).toBe(false);
     expect(hidden.trend.ytd).toBeNull();
-    // A withheld changeEmployer also withholds the months (they sum to the headline) and the trend.
-    expect(publishUs("lca", [prev, cur([6, 6, 6, ...zeros(9)], lcaTotal(16, 2))]).trend.ytd).toBeNull();
+    // Months count filings, so a withheld changeEmployer no longer withholds them, nor the ytd trend.
+    const split = publishUs("lca", [prev, cur([6, 6, 6, ...zeros(9)], lcaTotal(16, 2))]);
+    expect(split.blocks[1]).toMatchObject({ months: [6, 6, 6, ...zeros(9)] });
+    expect(split.trend.ytd).toMatchObject({ change: 0.5 });
   });
 
   it("trends PERM on filings and LMIA on positions, which are always shown", () => {

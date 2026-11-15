@@ -44,7 +44,8 @@ type CaSums = RawCell & { positions: number; streams: Map<string, number> };
 
 /**
  * One program-year of one owner, split by quarter so a partial year can leave out the quarters past its
- * `through`. counts: threshold count per quarter. months: raw headline per fiscal month (12) or quarter (4).
+ * `through`. counts: threshold count per quarter. months: raw headline per fiscal month (12) or quarter (4):
+ * certified filings for LCA and PERM (R41), approved positions for LMIA.
  * Cell keys start with the quarter digit. Tally keys are the quarter digit, a kind letter and the value
  * (n: raw name, p: person-like raw name, t: trade name, r: employer region).
  */
@@ -256,14 +257,13 @@ export function createAccumulator() {
       c.count++;
       y.counts[q - 1]++;
       if (f.annualPay !== null) c.pay.push(f.annualPay);
-      if (f.program === "perm") y.months[f.month - 1] += 1;
-      else if (f.lca) {
+      y.months[f.month - 1] += 1;
+      if (f.lca) {
         c.workers += f.lca.workers;
         c.newHires += f.lca.newHires;
         c.changeEmployer += f.lca.changeEmployer;
         c.continuing += f.lca.continuing;
         c.levels[WAGE_LEVELS.indexOf(f.lca.level)]++;
-        y.months[f.month - 1] += f.lca.newHires + f.lca.changeEmployer;
       }
     }
   }

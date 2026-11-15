@@ -1,6 +1,7 @@
 // What a published year block shows. Cells (role x place) carry counts and pay only, so nothing can be
 // subtracted across them. Totals carry the sub-counts; an exact-sum group with any member of 1 or 2 is
-// withheld whole. Months and trends are shown only when they give away nothing withheld.
+// withheld whole. Months count the headline (filings, or positions in Canada), which is always shown, and are
+// published only without an entry of 1 or 2. Trends rest on published values only.
 import type { CaCell, TrendPair, UsCell } from "../schema/published";
 import { WAGE_LEVELS } from "../types";
 import { SUB_MIN } from "./cells";
@@ -65,18 +66,13 @@ export function cellCa(c: CaCell): CaCell {
 }
 
 /**
- * The block as published. `months` is kept only when no entry is 1 or 2 and `sumShown` says their sum gives
- * away nothing withheld in the total.
+ * The block as published. `months` is kept only when no entry is 1 or 2. They sum to the headline (certified
+ * filings, or approved positions in Canada), which the total always shows, so their sum gives nothing away.
  */
-function publishBlock<C>(
-  b: YearBlock<C>,
-  total: (c: C) => C,
-  cell: (c: C) => C,
-  sumShown: (raw: C, shown: C) => boolean,
-): YearBlock<C> {
+function publishBlock<C>(b: YearBlock<C>, total: (c: C) => C, cell: (c: C) => C): YearBlock<C> {
   if ("tooFew" in b) return b;
   const shown = total(b.total);
-  const months = b.months && b.months.every((n) => n === 0 || n >= SUB_MIN) && sumShown(b.total, shown);
+  const months = b.months && b.months.every((n) => n === 0 || n >= SUB_MIN);
   return {
     year: b.year,
     partial: b.partial,
@@ -87,22 +83,16 @@ function publishBlock<C>(
   };
 }
 
-// LCA months sum to newHires + changeEmployer, so they are shown only when neither non-zero part is withheld.
-// PERM and LMIA months sum to filings and positions, which are always shown.
-const lcaSumShown = (raw: UsCell, shown: UsCell) =>
-  (!raw.newHires || shown.newHires !== undefined) && (!raw.changeEmployer || shown.changeEmployer !== undefined);
-const alwaysShown = () => true;
-
 export type Published<C> = { blocks: YearBlock<C>[]; trend: TrendPair };
 
 /** US blocks (raw sums in, as published out) and their trends, computed from the published values only. */
 export function publishUs(p: "lca" | "perm", raw: YearBlock<UsCell>[]): Published<UsCell> {
-  const blocks = raw.map((b) => publishBlock(b, withholdUs, cellUs, p === "lca" ? lcaSumShown : alwaysShown));
+  const blocks = raw.map((b) => publishBlock(b, withholdUs, cellUs));
   return { blocks, trend: trend(blocks, (t) => publishedHeadline(p, t)) };
 }
 
 /** Canadian blocks (raw sums in, as published out) and their trends, computed from the published values only. */
 export function publishCa(raw: YearBlock<CaCell>[]): Published<CaCell> {
-  const blocks = raw.map((b) => publishBlock(b, withholdCa, cellCa, alwaysShown));
+  const blocks = raw.map((b) => publishBlock(b, withholdCa, cellCa));
   return { blocks, trend: trend(blocks, (t) => publishedHeadline("lmia", t)) };
 }

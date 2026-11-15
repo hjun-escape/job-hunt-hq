@@ -8,29 +8,24 @@ export type YearBlock<C> =
   | { year: number; partial: boolean; through?: number; months?: number[]; total: C; cells: C[] }
   | { year: number; partial: boolean; through?: number; tooFew: true };
 
-/** LCA: new hires plus changes of employer. PERM: certified filings. LMIA: approved positions. */
+/**
+ * LCA and PERM: certified filings. LMIA: approved positions. R41: the LCA headline counts filings, not new hires
+ * plus changes of employer, because one blanket LCA can cover dozens of positions and would dominate the trend
+ * and the rankings; the worker split stays as detail on the published total.
+ */
 export function headlineOf(program: Program, total: UsCell | CaCell): number {
-  if (program === "lmia") return (total as CaCell).positions;
-  const t = total as UsCell;
-  return program === "perm" ? t.filings : (t.newHires ?? 0) + (t.changeEmployer ?? 0);
+  return program === "lmia" ? (total as CaCell).positions : (total as UsCell).filings;
 }
 
 /**
- * The headline from published values only, or null when a part is not shown: for LCA, newHires and
- * changeEmployer must both be published (a zero is omitted like a withheld value). PERM filings and LMIA
- * positions are always shown.
+ * The headline from published values only. Filings and positions are always published, so it is never
+ * withheld; it is the same as headlineOf on a published total.
  */
-export function publishedHeadline(program: Program, total: UsCell | CaCell): number | null {
-  if (program === "lmia") return (total as CaCell).positions;
-  const t = total as UsCell;
-  if (program === "perm") return t.filings;
-  return t.newHires !== undefined && t.changeEmployer !== undefined ? t.newHires + t.changeEmployer : null;
+export function publishedHeadline(program: Program, total: UsCell | CaCell): number {
+  return headlineOf(program, total);
 }
 
-/**
- * The headline of one published year block, or 0 when that block is missing or tooFew. A withheld part of the
- * LCA headline counts as 0, so this is a lower bound, fit for sorting (report ranking, index `h`).
- */
+/** The headline of one published year block, or 0 when that block is missing or tooFew (report ranking, index `h`). */
 export function headlineFor(s: Sponsorship, program: Program, year: number): number {
   const blocks: YearBlock<UsCell | CaCell>[] = s[program] ?? [];
   const b = blocks.find((x) => x.year === year);

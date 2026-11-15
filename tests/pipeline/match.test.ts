@@ -106,6 +106,15 @@ describe("buildReport", () => {
     expect(report.unprofiledTop.find((o) => o.id === gid("Old Co"))?.headline).toBe(0);
     expect(report.unprofiledTop.find((o) => o.id === gid("Partial Co"))?.headline).toBe(0);
   });
+  it("ranks LCA by certified filings, not by the workers a blanket filing covers (R41)", () => {
+    const total = { role: "all", place: "all", filings: 3, workers: 600, newHires: 600, changeEmployer: 0 };
+    const blanket: OwnerResult = {
+      ...owner("Blanket Co", 0),
+      sponsorship: { lca: [{ ...lcaBlock(2025, false, 3), total }], trends: {} } as Sponsorship,
+    };
+    const r = buildReport(new Map([[gid("Blanket Co"), blanket], [gid("Steady Co"), owner("Steady Co", 10)]]), []);
+    expect(r.unprofiledTop.map((o) => [o.name, o.headline])).toEqual([["Steady Co", 10], ["Blanket Co", 3]]);
+  });
   it("unprofiledTop is capped at 20, ties by id", () => {
     const many = new Map<string, OwnerResult>();
     for (let i = 0; i < 30; i++) many.set(gid(`Co ${i}`), owner(`Co ${i}`, 10));

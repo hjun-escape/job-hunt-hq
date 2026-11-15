@@ -13,6 +13,7 @@ const PER_PROFILE = 10;
 const byHeadline = (a: { headline: number; id: string }, b: { headline: number; id: string }) =>
   b.headline - a.headline || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
+/** Ranked by the latest complete LCA year's headline, certified filings (R41), then id. */
 export function buildReport(owners: Map<string, OwnerResult>, profiles: Profile[]): Report {
   let year = 0;
   for (const o of owners.values()) {

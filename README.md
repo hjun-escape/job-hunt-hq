@@ -57,15 +57,16 @@ The shard is the first letter of the name after `normalizeName` (in `pipeline/no
 
 A profiled company's id is its website domain, such as `google.com`. Any other employer's id is `us-` or `ca-` and 10 hexadecimal characters, the same in every build. A `us-` id is a short hash of the employer's FEIN (its federal tax ID); a filing without a FEIN is hashed from the normalised name and state instead. A `ca-` id is a hash of the normalised name and province. The hash keeps URLs short but does not hide the FEIN, which the DOL files already publish. The published files never show the FEIN of an employer without a profile.
 
-A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in this repository: id, name, region, filings and headline) is committed after each good build, so changes show in the history. Its `headline` is empty whenever a part of the headline is withheld, which only happens for LCA, where the headline adds two counts. A part that is a true zero is treated the same way, so an empty cell never reveals a small number.
+A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in this repository: id, name, region, filings and headline) is committed after each good build, so changes show in the history. Its `headline` is the headline described below, so for LCA and PERM it equals `filings`.
 
 ### Reading the numbers
 
-- Each program (`lca`, `perm`, `lmia`) has one block per year with filings. `total` covers the whole employer; `cells` break it down by role and place. `partial` marks the current year, and `through` says how far it goes (fiscal months for the US, quarters for Canada). `months` gives the headline per fiscal month (US) or quarter (Canada), and is left out when it would reveal a withheld number.
-- The headline is new hires plus changes of employer for LCA (renewals are shown separately), certified filings for PERM, and approved positions for LMIA. `h` in the index adds the latest complete LCA and LMIA years and counts any withheld part as 0, so it is a lower bound.
+- Each program (`lca`, `perm`, `lmia`) has one block per year with filings. `total` covers the whole employer; `cells` break it down by role and place. `partial` marks the current year, and `through` says how far it goes (fiscal months for the US, quarters for Canada). `months` gives the headline per fiscal month (US) or quarter (Canada), and is left out when any entry is 1 or 2.
+- The headline is certified filings for LCA and PERM, and approved positions for LMIA. The LCA trend and every LCA ranking (`h` in the index, the reverse files, `report.json`) use certified filings. `h` adds the latest complete LCA year's filings and the latest complete LMIA year's positions.
+- One LCA can cover many positions (a single filing can cover dozens), so worker counts can far exceed filings. `workers` on an LCA total or cell counts positions, and the total splits them into new hires (`newHires`), changes of employer (`changeEmployer`) and continuing staff (`continuing`: renewals, changes for the same employer and amendments), as published detail. A `TOTAL_WORKER_POSITIONS` of 0 or blank counts as 1.
 - DOL lists an LCA certified in one quarter and withdrawn in a later one again, as "Certified - Withdrawn", in the later quarter's file. Such a relisting is counted once, in the quarter it was certified (a case first listed before the years covered is not counted).
 - Numbers below 3 are withheld. When any part of a group that adds up to a known total is 1 or 2 (the hire types, the wage levels, the program streams), the whole group is withheld. An employer with fewer than 3 filings in a year (approved LMIAs in Canada) shows only `tooFew` for that year.
-- Pay (median and quartiles, rounded to the nearest 1,000) needs at least 10 salaries.
+- Pay (median and quartiles, rounded to the nearest 1,000) needs at least 10 salaries. It is the offered rate (the lower end of a range) made annual: hourly x 2,080, weekly x 52, bi-weekly x 26, monthly x 12. An annual figure under 15,000 or over 1,500,000, or an hourly rate over 1,000, is left out of pay but still counted as a filing.
 - Breakdowns by role and place show filing counts and pay only: filings (and workers for LCA) and pay in the US, LMIAs and positions in Canada. Detailed counts (denials, withdrawals, hire types, wage levels, program streams) are per employer, on `total`.
 - Breakdown cells do not add up to the total: the difference is filings in groups too small to show.
 - A place key is a metro area (`cbsa:<code>` in the US, `cma:<code>` in Canada) or a state or province (`US-CA`, `CA-ON`; `US` or `CA` alone when it is unknown). A state or province key in a breakdown means "elsewhere in this region", outside the metro areas listed for that role. Role `all` in a breakdown means roles too small to show on their own in that place; `all` on the total means everything. `meta.json` has a label for every other key; `all` has no label in `meta.json`.
@@ -73,14 +74,14 @@ A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in 
 - PERM starts at fiscal year 2025, the first year whose file uses the layout of the new form (ETA-9089); older files use a legacy layout.
 - LMIA counts include positions that employers later cancelled.
 - US employers that look named after a person are left out, much as Canada's list leaves them out at source. A profile, or for less certain names at least 10 filings, brings one back.
-- Trends compare the same period a year apart (full years, or the year to date against the same months a year earlier) and appear only when both years show every part of the headline.
+- Trends compare the headline over the same period a year apart (full years, or the year to date against the same months a year earlier). A trend appears only when both years have a block with at least 3 filings (approved LMIAs in Canada) and the earlier one is not 0; a year-to-date trend also needs `months` in both years.
 - The government source files themselves list every case. This dataset summarises them; it does not replace them.
 
 ### Caveats
 
 The same words are stored in `meta.json`, so every consumer shows them:
 
-- LCA: "A Labor Condition Application (LCA) is a step before an H-1B, H-1B1 or E-3 visa petition, not an approved visa. One LCA can cover several workers, and counts include renewals unless shown separately."
+- LCA: "A Labor Condition Application (LCA) is a step before an H-1B, H-1B1 or E-3 visa petition, not an approved visa. Counts are certified filings, renewals included. One LCA can cover many positions, so worker counts can far exceed filings."
 - PERM: "A certified PERM labour certification is one step toward a green card, not the green card itself."
 - LMIA: "A positive LMIA is not a work permit. The list counts positions later cancelled by employers and leaves out businesses whose names include a person's name."
 - All: "These figures show past filings, not whether a company will sponsor you."

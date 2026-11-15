@@ -173,7 +173,7 @@ function buildModel(): SiteModel {
   };
   const ca = (a: CaApproval) => acc.addCa(ownerForCa(a.employer, map), a);
 
-  // Google: two US entities and a Canadian one. 2025 LCA headline 11 new hires + 4 changes of employer = 15.
+  // Google: two US entities and a Canadian one. 2025 LCA headline: 15 certified filings (R41).
   us(GOOGLE_LLC, 8);
   us(GOOGLE_LLC, 4, { newHires: 0, changeEmployer: 1 });
   us(GOOGLE_CLOUD, 3, { role: "data-engineer", metro: SEA, region: "US-WA" });
@@ -347,10 +347,10 @@ describe("decision 1: summary CSVs", () => {
     expect(rows("lmia-2025.csv").map((r) => r.split(",")[0])).toEqual(["google.com", MAPLE_ID].sort());
     expect(csvs["lmia-2025.csv"]).not.toContain(TINY_ID);
   });
-  it("uses published filings or LMIAs and the published headline, empty when withheld", () => {
+  it("uses published filings or LMIAs and the published headline (LCA filings, R41)", () => {
     expect(row("lca-2025.csv", "google.com")).toBe("google.com,Google,US-CA,15,15");
-    // ACME's hire split is withheld (one change of employer), so its headline is not published.
-    expect(row("lca-2025.csv", ACME_ID)).toBe(`${ACME_ID},ACME ROBOTICS INC,US-CA,14,`);
+    // ACME's hire split is withheld (one change of employer); its headline is its filings all the same.
+    expect(row("lca-2025.csv", ACME_ID)).toBe(`${ACME_ID},ACME ROBOTICS INC,US-CA,14,14`);
     expect(row("perm-2025.csv", ACME_ID)).toBe(`${ACME_ID},ACME ROBOTICS INC,US-CA,3,3`);
     expect(row("lmia-2025.csv", "google.com")).toBe("google.com,Google,US-CA,4,10");
     expect(row("lmia-2025.csv", MAPLE_ID)).toBe(`${MAPLE_ID},MAPLE SOFTWARE LTD,CA-BC,5,8`);
@@ -362,17 +362,17 @@ describe("decision 1: summary CSVs", () => {
         const block = model.owners.get(id)!.sponsorship[program]!.find((b) => b.year === Number(year))!;
         if ("tooFew" in block) throw new Error("tooFew row");
         const h = publishedHeadline(program, block.total as UsCell & CaCell);
-        expect(r.endsWith(`,${h ?? ""}`)).toBe(true);
+        expect(r.endsWith(`,${h}`)).toBe(true);
       }
     }
   });
   it("quotes fields per RFC 4180", () => {
-    expect(row("lca-2025.csv", WIDGETS_ID)).toBe(`${WIDGETS_ID},"WIDGETS, ""WORLDWIDE"" INC",US-WA,3,`);
+    expect(row("lca-2025.csv", WIDGETS_ID)).toBe(`${WIDGETS_ID},"WIDGETS, ""WORLDWIDE"" INC",US-WA,3,3`);
   });
 });
 
 describe("decision 2: index", () => {
-  it("gives profiled companies the profile's identity, countries and lower-bound headline", () => {
+  it("gives profiled companies the profile's identity, countries and headline (LCA filings plus LMIA positions)", () => {
     const g = allIndex().find((e) => e.id === "google.com");
     const s = model.owners.get("google.com")!.sponsorship;
     expect(headlineFor(s, "lca", 2025) + headlineFor(s, "lmia", 2025)).toBe(25);
@@ -386,11 +386,11 @@ describe("decision 2: index", () => {
   it("gives unprofiled owners id, name, also only when non-empty, c and h, and no p", () => {
     const entries = allIndex();
     const acme = entries.find((e) => e.id === ACME_ID)!;
-    // The withheld hire split counts as 0, so h is a lower bound.
-    expect(acme).toStrictEqual({ id: ACME_ID, name: "ACME ROBOTICS INC", also: ["ACME BOTS"], c: ["US"], h: 0 });
+    // h counts ACME's 14 certified filings, whether or not its hire split is shown (R41).
+    expect(acme).toStrictEqual({ id: ACME_ID, name: "ACME ROBOTICS INC", also: ["ACME BOTS"], c: ["US"], h: 14 });
     expect(entries.find((e) => e.id === SMALL_ID)).toStrictEqual({ id: SMALL_ID, name: "SMALL FIRM LLC", c: ["US"], h: 0 });
     expect(entries.find((e) => e.id === MAPLE_ID)).toStrictEqual({ id: MAPLE_ID, name: "MAPLE SOFTWARE LTD", c: ["CA"], h: 8 });
-    // ECOLE publishes 3 new hires and no change of employer (a zero is omitted): h counts the 3.
+    // ECOLE has 3 certified filings.
     expect(entries.find((e) => e.id === ECOLE_ID)!.h).toBe(3);
     for (const e of entries) expect(isUnprofiledId(e.id) === (e.p === undefined)).toBe(true);
   });
@@ -509,7 +509,7 @@ describe("decision 5: reverse files", () => {
     expect(Object.keys(r.places).sort()).toEqual([NYC, SJ, "US-WA"].sort());
     const expected = [
       { id: "google.com", name: "Google", n: 12 },
-      // ACME's headline is withheld (0) but its cell has 11 filings: n is the cell's filings.
+      // n is the cell's filings (ACME has 14 in all, 11 of them in this cell), never the owner's headline.
       { id: ACME_ID, name: "ACME ROBOTICS INC", n: 11 },
       ...SPONSORS.map((e, i) => ({ id: usId(e), name: e.name, n: sponsorFilings(i) })),
     ]
@@ -941,7 +941,7 @@ describe("decision 8: meta.json", () => {
       [SOURCES[1], SOURCES[0]].map(({ path: _path, ...rest }) => rest),
     );
     expect(meta.caveats).toStrictEqual({
-      lca: "A Labor Condition Application (LCA) is a step before an H-1B, H-1B1 or E-3 visa petition, not an approved visa. One LCA can cover several workers, and counts include renewals unless shown separately.",
+      lca: "A Labor Condition Application (LCA) is a step before an H-1B, H-1B1 or E-3 visa petition, not an approved visa. Counts are certified filings, renewals included. One LCA can cover many positions, so worker counts can far exceed filings.",
       perm: "A certified PERM labour certification is one step toward a green card, not the green card itself.",
       lmia: "A positive LMIA is not a work permit. The list counts positions later cancelled by employers and leaves out businesses whose names include a person's name.",
       general: "These figures show past filings, not whether a company will sponsor you.",
@@ -1027,7 +1027,11 @@ describe("decision 9: copy, landing page and docs", () => {
     expect(readme).toMatch(/`all` has no label in `meta\.json`/);
     expect(readme).toMatch(/short hash of the employer's FEIN/);
     expect(readme).not.toContain("computed from public data");
-    expect(readme).toMatch(/true zero/);
+    // R41 and the final review: what the LCA headline counts, and the pay and worker rules.
+    expect(readme).toMatch(/LCA trend and every LCA ranking .* use certified filings/);
+    expect(readme).toMatch(/One LCA can cover many positions .*worker counts can far exceed filings/);
+    expect(readme).toMatch(/under 15,000 or over 1,500,000, or an hourly rate over 1,000/);
+    expect(readme).toMatch(/`TOTAL_WORKER_POSITIONS` of 0 or blank counts as 1/);
   });
   it("keeps em dashes out of the docs and the page", () => {
     const EM_DASH = String.fromCodePoint(0x2014);

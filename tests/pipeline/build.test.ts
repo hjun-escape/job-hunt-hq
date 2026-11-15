@@ -284,6 +284,9 @@ describe("runBuild end to end", () => {
     expect(google.legalNames).toEqual(["GOOGLE LLC", "Google Public Sector LLC"]);
     const lca2025 = google.sponsorship.lca.find((b: { year: number }) => b.year === 2025);
     expect(lca2025.total.filings).toBe(16);
+    // R41: the LCA headline (summary CSV, index h) is certified filings.
+    expect(readFileSync(path.join(dataDir, "summary", "lca-2025.csv"), "utf8")).toContain("google.com,Google,US-CA,16,16");
+    expect((readJson(outDir, "data/v1/index/profiles.json") as IndexEntry[]).find((e) => e.id === "google.com")!.h).toBe(16);
     const north = readJson(outDir, "data/v1/companies/northernlights.test.json");
     expect(north.legalNames).toEqual([NORTH_CA]);
     expect(north.sponsorship.lmia.find((b: { year: number }) => b.year === 2025).total).toMatchObject({ lmias: 4, positions: 6 });

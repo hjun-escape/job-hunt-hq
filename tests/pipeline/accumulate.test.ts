@@ -153,7 +153,7 @@ describe("year blocks", () => {
     expect(r.get("ca-bbb")!.sponsorship.lmia![0]).toMatchObject({ year: 2026, partial: true, through: 2, months: [0, 3, 0, 0] });
   });
 
-  it("counts LCA filings exactly: sums and levels from certified only, headline new hires plus changes of employer", () => {
+  it("counts LCA filings exactly: sums and levels from certified only, headline and months certified filings (R41)", () => {
     const acc = createAccumulator();
     const id = "us-aaa";
     const pays = Array.from({ length: 12 }, (_, i) => 100000 + i * 20000);
@@ -170,7 +170,7 @@ describe("year blocks", () => {
       {
         year: 2025,
         partial: false,
-        months: [4, 4, ...zeros(10)],
+        months: [4, 4, 4, ...zeros(9)],
         total: {
           role: "all",
           place: "all",
@@ -189,7 +189,7 @@ describe("year blocks", () => {
       },
     ]);
     const b = blocks[0] as { total: UsCell };
-    expect(headlineOf("lca", b.total)).toBe(8);
+    expect(headlineOf("lca", b.total)).toBe(12);
   });
 
   it("withholds total sub-counts under 3 and each exact-sum group with a small member whole; cells carry none", () => {
@@ -200,11 +200,12 @@ describe("year blocks", () => {
     acc.addUs(id, us({ month: 2, newHires: 0, continuing: 1, level: "IV", pay: 170000 }));
     acc.addUs(id, us({ status: "denied" }));
     // continuing 1 withholds the whole worker split; level IV 1 withholds every level; denied 1 is withheld.
-    // The months would give newHires + changeEmployer, so they are withheld as well. Pay needs 10 values.
+    // The months count certified filings, which are always shown, so they stay. Pay needs 10 values.
     expect(acc.finish(plan).owners.get(id)!.sponsorship.lca).toStrictEqual([
       {
         year: 2025,
         partial: false,
+        months: [4, 4, ...zeros(10)],
         total: { role: "all", place: "all", filings: 8, workers: 8, levels: {} },
         cells: [{ role: "software-engineer", place: "cbsa:41940", filings: 8, workers: 8 }],
       },
@@ -384,7 +385,7 @@ describe("year blocks", () => {
     expect(Object.keys(totals.lmia)).toEqual(["2023", "2024", "2025", "2026"]);
   });
 
-  it("wires trends per program from published headlines, only for programs that have blocks", () => {
+  it("wires trends per program from published headlines (LCA filings), only for programs that have blocks", () => {
     const acc = createAccumulator();
     times(6, () => acc.addUs("us-aaa", us({ year: 2024 })));
     times(4, () => acc.addUs("us-aaa", us({ year: 2024, newHires: 0, changeEmployer: 1 })));
@@ -396,18 +397,30 @@ describe("year blocks", () => {
     });
   });
 
-  it("gives no trend when a compared headline has a withheld part (trend example)", () => {
+  it("gives an LCA trend from filings even when a year's worker split is withheld (R41)", () => {
     const acc = createAccumulator();
     times(4, () => acc.addUs("us-aaa", us({ year: 2024 })));
     times(3, () => acc.addUs("us-aaa", us({ year: 2024, newHires: 0, changeEmployer: 1 })));
     times(2, () => acc.addUs("us-aaa", us({ year: 2025, newHires: 0, changeEmployer: 1 })));
     times(4, () => acc.addUs("us-aaa", us({ year: 2025, newHires: 0, continuing: 1 })));
     const s = acc.finish(plan).owners.get("us-aaa")!.sponsorship;
-    // 2024's headline of 7 is fully shown; 2025's changeEmployer 2 and continuing 4 are withheld.
-    expect((s.lca![0] as { total: UsCell }).total).toMatchObject({ newHires: 4, changeEmployer: 3 });
+    // 2024's worker split is shown; 2025's changeEmployer 2 withholds its whole split. Filings are always shown.
+    expect((s.lca![0] as { total: UsCell }).total).toMatchObject({ filings: 7, newHires: 4, changeEmployer: 3 });
     const t2025 = (s.lca![1] as { total: UsCell }).total;
     expect([t2025.newHires, t2025.changeEmployer, t2025.continuing]).toEqual([undefined, undefined, undefined]);
-    expect(s.trends.lca).toEqual({ full: null, ytd: null });
+    expect(s.trends.lca).toEqual({ full: { from: 2024, to: 2025, period: "full", change: (6 - 7) / 7 }, ytd: null });
+  });
+
+  it("does not let blanket LCAs drive the headline: a filing for 100 positions counts once (R41)", () => {
+    const acc = createAccumulator();
+    times(3, () => acc.addUs("us-aaa", us({ year: 2024, workers: 100, newHires: 100 })));
+    times(6, () => acc.addUs("us-aaa", us({ year: 2025 })));
+    const s = acc.finish(plan).owners.get("us-aaa")!.sponsorship;
+    const [y2024, y2025] = s.lca! as { total: UsCell; months?: number[] }[];
+    expect(y2024.total).toMatchObject({ filings: 3, workers: 300, newHires: 300 });
+    expect(y2024.months).toEqual([3, ...zeros(11)]);
+    expect([headlineOf("lca", y2024.total), headlineOf("lca", y2025.total)]).toEqual([3, 6]);
+    expect(s.trends.lca!.full).toEqual({ from: 2024, to: 2025, period: "full", change: 1 });
   });
 
   it("ignores a partial year's filings and approvals past `through`", () => {
@@ -451,6 +464,7 @@ describe("reviewer probes (R30)", () => {
     expect(b).toStrictEqual({
       year: 2025,
       partial: false,
+      months: [10, ...zeros(11)],
       total: { role: "all", place: "all", filings: 10, workers: 10, levels: { III: 10 } },
       cells: [{ role: "software-engineer", place: "cbsa:41940", filings: 10, workers: 10 }],
     });
@@ -465,7 +479,7 @@ describe("reviewer probes (R30)", () => {
     expect(total).toStrictEqual({ role: "all", place: "all", filings: 14, workers: 14, newHires: 14, levels: {} });
   });
 
-  it("a withheld worker split leaves no published headline, no months and no LCA trend", () => {
+  it("a withheld worker split keeps the filings headline, the months and the LCA trend (R41)", () => {
     const acc = createAccumulator();
     const id = "us-0000000001";
     times(4, () => acc.addUs(id, us({ year: 2024 })));
@@ -477,9 +491,10 @@ describe("reviewer probes (R30)", () => {
     const [y2024, y2025] = s.lca! as { total: UsCell; months?: number[] }[];
     expect(publishedHeadline("lca", y2024.total)).toBe(7);
     expect(y2024.months).toEqual([7, ...zeros(11)]);
-    expect(publishedHeadline("lca", y2025.total)).toBeNull();
-    expect("months" in y2025).toBe(false);
-    expect(s.trends.lca).toEqual({ full: null, ytd: null });
+    expect(y2025.total.newHires ?? y2025.total.changeEmployer ?? y2025.total.continuing).toBeUndefined();
+    expect(publishedHeadline("lca", y2025.total)).toBe(10);
+    expect(y2025.months).toEqual([10, ...zeros(11)]);
+    expect(s.trends.lca).toEqual({ full: { from: 2024, to: 2025, period: "full", change: 3 / 7 }, ytd: null });
   });
 });
 
@@ -996,7 +1011,6 @@ function checkBlock<R extends { role: string; place: Place }, C extends { role: 
   checkTotal: (pub: C, rs: R[]) => void,
   checkCell: (pub: C, rs: R[]) => void,
   rawMonths: number[],
-  monthsOk: (total: C) => boolean,
 ) {
   expect("tooFew" in b).toBe(count(rows) < 3);
   if ("tooFew" in b) return;
@@ -1011,16 +1025,13 @@ function checkBlock<R extends { role: string; place: Place }, C extends { role: 
   expect(sumOf(b.cells, (c) => count(rows.filter((r) => cellFor(b.cells, r.role, r.place) === c)))).toBeLessThanOrEqual(
     count(rows),
   );
-  const safe = rawMonths.every((n) => n === 0 || n >= SUB_MIN) && monthsOk(b.total);
+  const safe = rawMonths.every((n) => n === 0 || n >= SUB_MIN);
   expect(b.months).toEqual(safe ? rawMonths : undefined);
 }
 
-/** The headline a reader can compute from a published total, or null (an independent oracle, not the module's). */
-function readableHeadline(p: "lca" | "perm" | "lmia", t: UsCell | CaCell): number | null {
-  if (p === "lmia") return (t as CaCell).positions;
-  const u = t as UsCell;
-  if (p === "perm") return u.filings;
-  return u.newHires !== undefined && u.changeEmployer !== undefined ? u.newHires + u.changeEmployer : null;
+/** The headline a reader can compute from a published total (an independent oracle, not the module's): R41. */
+function readableHeadline(p: "lca" | "perm" | "lmia", t: UsCell | CaCell): number {
+  return p === "lmia" ? (t as CaCell).positions : (t as UsCell).filings;
 }
 
 /** A published trend rests only on published values: both headlines (and, for ytd, both months) are shown. */
@@ -1030,9 +1041,7 @@ function checkTrends<C>(p: "lca" | "perm" | "lmia", blocks: YearBlock<C>[], pair
     expect(b).toBeDefined();
     expect(b && "tooFew" in b).toBe(false);
     const full = b as Extract<YearBlock<C>, { total: C }>;
-    const h = readableHeadline(p, full.total as UsCell | CaCell);
-    expect(h).not.toBeNull();
-    return { block: full, h: h! };
+    return { block: full, h: readableHeadline(p, full.total as UsCell | CaCell) };
   };
   if (pair?.full) {
     const from = shownBlock(pair.full.from);
@@ -1069,11 +1078,7 @@ describe("small-count invariants (R28, R29)", () => {
           const fs = usOps.filter((op) => op.owner === id && op.f.program === program && op.f.year === b.year).map((op) => op.f);
           const cert = fs.filter((f) => f.status === "certified");
           const months = zeros(12);
-          for (const f of cert) months[f.month - 1] += program === "perm" ? 1 : f.lca!.newHires + f.lca!.changeEmployer;
-          const parts = (t: UsCell) =>
-            program === "perm" ||
-            ((t.newHires !== undefined || sumOf(cert, (f) => f.lca!.newHires) === 0) &&
-              (t.changeEmployer !== undefined || sumOf(cert, (f) => f.lca!.changeEmployer) === 0));
+          for (const f of cert) months[f.month - 1] += 1;
           const lca = program === "lca";
           checkBlock(
             b,
@@ -1082,7 +1087,6 @@ describe("small-count invariants (R28, R29)", () => {
             (c, rs) => checkUsTotal(c, rs, lca),
             (c, rs) => checkUsCell(c, rs, lca),
             months,
-            parts,
           );
           blocks++;
         }
@@ -1096,7 +1100,7 @@ describe("small-count invariants (R28, R29)", () => {
         const rows = caOps.filter((op) => op.owner === id && op.a.year === b.year).map((op) => op.a);
         const months = zeros(4);
         for (const a of rows) months[a.quarter - 1] += a.positions;
-        checkBlock(b, rows, (rs) => sumOf(rs, (a) => a.lmias), checkCaTotal, checkCaCell, months, () => true);
+        checkBlock(b, rows, (rs) => sumOf(rs, (a) => a.lmias), checkCaTotal, checkCaCell, months);
         blocks++;
       }
       checkTrends("lmia", o.sponsorship.lmia ?? [], o.sponsorship.trends.lmia);

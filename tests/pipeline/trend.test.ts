@@ -124,53 +124,48 @@ const usTotal = (o: Partial<UsCell>): UsCell => ({ role: "all", place: "all", fi
 const caTotal = (o: Partial<CaCell>): CaCell => ({ role: "all", place: "all", lmias: 0, positions: 0, streams: {}, ...o });
 
 describe("headlineOf", () => {
-  it("is new hires plus changes of employer for LCA, filings for PERM, positions for LMIA", () => {
-    expect(headlineOf("lca", usTotal({ filings: 9, workers: 20, newHires: 4, changeEmployer: 3, continuing: 13 }))).toBe(7);
+  it("is certified filings for LCA and PERM, positions for LMIA (R41)", () => {
+    // A blanket LCA covers many positions: the headline counts the filing, not its workers or hire types.
+    expect(headlineOf("lca", usTotal({ filings: 9, workers: 200, newHires: 150, changeEmployer: 30, continuing: 20 }))).toBe(9);
     expect(headlineOf("perm", usTotal({ filings: 9 }))).toBe(9);
     expect(headlineOf("lmia", caTotal({ lmias: 4, positions: 11 }))).toBe(11);
   });
 });
 
 describe("publishedHeadline", () => {
-  it("is the headline when every part is published", () => {
-    expect(publishedHeadline("lca", usTotal({ filings: 9, workers: 9, newHires: 4, changeEmployer: 3 }))).toBe(7);
+  it("is the headline, which is always published", () => {
+    expect(publishedHeadline("lca", usTotal({ filings: 9, workers: 9, newHires: 4, changeEmployer: 3 }))).toBe(9);
     expect(publishedHeadline("perm", usTotal({ filings: 9 }))).toBe(9);
     expect(publishedHeadline("lmia", caTotal({ lmias: 4, positions: 11 }))).toBe(11);
   });
 
-  it("is null for a total whose worker split was withheld whole (R30)", () => {
+  it("stays the filings for a total whose worker split was withheld whole (R30)", () => {
     const shown = withholdUs(
       usTotal({ filings: 10, workers: 10, newHires: 1, changeEmployer: 1, continuing: 8, levels: { III: 10 } }),
     );
     expect(shown.newHires ?? shown.changeEmployer ?? shown.continuing).toBeUndefined();
-    expect(publishedHeadline("lca", shown)).toBeNull();
-  });
-
-  it("is null for LCA when newHires or changeEmployer is withheld (or zero, which is omitted too)", () => {
-    expect(publishedHeadline("lca", usTotal({ filings: 9, workers: 9, newHires: 4 }))).toBeNull();
-    expect(publishedHeadline("lca", usTotal({ filings: 9, workers: 9, changeEmployer: 3 }))).toBeNull();
-    expect(publishedHeadline("lca", usTotal({ filings: 9, workers: 9 }))).toBeNull();
+    expect(publishedHeadline("lca", shown)).toBe(10);
   });
 });
 
 describe("headlineFor", () => {
   const block = (year: number, total: UsCell) => ({ year, partial: false, months: Array(12).fill(0), total, cells: [] });
   const s: Sponsorship = {
-    lca: [{ year: 2024, partial: false, tooFew: true }, block(2025, usTotal({ filings: 5, newHires: 2, changeEmployer: 1 }))],
+    lca: [{ year: 2024, partial: false, tooFew: true }, block(2025, usTotal({ filings: 5, workers: 40, newHires: 30, changeEmployer: 10 }))],
     perm: [block(2025, usTotal({ filings: 4 }))],
     lmia: [{ year: 2025, partial: false, months: [1, 1, 1, 3], total: caTotal({ lmias: 3, positions: 6 }), cells: [] }],
     trends: {},
   };
 
   it("is the year's headline", () => {
-    expect(headlineFor(s, "lca", 2025)).toBe(3);
+    expect(headlineFor(s, "lca", 2025)).toBe(5);
     expect(headlineFor(s, "perm", 2025)).toBe(4);
     expect(headlineFor(s, "lmia", 2025)).toBe(6);
   });
 
-  it("counts a withheld part as 0, a lower bound for sorting", () => {
-    const partial: Sponsorship = { lca: [block(2025, usTotal({ filings: 9, workers: 9, newHires: 4 }))], trends: {} };
-    expect(headlineFor(partial, "lca", 2025)).toBe(4);
+  it("does not depend on the worker split being shown", () => {
+    const withheld: Sponsorship = { lca: [block(2025, usTotal({ filings: 9, workers: 9 }))], trends: {} };
+    expect(headlineFor(withheld, "lca", 2025)).toBe(9);
   });
 
   it("is 0 when the block is tooFew or missing", () => {

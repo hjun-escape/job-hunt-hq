@@ -179,8 +179,7 @@ export function shardOf(name: string): string {
 
 /**
  * One entry per profile (with or without data) and per unprofiled owner. `h` is the latest complete LCA
- * year's headline plus the latest complete LMIA year's, each from published values with withheld parts as 0,
- * so it is a lower bound fit for sorting.
+ * year's certified filings plus the latest complete LMIA year's approved positions (R41), for sorting.
  */
 function indexEntries(model: SiteModel): IndexEntry[] {
   const lcaYear = latestComplete(model.years.lca);
@@ -306,8 +305,8 @@ const csvField = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}
 /**
  * `<program>-<year>.csv` for every planned year (complete and partial): one row per owner whose block for
  * that year is not tooFew, sorted by id. `filings` is the published filings (LCA, PERM) or LMIAs; `headline`
- * is the published headline, empty when a part of it is withheld. LF line endings, trailing newline. Each
- * file is scanned for personal text before it is returned.
+ * is the published headline (filings for LCA and PERM, positions for LMIA; R41). LF line endings, trailing
+ * newline. Each file is scanned for personal text before it is returned.
  */
 export function summaryCsvs(model: SiteModel): Record<string, string> {
   checkModel(model);
@@ -320,8 +319,7 @@ export function summaryCsvs(model: SiteModel): Record<string, string> {
         const b = blockFor(o.sponsorship, program, year);
         if (!b || "tooFew" in b) continue;
         const filings = program === "lmia" ? (b.total as CaCell).lmias : (b.total as UsCell).filings;
-        const headline = publishedHeadline(program, b.total);
-        const row = [id, displayName(model, id, o), o.region ?? "", String(filings), headline === null ? "" : String(headline)];
+        const row = [id, displayName(model, id, o), o.region ?? "", String(filings), String(publishedHeadline(program, b.total))];
         lines.push(row.map(csvField).join(","));
       }
       const name = `${program}-${year}.csv`;
