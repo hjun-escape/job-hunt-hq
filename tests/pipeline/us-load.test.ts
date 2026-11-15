@@ -100,6 +100,16 @@ describe("mapLcaRow", () => {
     expect(mapLcaRow(row, { ...ctx, profiled: () => false })).toBeNull();
   });
 
+  it("drops a private household as a strong person-named employer unless it has a profile (R49)", () => {
+    for (const name of ["Jane Roe (Private Household)", "Private Household of John Doe"]) {
+      expect(lcaOutcome({ ...lcaRow, EMPLOYER_NAME: name }, ctx), name).toEqual({ skip: "person", name });
+      expect(permOutcome({ ...permRow, EMP_BUSINESS_NAME: name }, ctx), name).toEqual({ skip: "person", name });
+      expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: name }, { ...ctx, profiled: () => true }), name).not.toBeNull();
+    }
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "Household Finance Corporation" }, ctx)).not.toBeNull();
+    expect(mapPermRow({ ...permRow, EMP_BUSINESS_NAME: "John A. Doe and Jane B. Roe" }, ctx)!.employer.personLike).toBe(true);
+  });
+
   it("keeps a weak person-like employer and flags it personLike", () => {
     expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "General Motors" }, ctx)!.employer.personLike).toBe(true);
     expect(mapPermRow({ ...permRow, EMP_BUSINESS_NAME: "John A. Smith" }, ctx)!.employer.personLike).toBe(true);

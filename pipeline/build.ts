@@ -420,7 +420,12 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
 
   // 3. Stream every file into the accumulator. R3: a profiled employer with a person-like name is kept.
   const map = buildEntityMap(profiles);
-  const ctx: LoadContext = { roles, places, profiled: (e) => map.us(e) !== undefined };
+  const ctx: LoadContext = {
+    roles,
+    places,
+    profiled: (e) => map.us(e) !== undefined,
+    profiledCa: (e) => map.ca(e) !== undefined,
+  };
   const acc = createAccumulator();
   const read: SourceFile[] = [];
   // R43: case numbers seen in every LCA file so far; toRead.lca is in year and quarter order.

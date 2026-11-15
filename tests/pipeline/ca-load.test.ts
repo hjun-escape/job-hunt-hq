@@ -146,6 +146,17 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
     }
   });
 
+  it("skips a private household unless a profile claims it, and flags the wider two-person names (R49)", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Jean Roy (Private Household)" }, ctx, p)).toBeNull();
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Residence of Jane Roe" }, ctx, p)).toBeNull();
+    const profiledCa = (e: CaApproval["employer"]) => e.name === "Residence of Jane Roe";
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Residence of Jane Roe" }, { ...ctx, profiledCa }, p)).not.toBeNull();
+    for (const name of ["Jean Tremblay et Marie Roy", "Ann Lee, Bo Kim and Cy Park", "John Doe / Jane Roe"]) {
+      expect(mapLmiaRow({ ...lmiaRow, Employer: name }, ctx, p)!.employer.personLike, name).toBe(true);
+    }
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Household Finance Corporation" }, ctx, p)).not.toBeNull();
+  });
+
   it("skips an employer name that was only a number", () => {
     expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789" }, ctx, p)).toBeNull();
     expect(mapLmiaRow({ ...lmiaRow, Employer: "12-3456789" }, ctx, p)).toBeNull();
@@ -200,6 +211,7 @@ describe("loadCa", () => {
       cells({ ...lmiaRow, Employer: "123456789" }),
       cells({ Employer: "Questions: lmia@example.gc.ca" }),
       cells({ ...lmiaRow, Employer: "100 King St W, Toronto" }),
+      cells({ ...lmiaRow, Employer: "Private Household of Jean Roy" }),
     ]);
     const { rows, stats } = loadCa(file, p, ctx);
     const got: CaApproval[] = [];
@@ -207,7 +219,7 @@ describe("loadCa", () => {
     expect(got.map((r) => r.employer.name)).toEqual(["Shopify Inc.", "Acme Ltd"]);
     expect(got[1].employer.province).toBe("AB");
     expect(stats).toEqual({
-      read: 8, kept: 2, skippedPerson: 0, skippedInvalid: 4,
+      read: 9, kept: 2, skippedPerson: 1, skippedInvalid: 4,
       invalid: { counts: 1, "email in name": 1, "name was only a number": 1, "name was only an address": 1 }, tradeNamesBlanked: 0,
     });
   });

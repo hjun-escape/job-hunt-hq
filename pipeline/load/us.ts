@@ -6,7 +6,7 @@
 // name is removed (R46). LCA case numbers are read only to drop
 // withdrawal relistings (R43) and never stored.
 import { EMAIL } from "../check/text-scan";
-import { emptyLoadStats, type LoadStats, type UsFiling } from "../types";
+import { emptyLoadStats, type CaApproval, type LoadStats, type UsFiling } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
 import { addressIn, isPlaceholderName, personNameSignal, stripFeinTokens, stripTrailingAddress } from "../normalize/names";
 import type { PlaceIndex } from "../normalize/places";
@@ -29,6 +29,8 @@ export type LoadContext = {
   places: PlaceIndex;
   /** True when someone has written a profile for this employer; such a person-like name is kept. */
   profiled?: (employer: UsFiling["employer"]) => boolean;
+  /** The same for a Canadian employer, for the private-household skip (R49). */
+  profiledCa?: (employer: CaApproval["employer"]) => boolean;
 };
 
 export type InvalidReason =

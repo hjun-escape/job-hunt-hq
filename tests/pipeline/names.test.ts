@@ -160,9 +160,11 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
   });
   it("keeps household and practice names that are only a person's name plus a plain word weak", () => {
     // FAMILY, HOUSEHOLD, CARE or ARCHITECTS would bring back households and person-named firms, so they are no organisation words.
-    for (const n of ["Smith Family", "Desai Family Household", "Lily Martin Care", "Smith Architects PC"]) {
+    for (const n of ["Smith Family", "Lily Martin Care", "Smith Architects PC"]) {
       expect(personNameSignal(n), n).toBe("weak");
     }
+    // Since R49 a household is strong, not weak.
+    expect(personNameSignal("Desai Family Household")).toBe("strong");
   });
   it("leaves the strong rule as it was", () => {
     expect(personNameSignal("JANE DOE MD PC")).toBe("strong");
@@ -203,6 +205,50 @@ describe("two people named together (R47, R48)", () => {
     expect(personNameSignal("KIM & LEE CPA LLP")).toBe("strong");
     expect(personNameSignal("John A. Smith")).toBe("weak");
     expect(personNameSignal("AT&T SERVICES INC")).toBeNull();
+  });
+});
+
+describe("private households and wider two-person names (R49)", () => {
+  it("is strong for a private household, a residence, a family or a home of someone, without a corporate token", () => {
+    for (const n of [
+      "Jane Roe (Private Household)", "Private Household of John Doe", "Residence of Jane Roe", "Family of John Doe",
+      "HOME OF JANE ROE", "Desai Family Household", "John Doe and Jane Roe Household",
+    ]) {
+      expect(personNameSignal(n), n).toBe("strong");
+    }
+  });
+  it("stays null for companies with those words and a corporate token", () => {
+    for (const n of ["Residence Inn by Marriott LLC", "Household Finance Corporation", "Home Of Hope Inc", "Ernst & Young LLP"]) {
+      expect(personNameSignal(n), n).toBeNull();
+    }
+  });
+  it("finds two or more people joined by AND, &, ET or /, or a comma list ending in AND or &", () => {
+    for (const n of [
+      "John A. Doe and Jane B. Roe", "John Doe / Jane Roe", "Jean Tremblay et Marie Roy",
+      "Ann Lee, Bo Kim and Cy Park", "Ann Lee, Bo Kim, & Cy Park", "John A B Doe and Jane C Roe",
+      "John Doe and Jane Roe Partnership", "John Doe & Jane Roe Family", "Mylaine Massicotte et David Lemieux-Bibeau",
+      "Oanh Thi Viet Nguyen & Phuong Thi Thuy Vo", "Johannes Osborne, Petronella Osborne and Ferdinand Osborne",
+      "Jean-François Poirier & Nathalie Rainville SENC", "L. PORTELANCE & C. CHARLEBOIS S.E.N.C",
+      "Dr. Christine Cho DPC & Dr. William Teo DPC",
+    ]) {
+      expect(isTwoPersonName(n), n).toBe(true);
+      expect(personNameSignal(n), n).toBe("weak");
+    }
+  });
+  it("still finds no people in joined company names", () => {
+    for (const n of [
+      "Ernst & Young LLP", "Smith and Jones Dental", "Lavoie et Fils Inc", "Gestion Roy et Fils", "O/A Circle K",
+      "9999999 Alberta Ltd O/A Edo Japan", "Ann Lee, Bo Kim and Cy Park LLC", "John Doe and Jane Roe Partnership LLP",
+      "AC/DC Repair", "Smith, John and Jones, Mary",
+      // Guards the real build called for: French corporate forms with accents, family-business words, "o/a",
+      // bilingual names, and business nouns on a side.
+      "Ferme Gilles Roy et Fils Ltée", "Les Vergers St-Denis et Fils S.E.N.C.", "Émile Sénéchal et Fils Ltée",
+      "Raymond Chabot Grant Thornton & Cie S.E.N.C.", "Skyline Nails Ltd.o/a Skyline Nails", "Women Aware/Femmes Averties",
+      "Quality Care Physical Therapy & Rehab Ctr", "The Bob House And The Reel N Tavern", "Fehr Farms / Corey Fehr",
+      "Advanced CAD/CAM Service", "Skate Canada / Patinage Canada", "Thu Tran T/A Expressions Jewelry", "John Doe/Jane Roe",
+    ]) {
+      expect(isTwoPersonName(n), n).toBe(false);
+    }
   });
 });
 

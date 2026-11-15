@@ -9,7 +9,7 @@ import path from "node:path";
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type CaApproval, type LoadStats } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
-import { isTwoPersonName, stripFeinTokens, stripTrailingAddress } from "../normalize/names";
+import { isPrivateHousehold, isTwoPersonName, stripFeinTokens, stripTrailingAddress } from "../normalize/names";
 import { caProvinceCode, parseCaAddress } from "../normalize/places";
 import { readRows } from "./rows";
 import type { LoadContext } from "./us";
@@ -38,7 +38,11 @@ function parseCount(s: string | undefined): number | null {
 }
 
 export type CaInvalidReason = "counts" | "email in name" | "name was only an address" | "name was only a number";
-type Outcome = { approval: CaApproval } | { skip: "footnote" } | { skip: "invalid"; reason: CaInvalidReason };
+type Outcome =
+  | { approval: CaApproval }
+  | { skip: "footnote" }
+  | { skip: "person" }
+  | { skip: "invalid"; reason: CaInvalidReason };
 
 function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Period): Outcome {
   const name = (row.Employer ?? "").trim();
@@ -56,11 +60,18 @@ function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Peri
   const parsed = parseCaAddress(row.Address ?? "");
   const province = parsed.province ?? caProvinceCode((row["Province/Territory"] ?? "").trim() || null);
   const noc = /(?<!\d)(\d{5})(?!\d)/.exec(row.Occupation ?? "")?.[1] ?? "";
+  const who: CaApproval["employer"] = {
+    name: employer,
+    province: province ?? "",
+    ...(isTwoPersonName(employer) ? { personLike: true as const } : {}),
+  };
+  // R49: ESDC lets some private households through. Only that strong signal applies here, not the MD/DDS one.
+  if (isPrivateHousehold(employer) && !ctx.profiledCa?.(who)) return { skip: "person" };
   return {
     approval: {
       year: period.year,
       quarter: period.quarter,
-      employer: { name: employer, province: province ?? "", ...(isTwoPersonName(employer) ? { personLike: true as const } : {}) },
+      employer: who,
       stream: (row["Program Stream"] ?? "").trim(),
       role: ctx.roles.ca(noc),
       place: province ? ctx.places.ca(parsed.city, province) : { metro: null, region: "CA" },
@@ -89,6 +100,8 @@ export function loadCa(
       if ("approval" in o) {
         stats.kept++;
         yield o.approval;
+      } else if (o.skip === "person") {
+        stats.skippedPerson++;
       } else if (o.skip === "invalid") {
         stats.skippedInvalid++;
         stats.invalid[o.reason] = (stats.invalid[o.reason] ?? 0) + 1;

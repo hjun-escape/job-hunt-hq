@@ -147,8 +147,58 @@ function plainPersonWords(words: string[]): boolean {
   return words.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t));
 }
 
-/** " AND " or " & " between words, any case: the joiner of two names. */
-const JOINER = /\s+(?:AND|&)\s+/i;
+/**
+ * The joiner of two names (R47, R49): " AND ", " & " or the French " ET " between words, any case, or a " / " with
+ * spaces on both sides (a "/" inside a word, as in "CAD/CAM" or "Aware/Averties", joins two names of a business).
+ */
+const JOINER = /\s+(?:AND|&|ET|\/)\s+/i;
+/** AND or & before the last name of a comma list, as in "Ann Lee, Bo Kim and Cy Park". */
+const LIST_END = /\s+(?:AND|&)\s+/i;
+/**
+ * A trailing word ignored by the two-person test: "John Doe and Jane Roe Partnership", and the French partnership
+ * and registered-name forms ("... et Nathalie Rainville SENC", "ENR"), which say how people are associated.
+ */
+const TRAILING_GROUP_WORDS = new Set(["HOUSEHOLD", "FAMILY", "PARTNERSHIP", "SENC", "SENCRL", "SEC", "SNC", "ENR", "ENRG"]);
+/** Phrases that name someone's private household (R49). */
+const HOUSEHOLD_PHRASES: [string, string][] = [["RESIDENCE", "OF"], ["FAMILY", "OF"], ["HOME", "OF"]];
+
+/**
+ * Words that mark a side of a joiner as a business, not a person (R49), for the two-person test only (accents are
+ * folded first): French corporate forms (LIMITEE, CIE), family-business words ("et Fils", "& Sons",
+ * "et Associes"), articles a person's name never has (THE, DU, DES, LES, AUX), and business nouns that the real build
+ * showed joined to a name ("Ferme ... et Fils", "Physical Therapy & Rehab", "Women Aware/Femmes Averties").
+ */
+const SIDE_COMPANY_WORDS = new Set([
+  "LIMITEE", "CIE", "CTR",
+  "FILS", "FILLE", "FILLES", "FRERES", "SOEURS", "SONS", "BROTHERS", "SISTERS", "ASSOCIES", "ASSOCIEES",
+  "THE", "DU", "DES", "LES", "AUX", "AU",
+  "FERME", "FERMES", "FARM", "FARMS", "INSTITUT", "FEDERATION", "COOPERATIVE", "CAISSE", "SOCIETE", "COMPAGNIE",
+  "GROUPE", "ENTREPRISES", "GESTION", "CONSTRUCTION", "DEVELOPPEMENT", "TECHNOLOGIE", "RECHERCHE", "CENTRES",
+  "BOULANGERIE", "PATISSERIE", "CHARCUTERIE", "GARDERIE", "ROTISSERIE", "PHARMACIE", "PHARMACIENS", "SERRES",
+  "VERGERS", "PAVAGES", "TRICOTS", "ABATTOIR", "PAYSAGISTE", "PAYSAGISTES", "COIFFURE", "COIFFURES", "METAUX",
+  "THERAPY", "REHAB", "PHYSICAL", "INSURANCE", "CASUALTY", "PROPERTY", "KITCHEN", "RESTAURANT", "RESTAURANTS",
+  "PIZZA", "NAILS", "RESORT", "LODGE", "TAVERN", "PAINTINGS", "DENTISTRY", "ARCHITECTS", "ENGINEERS", "WOMEN",
+  "FEMMES", "MEN", "HOMMES", "CANADA", "CANADIAN", "CANADIEN", "CANADIENNE", "CANADIENNES", "QUEBEC",
+]);
+/** "o/a", "t/a", "d/b/a", "c/o", DBA or A/S: a business operating under another name, never two people. */
+const OPERATING_AS = /(?:^|[^\p{L}])(?:[OT]\s?\/\s?A|D\s?\/\s?B\s?\/\s?A|C\s?\/\s?O|A\s?\/\s?S|DBA)(?:[^\p{L}]|$)/iu;
+
+/** One person's name on a side of a joiner: two to four alphabetic words or initials, no corporate or organisation word. */
+function personSide(words: string[]): boolean {
+  if (words.length < 2 || words.length > 4) return false;
+  if (words.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t) || SIDE_COMPANY_WORDS.has(t))) return false;
+  return words.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t));
+}
+
+/**
+ * A private household (R49): the word HOUSEHOLD, or RESIDENCE OF, FAMILY OF or HOME OF, in a name with no corporate
+ * token, as in "Jane Roe (Private Household)" or "Residence of Jane Roe". `words` come from wordsOf.
+ */
+function householdWords(words: string[]): boolean {
+  if (words.some((t) => CORPORATE_TOKENS.has(t))) return false;
+  if (words.includes("HOUSEHOLD")) return true;
+  return HOUSEHOLD_PHRASES.some(([a, b]) => words.some((t, i) => t === a && words[i + 1] === b));
+}
 
 /**
  * "strong": a professional suffix (MD, DDS, CPA ...) in the last three words, almost always a person's practice.
@@ -156,26 +206,42 @@ const JOINER = /\s+(?:AND|&)\s+/i;
  * For the weak test a trailing professional-entity suffix (PC, PA, PLLC, PSC, APC, SC; dots and commas ignored)
  * is dropped first, so "Jane Smith, P.C." is weak (R42) while "Smith Dental Care PLLC" keeps its organisation word.
  * A name of two people (isTwoPersonName, R47) is weak too. The two-person test only adds weak results (R48): it
- * never turns a name the 2-3 word rule calls weak into null.
+ * never turns a name the 2-3 word rule calls weak into null. A private household (HOUSEHOLD, RESIDENCE OF, FAMILY
+ * OF, HOME OF, with no corporate token; R49) is strong.
  */
 export function personNameSignal(raw: string): "strong" | "weak" | null {
   const tokens = wordsOf(raw);
   if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return "strong";
+  if (householdWords(tokens)) return "strong";
   // A suffix that would leave one word ("Surname PSC") is kept, so such a name is tested as before.
   const stripped = withoutProfessionalEntity(tokens);
   if (plainPersonWords(stripped.length >= 2 ? stripped : tokens)) return "weak";
   return isTwoPersonName(raw) ? "weak" : null;
 }
 
+/** True for a private household's name (R49); both loaders skip such a row unless a profile claims it. */
+export function isPrivateHousehold(raw: string): boolean {
+  return householdWords(wordsOf(raw));
+}
+
 /**
- * True for a name of two people joined by AND or & (R47): exactly two sides, each passing the weak test on its own
- * (two or three alphabetic words or initials, no corporate token, no organisation word), as in "John Doe and Jane
- * Roe". One word a side ("Johnson & Johnson") or any corporate or organisation word gives false. The Canadian
- * loader uses this test alone (R48): the 2-3 word rule would flag thousands of small Canadian businesses.
+ * True for a name of two or more people (R47, R49): two sides joined by AND, &, ET or "/" ("John Doe and Jane Roe",
+ * "Jean Tremblay et Marie Roy", "John Doe / Jane Roe"), where the left side may itself be a comma list when the
+ * joiner is AND or & ("Ann Lee, Bo Kim and Cy Park"). Each name has two to four alphabetic words or initials (dots
+ * dropped) and no corporate or organisation word; a trailing HOUSEHOLD, FAMILY or PARTNERSHIP is ignored. One word a
+ * side ("Johnson & Johnson") gives false. The Canadian loader uses this test alone (R48): the 2-3 word rule would
+ * flag thousands of small Canadian businesses.
  */
-export function isTwoPersonName(raw: string): boolean {
-  const sides = raw.split(JOINER);
-  return sides.length === 2 && sides.every((side) => plainPersonWords(wordsOf(side)));
+export function isTwoPersonName(name: string): boolean {
+  if (OPERATING_AS.test(name)) return false;
+  const raw = name.normalize("NFKD").replace(/\p{M}/gu, "");
+  const halves = raw.split(JOINER);
+  if (halves.length !== 2) return false;
+  const left = LIST_END.test(` ${raw.slice(halves[0].length, raw.length - halves[1].length)} `) ? halves[0].split(",") : [halves[0]];
+  const names = [...left.map((s) => s.trim()).filter(Boolean), halves[1]].map(wordsOf);
+  const last = names[names.length - 1];
+  if (last.length > 0 && TRAILING_GROUP_WORDS.has(last[last.length - 1])) last.pop();
+  return names.length >= 2 && names.every(personSide);
 }
 
 /** Filler typed into a trade-name field, compared upper-cased with edge punctuation trimmed. */
