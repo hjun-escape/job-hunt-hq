@@ -11,6 +11,9 @@ export const STATCAN_GAF_URL =
   "https://www12.statcan.gc.ca/census-recensement/2021/geo/aip-pia/attribute-attribs/files-fichiers/2021_92-151_X.zip";
 
 const DOL_BASE = "https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs";
+// Checked against DOL's performance page: FY2025 and older files live under DOL_BASE, FY2026 Q3 onward
+// is linked under /media/. FY2026 Q1 and Q2 are still served under DOL_BASE.
+const DOL_MEDIA = "https://www.dol.gov/media";
 
 export function lcaUrl(fy: number, q: number): string {
   return `${DOL_BASE}/LCA_Disclosure_Data_FY${fy}_Q${q}.xlsx`;
@@ -18,6 +21,15 @@ export function lcaUrl(fy: number, q: number): string {
 
 export function permUrl(fy: number, q: number): string {
   return `${DOL_BASE}/PERM_Disclosure_Data_FY${fy}_Q${q}.xlsx`;
+}
+
+/** Candidate urls for one quarter, tried in order by the download probe. */
+export function lcaUrlCandidates(fy: number, q: number): string[] {
+  return [lcaUrl(fy, q), `${DOL_MEDIA}/LCA_Disclosure_Data_FY${fy}_Q${q}.xlsx`];
+}
+
+export function permUrlCandidates(fy: number, q: number): string[] {
+  return [permUrl(fy, q), `${DOL_MEDIA}/PERM_Disclosure_Data_FY${fy}_Q${q}.xlsx`];
 }
 
 export const DEFAULT_USER_AGENT = "job-hunt-hq-dataset/1 (+https://github.com/hjun-escape/job-hunt-hq)";
@@ -43,18 +55,12 @@ export const EXPECTED_COLUMNS: { lca: string[]; perm: string[]; lmia: string[] }
     "JOB_TITLE", "PWD_SOC_CODE", "JOB_OPP_WAGE_FROM", "JOB_OPP_WAGE_PER", "PRIMARY_WORKSITE_COUNTY",
     "PRIMARY_WORKSITE_STATE",
   ],
-  // "Address" is a street line in the real files, so it is not allowed through.
+  // "Address" is kept for the city and province; the loader discards the street line in its mapper.
   lmia: [
-    "Province/Territory", "Program Stream", "Employer", "Occupation", "Incorporate Status", "Approved LMIAs",
+    "Province/Territory", "Program Stream", "Employer", "Address", "Occupation", "Approved LMIAs",
     "Approved Positions",
   ],
 };
-
-/** Real LMIA header row (row 2 of sheet "positive", same in all 11 quarters checked, 2023q4 to 2026q2). */
-export const LMIA_HEADERS = [
-  "Province/Territory", "Program Stream", "Employer", "Address", "Occupation", "Incorporate Status",
-  "Approved LMIAs", "Approved Positions",
-];
 
 export type SourceFile = {
   source: "lca" | "perm" | "lmia" | "cbsa" | "gaf";

@@ -113,6 +113,23 @@ describe("politeFetch", () => {
     expect((await f("https://example.test/public")).status).toBe(200);
   });
 
+  it("treats a 5xx or unreachable robots.txt as disallow and a 404 as allow", async () => {
+    const make = (robots: () => Response) =>
+      createPoliteFetch({
+        fetchFn: async (u) => (String(u).endsWith("/robots.txt") ? robots() : new Response("ok")),
+        minIntervalMs: 0,
+        backoffMs: 0,
+        retries: 0,
+      });
+    await expect(make(() => new Response("", { status: 503 }))("https://a.test/x")).rejects.toThrow(/robots/);
+    await expect(
+      make(() => {
+        throw new Error("down");
+      })("https://b.test/x"),
+    ).rejects.toThrow(/robots/);
+    expect((await make(() => new Response("", { status: 404 }))("https://c.test/x")).status).toBe(200);
+  });
+
   it("exports a default politeFetch", () => {
     expect(typeof politeFetch).toBe("function");
   });

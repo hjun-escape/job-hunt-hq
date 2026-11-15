@@ -1,7 +1,7 @@
 // Usage: npm run dataset:download -- [--only lca,perm,lmia,cbsa,gaf] [--cache .cache/dataset]
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Readable, Transform } from "node:stream";
@@ -13,8 +13,8 @@ import {
   STATCAN_GAF_URL,
   currentFiscalYear,
   latestQuarterFiles,
-  lcaUrl,
-  permUrl,
+  lcaUrlCandidates,
+  permUrlCandidates,
   selectYears,
   type SourceFile,
 } from "../sources";
@@ -88,18 +88,21 @@ type Target = Omit<SourceFile, "sha256" | "bytes" | "fetchedAt">;
 
 async function probeFiscalFiles(
   kind: "lca" | "perm",
-  build: (fy: number, q: number) => string,
+  build: (fy: number, q: number) => string[],
   today: Date,
 ): Promise<Target[]> {
-  const found: { year: number; quarter: number }[] = [];
+  const found: { year: number; quarter: number; url: string }[] = [];
   const have = new Set<number>();
   // Quarters run 4 down to 1 per year, so the first hit in a year is its latest quarter.
   for (const { year, quarter } of probePlan(today)) {
     if (have.has(year)) continue;
-    const res = await politeFetch(build(year, quarter), { method: "HEAD" });
-    if (res.ok) {
-      found.push({ year, quarter });
-      have.add(year);
+    for (const url of build(year, quarter)) {
+      const res = await politeFetch(url, { method: "HEAD" });
+      if (res.ok) {
+        found.push({ year, quarter, url });
+        have.add(year);
+        break;
+      }
     }
   }
   const sel = selectYears(maxQuarterMap(found));
@@ -110,7 +113,7 @@ async function probeFiscalFiles(
       source: kind,
       year: f.year,
       quarter: f.quarter,
-      url: build(f.year, f.quarter),
+      url: f.url,
       path: `${kind}/${kind}_fy${f.year}_q${f.quarter}.xlsx`,
     }));
 }
@@ -148,9 +151,18 @@ async function readManifest(file: string): Promise<SourceFile[]> {
   }
 }
 
-async function fetchToFile(url: string, dest: string): Promise<{ sha256: string; bytes: number }> {
-  const res = await politeFetch(url);
+const MIN_BYTES = 1024;
+
+/** Stream a url to disk with its sha256. Refuses HTML responses and bodies under 1 KB (a 200 error page). */
+export async function fetchToFile(
+  url: string,
+  dest: string,
+  fetchFn: (url: string) => Promise<Response> = politeFetch,
+): Promise<{ sha256: string; bytes: number }> {
+  const res = await fetchFn(url);
   if (!res.ok || !res.body) throw new Error(`GET ${url} failed: ${res.status}`);
+  const type = res.headers.get("content-type") ?? "";
+  if (/text\/html/i.test(type)) throw new Error(`GET ${url} returned HTML (${type}), not a data file`);
   await mkdir(path.dirname(dest), { recursive: true });
   const hash = createHash("sha256");
   let bytes = 0;
@@ -162,8 +174,14 @@ async function fetchToFile(url: string, dest: string): Promise<{ sha256: string;
     },
   });
   const tmp = `${dest}.part`;
-  await pipeline(Readable.fromWeb(res.body as never), tap, createWriteStream(tmp));
-  await rename(tmp, dest);
+  try {
+    await pipeline(Readable.fromWeb(res.body as never), tap, createWriteStream(tmp));
+    if (bytes < MIN_BYTES) throw new Error(`GET ${url} returned only ${bytes} bytes, expected a data file`);
+    await rename(tmp, dest);
+  } catch (err) {
+    await rm(tmp, { force: true });
+    throw err;
+  }
   return { sha256: hash.digest("hex"), bytes };
 }
 
@@ -184,14 +202,22 @@ async function main() {
   const { only, cache } = parseArgs(process.argv.slice(2));
   const today = new Date();
   const targets: Target[] = [];
-  if (only.includes("lca")) targets.push(...(await probeFiscalFiles("lca", lcaUrl, today)));
-  if (only.includes("perm")) targets.push(...(await probeFiscalFiles("perm", permUrl, today)));
+  if (only.includes("lca")) targets.push(...(await probeFiscalFiles("lca", lcaUrlCandidates, today)));
+  if (only.includes("perm")) targets.push(...(await probeFiscalFiles("perm", permUrlCandidates, today)));
   if (only.includes("lmia")) targets.push(...(await lmiaTargets()));
   if (only.includes("cbsa")) targets.push({ source: "cbsa", url: CBSA_DELINEATION_URL, path: "cbsa/list1_2023.xlsx" });
   if (only.includes("gaf")) targets.push({ source: "gaf", url: STATCAN_GAF_URL, path: "gaf/2021_92-151_X.zip" });
 
   const manifestPath = path.join(cache, "manifest.json");
-  const manifest = await readManifest(manifestPath);
+  let manifest = await readManifest(manifestPath);
+  // Drop files of the selected sources that the current selection no longer wants, so a stale quarter or year
+  // is never loaded next to the current one.
+  const wanted = new Set(targets.map((t) => t.path));
+  for (const m of manifest.filter((m) => only.includes(m.source) && !wanted.has(m.path))) {
+    console.log(`prune ${m.path} (no longer selected)`);
+    await rm(path.join(cache, m.path), { force: true });
+  }
+  manifest = manifest.filter((m) => !only.includes(m.source) || wanted.has(m.path));
   for (const t of targets) {
     const dest = path.join(cache, t.path);
     const existing = manifest.find((m) => m.path === t.path && m.url === t.url);

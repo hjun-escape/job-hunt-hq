@@ -1,4 +1,8 @@
 // @vitest-environment node
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   currentFiscalYear,
@@ -6,6 +10,8 @@ import {
   latestQuarterFiles,
   lcaUrl,
   permUrl,
+  lcaUrlCandidates,
+  permUrlCandidates,
   EXPECTED_COLUMNS,
 } from "../../pipeline/sources";
 import {
@@ -14,6 +20,7 @@ import {
   planLmiaDownloads,
   isManifestFresh,
   probePlan,
+  fetchToFile,
 } from "../../pipeline/cli/download";
 
 describe("currentFiscalYear", () => {
@@ -63,12 +70,15 @@ describe("url builders and columns", () => {
     expect(lcaUrl(2026, 3)).toContain("LCA_Disclosure_Data_FY2026_Q3.xlsx");
     expect(permUrl(2025, 4)).toContain("PERM_Disclosure_Data_FY2025_Q4.xlsx");
   });
+  it("lists the legacy and the /media/ location for each quarter", () => {
+    expect(lcaUrlCandidates(2026, 4)).toEqual([lcaUrl(2026, 4), "https://www.dol.gov/media/LCA_Disclosure_Data_FY2026_Q4.xlsx"]);
+    expect(permUrlCandidates(2026, 4)[1]).toBe("https://www.dol.gov/media/PERM_Disclosure_Data_FY2026_Q4.xlsx");
+  });
   it("never allows personal columns", () => {
     const all = [...EXPECTED_COLUMNS.lca, ...EXPECTED_COLUMNS.perm, ...EXPECTED_COLUMNS.lmia];
     const banned = /^(EMPLOYER_POC_|EMP_POC_|AGENT_ATTORNEY_|ATTY_AG_|LAWFIRM_|PREPARER_)|PHONE/i;
     expect(all.filter((c) => banned.test(c))).toEqual([]);
     const usOnly = [...EXPECTED_COLUMNS.lca, ...EXPECTED_COLUMNS.perm];
-    expect(EXPECTED_COLUMNS.lmia).not.toContain("Address");
     expect(usOnly.filter((c) => /ADDRESS|_ADDR/i.test(c))).toEqual([]);
   });
 });
@@ -119,5 +129,34 @@ describe("download planning", () => {
     expect(isManifestFresh(entry as never, "abc")).toBe(true);
     expect(isManifestFresh(entry as never, "def")).toBe(false);
     expect(isManifestFresh(undefined, "abc")).toBe(false);
+  });
+});
+
+describe("fetchToFile", () => {
+  const body = (n: number) => new Response("x".repeat(n), { headers: { "content-type": "application/octet-stream" } });
+
+  it("saves a data file and reports its hash", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "dl-"));
+    const dest = path.join(dir, "a.xlsx");
+    const r = await fetchToFile("https://x.test/a", dest, async () => body(5000));
+    expect(r.bytes).toBe(5000);
+    expect((await readFile(dest)).length).toBe(5000);
+  });
+
+  it("rejects an HTML 200 page and leaves nothing behind", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "dl-"));
+    const dest = path.join(dir, "a.xlsx");
+    const html = async () => new Response("<html>" + "x".repeat(5000), { headers: { "content-type": "text/html; charset=UTF-8" } });
+    await expect(fetchToFile("https://x.test/a", dest, html)).rejects.toThrow(/HTML/);
+    expect(existsSync(dest)).toBe(false);
+    expect(existsSync(dest + ".part")).toBe(false);
+  });
+
+  it("rejects a body under 1 KB and removes the .part file", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "dl-"));
+    const dest = path.join(dir, "a.xlsx");
+    await expect(fetchToFile("https://x.test/a", dest, async () => body(200))).rejects.toThrow(/200 bytes/);
+    expect(existsSync(dest)).toBe(false);
+    expect(existsSync(dest + ".part")).toBe(false);
   });
 });

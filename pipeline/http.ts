@@ -40,6 +40,8 @@ export type PoliteFetchOptions = {
   respectRobots?: boolean;
 };
 
+const DISALLOW_ALL = "User-agent: *\nDisallow: /";
+
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function createPoliteFetch(opts: PoliteFetchOptions = {}) {
@@ -79,9 +81,10 @@ export function createPoliteFetch(opts: PoliteFetchOptions = {}) {
   async function robotsFor(url: URL): Promise<string> {
     let p = robots.get(url.host);
     if (!p) {
+      // RFC 9309: 5xx or an unreachable robots.txt means disallow all; 4xx (including 404) means allow all.
       p = send(new URL("/robots.txt", url), {})
-        .then((r) => (r.ok ? r.text() : ""))
-        .catch(() => "");
+        .then((r) => (r.status >= 500 ? DISALLOW_ALL : r.ok ? r.text() : ""))
+        .catch(() => DISALLOW_ALL);
       robots.set(url.host, p);
     }
     return p;
