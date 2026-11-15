@@ -1,0 +1,94 @@
+id: cohere.com
+name: Cohere
+countries: [US, CA, KR]
+wikidata: Q110363143
+entities:
+  usFeins: ["863737020"]
+  usNames:
+    - Cohere US, Inc.
+  caNames:
+    - name: Cohere Inc.
+      province: "ON"
+basics:
+  industry:
+    value: Enterprise AI (foundation models and AI products for businesses)
+    kind: official
+    sources:
+      - url: https://cohere.com/about
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Toronto, Ontario and San Francisco, California
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q110363143
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      Cohere holds that AI's highest purpose is to improve human wellbeing, and it works toward that by
+      helping businesses scale innovation, raise productivity and spread progress widely.
+    ko: >-
+      Cohere는 AI가 가장 크게 기여할 수 있는 일이 사람들의 삶을 더 낫게 만드는 것이라고 본다. 이를 위해
+      기업이 혁신의 규모를 키우고 생산성을 높이며, 그 성과가 널리 퍼지도록 돕는다.
+  kind: official
+  sources:
+    - url: https://cohere.com/about
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Momentum
+      - Openness
+      - Autonomy
+    summary:
+      en: >-
+        Under the line "Do whatever it takes to scale intelligence and serve humanity", Cohere names three
+        values: moving fast on mutual trust, inclusive teams that welcome different views, and the flexibility
+        and ownership each person needs to do well.
+      ko: >-
+        "Do whatever it takes to scale intelligence and serve humanity"라는 문장 아래 세 가지 가치를 둔다.
+        서로 믿고 빠르게 나아가는 추진력, 다양한 관점을 반기는 포용, 각자가 일을 주도할 수 있는 유연함과
+        책임감이다.
+  kind: official
+  sources:
+    - url: https://cohere.com/careers
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Cohere never asks candidates to pay or to buy outside services such as CV writing. Real roles are
+        posted only on its careers page and LinkedIn, and its staff write only from cohere.com or cw.cohere
+        addresses.
+      ko: >-
+        Cohere는 채용 과정에서 돈이나 이력서 대필 같은 외부 서비스를 요구하지 않는다. 실제 공고는 Cohere
+        채용 페이지와 LinkedIn에만 올라오며, 직원은 cohere.com 또는 cw.cohere 주소로만 연락한다.
+    kind: official
+    sources:
+      - url: https://cohere.com/careers
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      After an application review and a recruiter conversation, you may get a take-home assignment and a
+      meeting with the hiring manager, then a final round with a few team members. Interviews can be held by
+      video and scheduled around you where possible.
+    ko: >-
+      서류 검토와 리크루터 대화 뒤, 경우에 따라 과제와 채용 매니저 면접을 거치고 마지막으로 팀원 몇 명과
+      최종 면접을 본다. 면접은 화상으로 진행할 수 있고, 가능하면 지원자 일정에 맞춰 잡는다.
+  kind: official
+  sources:
+    - url: https://cohere.com/careers
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+links:
+  - label: Cohere Careers
+    url: https://cohere.com/careers
+  - label: Cohere open roles
+    url: https://jobs.ashbyhq.com/cohere
+  - label: Cohere on Blind
+    url: https://www.teamblind.com/company/Cohere

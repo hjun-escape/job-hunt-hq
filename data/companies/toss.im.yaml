@@ -1,0 +1,134 @@
+id: toss.im
+name: Toss
+otherNames:
+  - Viva Republica
+  - 비바리퍼블리카
+  - 토스
+countries: [KR]
+wikidata: Q111181689
+entities: {}
+basics:
+  industry:
+    value: Fintech
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q111181689
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Seoul, South Korea
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q111181689
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      Toss states its vision as questioning what people take for granted and finding better answers that
+      become the new standard. Across its affiliates it names one shared goal: removing the small frictions of
+      everyday life.
+    ko: >-
+      익숙해서 아무도 묻지 않던 것에 의문을 던지고, 더 나은 답을 찾아 새로운 기준으로 만드는 것을 비전으로
+      내세운다. 은행, 증권, 결제 등 여러 계열사가 일상의 불편을 없앤다는 하나의 목표를 함께 좇는다.
+  kind: official
+  sources:
+    - url: https://toss.im/company
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Mission over Individual
+      - Aim Higher
+      - Focus on Impact
+      - Question Every Assumption
+      - Execution over Perfection
+      - Learn Proactively
+      - Move with Urgency
+      - Ask for Feedback
+    summary:
+      en: >-
+        Toss's eight working principles put the team's mission before personal goals, ask for a higher bar,
+        focus on the one thing with most impact, question every assumption, favour quick experiments over
+        perfect plans, learn proactively, move fast and seek candid feedback often.
+      ko: >-
+        토스가 밝힌 여덟 가지 일하는 원칙은 개인보다 팀의 미션을 먼저 두고, 기준을 계속 높이며, 가장 큰
+        변화를 낼 한 가지에 집중하라고 한다. 당연한 가정을 의심하고, 완벽한 계획보다 빠른 실험을 택하며,
+        스스로 배우고, 신속하게 움직이며, 동료의 솔직한 피드백을 자주 구하는 태도도 강조한다.
+  kind: official
+  sources:
+    - url: https://toss.im/company
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        After a rejection you can apply to the same position again six months after the result notice. The
+        same position at another Toss affiliate, or any other position, has no waiting period.
+      ko: >-
+        불합격한 경우 같은 포지션은 결과 안내일로부터 6개월이 지나야 다시 지원할 수 있다. 다른 계열사의 같은
+        포지션이나 다른 포지션은 기간 제한 없이 지원할 수 있다.
+    kind: official
+    sources:
+      - url: https://toss.im/career/faq/305
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        You may apply to several positions and affiliates at once. Each application is reviewed separately, and
+        Toss may suggest a different affiliate or position that fits your background better.
+      ko: >-
+        여러 포지션과 계열사에 동시에 지원할 수 있다. 서류는 포지션마다 따로 검토하며, 경력에 따라 토스가 더
+        맞는 계열사나 포지션을 제안하기도 한다.
+    kind: official
+    sources:
+      - url: https://toss.im/career/faq/307
+        seen: "2026-11-15"
+      - url: https://toss.im/career/joining-guide
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        The resume is free-form; a PDF is recommended. Engineers should list their tech stack. Leave out your
+        resident registration number and salary; Toss asks for pay details only after you pass the final stage.
+      ko: >-
+        이력서 양식은 자유이며 PDF 제출을 권한다. 개발 직군은 기술 스택을 꼭 적어야 한다. 주민등록번호와 연봉
+        정보는 빼야 하며, 연봉 정보는 최종 합격 후 요청이 있을 때 공유한다.
+    kind: official
+    sources:
+      - url: https://toss.im/career/faq/315
+        seen: "2026-11-15"
+      - url: https://toss.im/career/joining-guide
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Resume review, then for some roles a phone interview or a pre-assignment such as a coding test. A job
+      interview and a culture-fit interview follow, all online, then a reference check (about a week) and pay
+      talks. It usually takes 2 to 3 weeks, and no feedback is given.
+    ko: >-
+      서류 검토 후 일부 포지션은 전화 인터뷰나 코딩 테스트 같은 사전 과제를 거친다. 이어서 직무 인터뷰와
+      문화적합성 인터뷰를 모두 온라인으로 보고, 약 1주의 레퍼런스 체크와 처우 협의가 따른다. 보통 2~3주가
+      걸리며 결과에 대한 피드백은 주지 않는다.
+  kind: official
+  sources:
+    - url: https://toss.im/career/joining-guide
+      seen: "2026-11-15"
+    - url: https://toss.im/career/faq/302
+      seen: "2026-11-15"
+    - url: https://toss.im/career/faq/306
+      seen: "2026-11-15"
+    - url: https://toss.im/career/faq/313
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+links:
+  - label: Toss Careers (Korean)
+    url: https://toss.im/career/jobs
+  - label: Toss hiring journey guide (Korean)
+    url: https://toss.im/career/joining-guide
+  - label: Toss Careers FAQ (Korean)
+    url: https://toss.im/career/faq
+  - label: Viva Republica on Blind (Korea)
+    url: https://www.teamblind.com/kr/company/%EB%B9%84%EB%B0%94%EB%A6%AC%ED%8D%BC%EB%B8%94%EB%A6%AC%EC%B9%B4

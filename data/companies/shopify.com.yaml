@@ -1,0 +1,112 @@
+id: shopify.com
+name: Shopify
+countries: [US, CA]
+officialHosts: [shopify.engineering]
+wikidata: Q7501150
+entities:
+  usFeins: ["471039071"]
+  usNames:
+    - Shopify (USA) Inc.
+  caNames:
+    - name: Shopify Inc.
+      province: "ON"
+basics:
+  industry:
+    value: E-commerce
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q7501150
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 8,300 employees (2023)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q7501150
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Ottawa, Ontario
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q7501150
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      Making commerce better for everyone. Shopify calls building for entrepreneurs its mission and says the
+      world needs more of them, which its products set out to make possible.
+  kind: official
+  sources:
+    - url: https://www.shopify.com/careers
+      seen: "2026-11-15"
+    - url: https://www.shopify.com/careers/candidate-guide/are-you-ready
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Ordinary people change the world
+      - To grow entrepreneurship, you have to decrease friction
+      - Entrepreneurship drives communities forward
+      - Entrepreneurship is universal
+      - Great products come from great craftsmanship
+    summary:
+      en: >-
+        The "world view" in Shopify's candidate guide rests on five beliefs: anyone can start a business that
+        matters, lowering barriers grows entrepreneurship, local businesses lift their communities, every
+        culture has entrepreneurs, and lasting, well-made products beat throwaway ones.
+  kind: official
+  sources:
+    - url: https://www.shopify.com/careers/candidate-guide/world-view
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Before the Life Story interview, Shopify asks candidates to read its candidate guide on culture,
+        leadership and everyday AI use. It says it is fine to withdraw at that point if the culture does not
+        suit you.
+    kind: official
+    sources:
+      - url: https://www.shopify.com/careers/candidate-guide/are-you-ready
+        seen: "2026-11-15"
+      - url: https://www.shopify.com/careers/candidate-guide/ai-usage
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        Besides the usual application, Shopify offers an alternative route for builders: skip the resume and
+        show what you have made instead.
+    kind: official
+    sources:
+      - url: https://www.shopify.com/careers
+        seen: "2026-11-15"
+      - url: https://www.shopify.com/careers/extraordinary
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      A 2022 Shopify Engineering guide for individual contributors lists four interviews: the Life Story, an
+      hour-long talk with a recruiter about your past; a 40-minute coding exercise; 75 to 90 minutes of pair
+      programming; and a 60-minute technical deep dive. Steps vary by role.
+  kind: official
+  sources:
+    - url: https://shopify.engineering/nail-your-technical-shopify-interview
+      seen: "2026-11-15"
+    - url: https://www.shopify.com/careers/candidate-guide/are-you-ready
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+links:
+  - label: Shopify Careers
+    url: https://www.shopify.com/careers
+  - label: Shopify candidate guide
+    url: https://www.shopify.com/careers/candidate-guide/are-you-ready
+  - label: Shopify Engineering, technical interview guide (2022)
+    url: https://shopify.engineering/nail-your-technical-shopify-interview
+  - label: Shopify reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Shopify-Reviews-E675933.htm
+  - label: Shopify on Blind
+    url: https://www.teamblind.com/company/Shopify
