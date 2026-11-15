@@ -6,9 +6,18 @@ import {
   PERSON_LIKE_MIN_FILINGS,
   type YearPlans,
 } from "../../pipeline/aggregate/accumulate";
-import { headlineOf, trend } from "../../pipeline/aggregate/trend";
-import { Sponsorship, Totals, YearBlockCa, YearBlockUs, type UsCell } from "../../pipeline/schema/published";
-import { WAGE_LEVELS, type CaApproval, type CaseStatus, type UsFiling, type WageLevel } from "../../pipeline/types";
+import { payStats, SUB_MIN } from "../../pipeline/aggregate/cells";
+import { headlineOf, type YearBlock } from "../../pipeline/aggregate/trend";
+import { personNameSignal } from "../../pipeline/normalize/names";
+import { Sponsorship, Totals, YearBlockCa, YearBlockUs, type CaCell, type UsCell } from "../../pipeline/schema/published";
+import {
+  WAGE_LEVELS,
+  type CaApproval,
+  type CaseStatus,
+  type Place,
+  type UsFiling,
+  type WageLevel,
+} from "../../pipeline/types";
 
 const plan: YearPlans = {
   lca: { complete: [2023, 2024, 2025], partial: { year: 2026, through: 1 } },
@@ -138,63 +147,124 @@ describe("year blocks", () => {
 
   it("counts LCA filings exactly: sums and levels from certified only, headline new hires plus changes of employer", () => {
     const acc = createAccumulator();
-    acc.addUs("us-aaa", us({ month: 1, pay: 150000, newHires: 1, changeEmployer: 0, continuing: 0, level: "II" }));
-    acc.addUs("us-aaa", us({ month: 2, pay: 160000, newHires: 0, changeEmployer: 1, continuing: 0, level: "II" }));
-    acc.addUs("us-aaa", us({ month: 2, pay: 170000, newHires: 0, changeEmployer: 0, continuing: 1, level: "III" }));
+    const id = "us-aaa";
+    [100000, 110000, 120000].forEach((pay) => acc.addUs(id, us({ month: 1, pay, newHires: 1, level: "II" })));
+    [130000, 140000, 150000].forEach((pay) => acc.addUs(id, us({ month: 2, pay, newHires: 0, changeEmployer: 1, level: "III" })));
+    [160000, 170000, 180000].forEach((pay) => acc.addUs(id, us({ month: 3, pay, newHires: 0, continuing: 1, level: "IV" })));
     // Withdrawn: counts as withdrawn only, none of its workers, pay or level.
-    acc.addUs("us-aaa", us({ month: 3, status: "withdrawn", workers: 5, newHires: 5, pay: 900000, level: "IV" }));
+    times(3, () => acc.addUs(id, us({ month: 4, status: "withdrawn", workers: 5, newHires: 5, pay: 900000, level: "I" })));
     // Denied in a cell too small to publish: appears only in the total.
-    acc.addUs("us-aaa", us({ month: 4, status: "denied", role: "data-engineer", metro: "cbsa:31080", newHires: 2, level: "I" }));
-    const blocks = acc.finish(plan).owners.get("us-aaa")!.sponsorship.lca!;
+    times(3, () => acc.addUs(id, us({ month: 5, status: "denied", role: "data-engineer", metro: "cbsa:31080", level: "I" })));
+    const blocks = acc.finish(plan).owners.get(id)!.sponsorship.lca!;
     const sums = {
-      filings: 3,
-      workers: 3,
-      newHires: 1,
-      changeEmployer: 1,
-      continuing: 1,
-      levels: { II: 2, III: 1 },
-      pay: { n: 3, p25: 155000, median: 160000, p75: 165000 },
+      filings: 9,
+      withdrawn: 3,
+      workers: 9,
+      newHires: 3,
+      changeEmployer: 3,
+      continuing: 3,
+      levels: { II: 3, III: 3, IV: 3 },
+      pay: { n: 9, p25: 120000, median: 140000, p75: 160000 },
     };
     expect(blocks).toStrictEqual([
       {
         year: 2025,
         partial: false,
-        months: [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        total: { role: "all", place: "all", ...sums, denied: 1, withdrawn: 1 },
-        cells: [{ role: "software-engineer", place: "cbsa:41940", ...sums, denied: 0, withdrawn: 1 }],
+        months: [3, 3, ...zeros(10)],
+        total: { role: "all", place: "all", ...sums, denied: 3 },
+        // The cell has no denied filings, so `denied` is omitted.
+        cells: [{ role: "software-engineer", place: "cbsa:41940", ...sums }],
       },
     ]);
     const b = blocks[0] as { total: UsCell };
-    expect(headlineOf("lca", b.total)).toBe(2);
+    expect(headlineOf("lca", b.total)).toBe(6);
   });
 
-  it("gives PERM cells no LCA keys, and denied filings ride along in a published cell", () => {
+  it("withholds sub-counts under 3 in cells and totals, and complements each exact-sum group", () => {
     const acc = createAccumulator();
-    [100000, 110000, 120000].forEach((pay) => acc.addUs("us-aaa", us({ program: "perm", pay })));
-    acc.addUs("us-aaa", us({ program: "perm", status: "denied", month: 5, pay: 990000 }));
-    const pay = { n: 3, p25: 105000, median: 110000, p75: 115000 };
-    expect(acc.finish(plan).owners.get("us-aaa")!.sponsorship.perm).toStrictEqual([
+    const id = "us-aaa";
+    times(4, (i) => acc.addUs(id, us({ month: 1, newHires: 1, level: "II", pay: 100000 + i * 10000 })));
+    times(3, (i) => acc.addUs(id, us({ month: 2, newHires: 0, changeEmployer: 1, level: "III", pay: 140000 + i * 10000 })));
+    acc.addUs(id, us({ month: 2, newHires: 0, continuing: 1, level: "IV", pay: 170000 }));
+    acc.addUs(id, us({ status: "denied" }));
+    // continuing 1 is withheld, so the smaller of newHires 4 and changeEmployer 3 goes too; level IV 1 takes III 3
+    // with it; denied 1 is withheld. The months would give newHires + changeEmployer, so they are withheld as well.
+    const shown = {
+      filings: 8,
+      workers: 8,
+      newHires: 4,
+      levels: { II: 4 },
+      pay: { n: 8, p25: 118000, median: 135000, p75: 153000 },
+    };
+    expect(acc.finish(plan).owners.get(id)!.sponsorship.lca).toStrictEqual([
       {
         year: 2025,
         partial: false,
-        months: [3, ...zeros(11)],
-        total: { role: "all", place: "all", filings: 3, denied: 1, withdrawn: 0, pay },
-        cells: [{ role: "software-engineer", place: "cbsa:41940", filings: 3, denied: 1, withdrawn: 0, pay }],
+        total: { role: "all", place: "all", ...shown },
+        cells: [{ role: "software-engineer", place: "cbsa:41940", ...shown }],
       },
     ]);
   });
 
-  it("takes pay only from certified filings with a figure, and omits pay below 3 values", () => {
+  it("publishes months only without entries of 1 or 2, keeps `through`, and still trends on the raw months", () => {
     const acc = createAccumulator();
-    acc.addUs("us-aaa", us({ pay: 100000 }));
-    acc.addUs("us-aaa", us({ pay: 200000 }));
-    acc.addUs("us-aaa", us({ pay: null }));
-    acc.addUs("us-aaa", us({ status: "denied", pay: 300000 }));
-    acc.addUs("us-aaa", us({ status: "withdrawn", pay: 400000 }));
-    const b = acc.finish(plan).owners.get("us-aaa")!.sponsorship.lca![0] as { total: UsCell; cells: UsCell[] };
-    expect(b.total.filings).toBe(3);
-    expect("pay" in b.total).toBe(false);
-    expect("pay" in b.cells[0]).toBe(false);
+    const id = "us-aaa";
+    times(6, () => acc.addUs(id, us({ year: 2025, month: 1 })));
+    times(6, () => acc.addUs(id, us({ year: 2025, month: 7 })));
+    times(2, () => acc.addUs(id, us({ year: 2026, month: 1 })));
+    acc.addUs(id, us({ year: 2026, month: 2 }));
+    const s = acc.finish(plan).owners.get(id)!.sponsorship;
+    expect(s.lca![0]).toMatchObject({ year: 2025, months: [6, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0] });
+    const partial = s.lca![1];
+    expect(partial).toMatchObject({ year: 2026, partial: true, through: 3 });
+    expect("months" in partial).toBe(false);
+    expect(s.trends.lca!.ytd).toEqual({ from: 2025, to: 2026, period: "ytd", through: 3, change: -0.5 });
+  });
+
+  it("gives PERM cells no LCA keys, and publishes denied only when it is at least 3", () => {
+    const pay = { n: 5, p25: 110000, median: 120000, p75: 130000 };
+    const run = (denied: number) => {
+      const acc = createAccumulator();
+      [100000, 110000, 120000, 130000, 140000].forEach((p) => acc.addUs("us-aaa", us({ program: "perm", pay: p })));
+      times(denied, () => acc.addUs("us-aaa", us({ program: "perm", status: "denied", month: 5, pay: 990000 })));
+      return acc.finish(plan).owners.get("us-aaa")!.sponsorship.perm;
+    };
+    expect(run(1)).toStrictEqual([
+      {
+        year: 2025,
+        partial: false,
+        months: [5, ...zeros(11)],
+        total: { role: "all", place: "all", filings: 5, pay },
+        cells: [{ role: "software-engineer", place: "cbsa:41940", filings: 5, pay }],
+      },
+    ]);
+    expect(run(3)).toStrictEqual([
+      {
+        year: 2025,
+        partial: false,
+        months: [5, ...zeros(11)],
+        total: { role: "all", place: "all", filings: 5, denied: 3, pay },
+        cells: [{ role: "software-engineer", place: "cbsa:41940", filings: 5, denied: 3, pay }],
+      },
+    ]);
+  });
+
+  it("takes pay only from certified filings with a figure, and needs PAY_MIN (5) values", () => {
+    const run = (values: number[]) => {
+      const acc = createAccumulator();
+      values.forEach((pay) => acc.addUs("us-aaa", us({ pay })));
+      acc.addUs("us-aaa", us({ pay: null }));
+      times(3, () => acc.addUs("us-aaa", us({ status: "denied", pay: 900000 })));
+      times(3, () => acc.addUs("us-aaa", us({ status: "withdrawn", pay: 800000 })));
+      return acc.finish(plan).owners.get("us-aaa")!.sponsorship.lca![0] as { total: UsCell; cells: UsCell[] };
+    };
+    const five = run([100000, 200000, 300000, 400000, 500000]);
+    expect(five.total.filings).toBe(6);
+    expect(five.total.pay).toEqual({ n: 5, p25: 200000, median: 300000, p75: 400000 });
+    expect(five.cells[0].pay).toEqual({ n: 5, p25: 200000, median: 300000, p75: 400000 });
+    const four = run([100000, 200000, 300000, 400000]);
+    expect("pay" in four.total).toBe(false);
+    expect("pay" in four.cells[0]).toBe(false);
   });
 
   it("rolls small cells up, publishes a region place for a null metro, and sorts cells by role then place", () => {
@@ -223,31 +293,40 @@ describe("year blocks", () => {
   it("builds Canadian blocks with positions per quarter and positions per verbatim stream", () => {
     const acc = createAccumulator();
     acc.addCa("ca-bbb", ca({ quarter: 1, stream: "High Wage", lmias: 2, positions: 5 }));
-    acc.addCa("ca-bbb", ca({ quarter: 3, stream: "Global Talent Stream", lmias: 1, positions: 2 }));
-    acc.addCa("ca-bbb", ca({ quarter: 3, stream: "Permanent Resident Only", role: "data-engineer", lmias: 1, positions: 1 }));
+    acc.addCa("ca-bbb", ca({ quarter: 3, stream: "Global Talent Stream", lmias: 1, positions: 3 }));
+    acc.addCa("ca-bbb", ca({ quarter: 3, stream: "Permanent Resident Only", role: "data-engineer", lmias: 1, positions: 3 }));
     expect(acc.finish(plan).owners.get("ca-bbb")!.sponsorship.lmia).toStrictEqual([
       {
         year: 2025,
         partial: false,
-        months: [5, 0, 3, 0],
+        months: [5, 0, 6, 0],
         total: {
           role: "all",
           place: "all",
           lmias: 4,
-          positions: 8,
-          streams: { "Global Talent Stream": 2, "High Wage": 5, "Permanent Resident Only": 1 },
+          positions: 11,
+          streams: { "Global Talent Stream": 3, "High Wage": 5, "Permanent Resident Only": 3 },
         },
         cells: [
           {
             role: "software-engineer",
             place: "cma:535",
             lmias: 3,
-            positions: 7,
-            streams: { "Global Talent Stream": 2, "High Wage": 5 },
+            positions: 8,
+            streams: { "Global Talent Stream": 3, "High Wage": 5 },
           },
         ],
       },
     ]);
+  });
+
+  it("withholds Canadian streams under 3 and complements them", () => {
+    const acc = createAccumulator();
+    acc.addCa("ca-bbb", ca({ stream: "High Wage", lmias: 2, positions: 6 }));
+    acc.addCa("ca-bbb", ca({ stream: "Low Wage", lmias: 1, positions: 4 }));
+    acc.addCa("ca-bbb", ca({ stream: "Global Talent Stream", lmias: 1, positions: 2 }));
+    const b = acc.finish(plan).owners.get("ca-bbb")!.sponsorship.lmia![0] as { total: { streams: Record<string, number> } };
+    expect(b.total.streams).toStrictEqual({ "High Wage": 6 });
   });
 
   it("keeps any stream name the data uses, without a fixed list", () => {
@@ -286,7 +365,7 @@ describe("year blocks", () => {
     expect(Object.keys(totals.lmia)).toEqual(["2023", "2024", "2025", "2026"]);
   });
 
-  it("wires trends per program with the shared headline, only for programs that have blocks", () => {
+  it("wires trends per program on the raw headline, only for programs that have blocks", () => {
     const acc = createAccumulator();
     times(4, () => acc.addUs("us-aaa", us({ year: 2024, newHires: 1 })));
     times(4, () => acc.addUs("us-aaa", us({ year: 2025, newHires: 0, changeEmployer: 0, continuing: 1 })));
@@ -295,7 +374,39 @@ describe("year blocks", () => {
     expect(s.trends).toStrictEqual({
       lca: { full: { from: 2024, to: 2025, period: "full", change: -0.5 }, ytd: null },
     });
-    expect(s.trends.lca).toEqual(trend(s.lca!, (t: UsCell) => headlineOf("lca", t)));
+    // 2025's changeEmployer (2) is withheld in the published total; the trend still uses the raw headline.
+    const t2025 = (s.lca![1] as { total: UsCell }).total;
+    expect(t2025.changeEmployer).toBeUndefined();
+    expect(t2025.continuing).toBeUndefined();
+  });
+
+  it("ignores a partial year's filings and approvals past `through`", () => {
+    // LCA 2026 runs through quarter 1 (fiscal months 1-3); LMIA 2026 through quarter 2.
+    const acc = createAccumulator();
+    times(3, () => acc.addUs("us-aaa", us({ year: 2026, month: 3 })));
+    times(4, () => acc.addUs("us-aaa", us({ year: 2026, month: 4, name: "LATE NAME LLC", tradeName: "LATE", state: "TX" })));
+    times(3, () => acc.addUs("us-late", us({ year: 2026, month: 12 })));
+    times(3, () => acc.addCa("ca-bbb", ca({ year: 2026, quarter: 2 })));
+    times(5, () => acc.addCa("ca-bbb", ca({ year: 2026, quarter: 3 })));
+    const { owners, totals } = acc.finish(plan);
+    const o = owners.get("us-aaa")!;
+    expect(o.sponsorship.lca![0]).toMatchObject({ year: 2026, partial: true, through: 3, months: [0, 0, 3, ...zeros(9)] });
+    expect((o.sponsorship.lca![0] as { total: UsCell }).total.filings).toBe(3);
+    expect(o).toMatchObject({ name: "ACME ROBOTICS INC", also: [], region: "US-CA" });
+    expect(owners.has("us-late")).toBe(false);
+    expect(owners.get("ca-bbb")!.sponsorship.lmia![0]).toMatchObject({ year: 2026, through: 2, months: [0, 3, 0, 0] });
+    expect(totals.lca["2026"]).toBe(3);
+    expect(totals.lmia["2026"]).toBe(3);
+  });
+
+  it("throws on a month or quarter out of range and on the reserved role id", () => {
+    const acc = createAccumulator();
+    for (const month of [0, 13, 1.5]) expect(() => acc.addUs("us-aaa", us({ month }))).toThrow(/month/);
+    for (const quarter of [0, 5]) {
+      expect(() => acc.addCa("ca-bbb", { ...ca(), quarter } as unknown as CaApproval)).toThrow(/quarter/);
+    }
+    expect(() => acc.addUs("us-aaa", us({ role: "all" }))).toThrow(/"all"/);
+    expect(() => acc.addCa("ca-bbb", ca({ role: "all" }))).toThrow(/"all"/);
   });
 });
 
@@ -460,6 +571,20 @@ describe("person-like privacy gate (R23 d)", () => {
     expect(r.owners.get(BIG)).toMatchObject({ name: "BIG HOLDINGS LLC", also: ["JANE DOE"] });
     expect(r.droppedPersonLike).toBe(0);
   });
+
+  it("keeps person-like trade names of a small unprofiled owner out of `also`", () => {
+    expect(personNameSignal("JOHN SMITH")).not.toBeNull();
+    expect(personNameSignal("MIX")).toBeNull();
+    const acc = createAccumulator();
+    times(3, () => acc.addUs(MIX, us({ name: "MIX HOLDINGS LLC", tradeName: "JOHN SMITH" })));
+    acc.addUs(MIX, us({ name: "MIX HOLDINGS LLC", tradeName: "MIX" }));
+    times(10, () => acc.addUs(BIG, us({ name: "BIG HOLDINGS LLC", tradeName: "JOHN SMITH" })));
+    times(3, () => acc.addUs("mix.com", us({ name: "MIX HOLDINGS LLC", tradeName: "JOHN SMITH" })));
+    const { owners } = acc.finish(plan);
+    expect(owners.get(MIX)!.also).toEqual(["MIX"]);
+    expect(owners.get(BIG)!.also).toEqual(["JOHN SMITH"]);
+    expect(owners.get("mix.com")!.also).toEqual(["JOHN SMITH"]);
+  });
 });
 
 describe("totals", () => {
@@ -602,17 +727,19 @@ describe("schema and determinism", () => {
     expect(owners.get("us-bbb")!.sponsorship.lca!.every((b) => "tooFew" in b)).toBe(true);
   });
 
-  it("keeps each total's months consistent with its headline", () => {
+  it("keeps each total's published months consistent with its published headline", () => {
     const { owners } = runOps(sampleOps());
+    let checked = 0;
     for (const o of owners.values()) {
       for (const p of ["lca", "perm", "lmia"] as const) {
         for (const b of o.sponsorship[p] ?? []) {
-          if ("tooFew" in b) continue;
-          const sum = b.months!.reduce((x, y) => x + y, 0);
-          expect(sum).toBe(headlineOf(p, b.total));
+          if ("tooFew" in b || !b.months) continue;
+          expect(b.months.reduce((x, y) => x + y, 0)).toBe(headlineOf(p, b.total));
+          checked++;
         }
       }
     }
+    expect(checked).toBeGreaterThan(5);
   });
 
   it("gives identical output for the same input in any order", () => {
@@ -621,5 +748,226 @@ describe("schema and determinism", () => {
     for (const order of [[...ops].reverse(), shuffled(ops, 7), shuffled(ops, 2026)]) {
       expect(JSON.stringify(runOps(order), (_k, v) => (v instanceof Map ? [...v] : v))).toBe(a);
     }
+  });
+});
+
+// R28 invariants over a seeded, mixed sample. Raw values are recomputed here from the input filings: each
+// filing belongs to its (role, metro) cell if published, else its (role, region) cell, else ("all", region).
+function mulberry32(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randomOps(seed: number): Op[] {
+  const rnd = mulberry32(seed);
+  const int = (lo: number, hi: number) => lo + Math.floor(rnd() * (hi - lo + 1));
+  const pick = <T>(xs: readonly T[]) => xs[Math.floor(rnd() * xs.length)];
+  const roles = ["software-engineer", "data-engineer", "data-scientist", "designer", "product-manager"];
+  const usPlaces: [string | null, string][] = [
+    ["cbsa:41940", "US-CA"],
+    ["cbsa:31080", "US-CA"],
+    [null, "US-CA"],
+    ["cbsa:35620", "US-NY"],
+    ["cbsa:35620", "US-NJ"],
+    ["cbsa:42660", "US-WA"],
+    [null, "US-WA"],
+  ];
+  const caPlaces: [string | null, string][] = [
+    ["cma:535", "CA-ON"],
+    [null, "CA-ON"],
+    ["cma:933", "CA-BC"],
+  ];
+  const streams = ["High Wage", "Low Wage", "Global Talent Stream", "Permanent Resident Only", "Primary Agriculture"];
+  const ops: Op[] = [];
+  for (let o = 0; o < 30; o++) {
+    const owner = o % 7 === 0 ? `profiled${o}.com` : `us-${o.toString(16).padStart(10, "0")}`;
+    const size = pick([1, 3, 6, 12, 25, 60]);
+    for (const year of [2022, 2023, 2024, 2025, 2026]) {
+      for (const program of ["lca", "perm"] as const) {
+        for (let k = int(0, size); k > 0; k--) {
+          const [metro, region] = pick(usPlaces);
+          const workers = int(1, 3);
+          const newHires = int(0, workers);
+          const changeEmployer = int(0, workers - newHires);
+          const r = rnd();
+          const f = us({
+            program,
+            year,
+            month: int(1, 12), // 2026 months past `through` must be ignored
+            status: r < 0.75 ? "certified" : r < 0.9 ? "denied" : "withdrawn",
+            state: pick(["CA", "WA", "NY", null]),
+            role: pick(roles),
+            metro,
+            region,
+            pay: rnd() < 0.1 ? null : int(60, 250) * 1000,
+            workers,
+            newHires,
+            changeEmployer,
+            continuing: workers - newHires - changeEmployer,
+            level: pick(WAGE_LEVELS),
+          });
+          ops.push({ kind: "us", owner, f });
+        }
+      }
+    }
+  }
+  for (let o = 0; o < 15; o++) {
+    const owner = `ca-${o.toString(16).padStart(10, "0")}`;
+    const size = pick([1, 3, 8, 20]);
+    for (const year of [2021, 2023, 2024, 2025, 2026]) {
+      for (let k = int(0, size); k > 0; k--) {
+        const [metro, region] = pick(caPlaces);
+        const lmias = int(1, 3);
+        const a = ca({
+          year,
+          quarter: int(1, 4) as 1 | 2 | 3 | 4,
+          province: region.slice(3),
+          stream: pick(streams),
+          role: pick(roles),
+          metro,
+          region,
+          lmias,
+          positions: lmias + int(0, 3),
+        });
+        ops.push({ kind: "ca", owner, a });
+      }
+    }
+  }
+  return ops;
+}
+
+const sumOf = <T>(xs: T[], f: (x: T) => number) => xs.reduce((n, x) => n + f(x), 0);
+const inPlanUs = (f: UsFiling) => {
+  const sel = plan[f.program];
+  return sel.complete.includes(f.year) || (sel.partial?.year === f.year && Math.ceil(f.month / 3) <= sel.partial.through);
+};
+const inPlanCa = (a: CaApproval) =>
+  plan.lmia.complete.includes(a.year) || (plan.lmia.partial?.year === a.year && a.quarter <= plan.lmia.partial.through);
+
+function cellFor<C extends { role: string; place: string }>(cells: C[], role: string, place: Place): C | undefined {
+  const find = (r: string, p: string) => cells.find((c) => c.role === r && c.place === p);
+  return (place.metro ? find(role, place.metro) : undefined) ?? find(role, place.region) ?? find("all", place.region);
+}
+
+/** One exact-sum group: published members equal raw and are at least SUB_MIN; never exactly one withheld. */
+function checkGroup(raw: [string, number][], shown: Record<string, number | undefined>, strictKeys: boolean) {
+  let withheld = 0;
+  for (const [k, n] of raw) {
+    const v = shown[k];
+    if (v === undefined) {
+      if (n > 0) withheld++;
+    } else {
+      expect(v).toBe(n);
+      expect(v).toBeGreaterThanOrEqual(SUB_MIN);
+    }
+  }
+  expect(withheld).not.toBe(1);
+  if (strictKeys) for (const k of Object.keys(shown)) expect(raw.map(([rk]) => rk)).toContain(k);
+}
+
+const sub = (shown: number | undefined, raw: number) => {
+  if (shown === undefined) expect(raw).toBeLessThan(SUB_MIN);
+  else expect([shown, shown >= SUB_MIN]).toEqual([raw, true]);
+};
+
+function checkUsCell(pub: UsCell, fs: UsFiling[], lca: boolean) {
+  const cert = fs.filter((f) => f.status === "certified");
+  expect(pub.filings).toBe(cert.length);
+  sub(pub.denied, fs.filter((f) => f.status === "denied").length);
+  sub(pub.withdrawn, fs.filter((f) => f.status === "withdrawn").length);
+  const pays = cert.flatMap((f) => (f.annualPay === null ? [] : [f.annualPay]));
+  expect(pub.pay).toEqual(payStats(pays));
+  if (pub.pay) expect(pub.pay.n).toBeGreaterThanOrEqual(5);
+  if (!lca) {
+    for (const k of ["workers", "newHires", "changeEmployer", "continuing", "levels"]) expect(pub).not.toHaveProperty(k);
+    return;
+  }
+  expect(pub.workers).toBe(sumOf(cert, (f) => f.lca!.workers));
+  const split = (["newHires", "changeEmployer", "continuing"] as const).map(
+    (k) => [k, sumOf(cert, (f) => f.lca![k])] as [string, number],
+  );
+  checkGroup(split, { newHires: pub.newHires, changeEmployer: pub.changeEmployer, continuing: pub.continuing }, false);
+  const levels = WAGE_LEVELS.map((l) => [l, cert.filter((f) => f.lca!.level === l).length] as [string, number]);
+  checkGroup(levels, pub.levels ?? {}, true);
+}
+
+function checkCaCell(pub: CaCell, rows: CaApproval[]) {
+  expect(pub.lmias).toBe(sumOf(rows, (a) => a.lmias));
+  expect(pub.positions).toBe(sumOf(rows, (a) => a.positions));
+  const names = [...new Set(rows.map((a) => a.stream))].sort();
+  const raw = names.map((n) => [n, sumOf(rows.filter((a) => a.stream === n), (a) => a.positions)] as [string, number]);
+  checkGroup(raw, pub.streams, true);
+}
+
+function checkBlock<R extends { role: string; place: Place }, C extends { role: string; place: string }>(
+  b: YearBlock<C>,
+  rows: R[],
+  count: (rs: R[]) => number,
+  checkCell: (pub: C, rs: R[]) => void,
+  rawMonths: number[],
+  monthsOk: (total: C) => boolean,
+) {
+  expect("tooFew" in b).toBe(count(rows) < 3);
+  if ("tooFew" in b) return;
+  checkCell(b.total, rows);
+  const keys = b.cells.map((c) => `${c.role} ${c.place}`);
+  expect(new Set(keys).size).toBe(keys.length);
+  for (const cell of b.cells) {
+    const mine = rows.filter((r) => cellFor(b.cells, r.role, r.place) === cell);
+    expect(count(mine)).toBeGreaterThanOrEqual(3);
+    checkCell(cell, mine);
+  }
+  expect(sumOf(b.cells, (c) => count(rows.filter((r) => cellFor(b.cells, r.role, r.place) === c)))).toBeLessThanOrEqual(
+    count(rows),
+  );
+  const safe = rawMonths.every((n) => n === 0 || n >= SUB_MIN) && monthsOk(b.total);
+  expect(b.months).toEqual(safe ? rawMonths : undefined);
+}
+
+describe("small-count invariants (R28)", () => {
+  it("holds for every published block of a seeded mixed sample", () => {
+    const ops = randomOps(20261115);
+    const { owners } = runOps(ops);
+    let blocks = 0;
+    const usOps = ops.flatMap((op) => (op.kind === "us" && inPlanUs(op.f) ? [op] : []));
+    const caOps = ops.flatMap((op) => (op.kind === "ca" && inPlanCa(op.a) ? [op] : []));
+    const expectedOwners = [...new Set([...usOps, ...caOps].map((op) => op.owner))].sort();
+    expect([...owners.keys()]).toEqual(expectedOwners);
+    for (const [id, o] of owners) {
+      const yearsOf = (xs: { owner: string; year: number }[]) =>
+        [...new Set(xs.filter((x) => x.owner === id).map((x) => x.year))].sort((a, b) => a - b);
+      for (const program of ["lca", "perm"] as const) {
+        const mine = usOps.filter((op) => op.f.program === program).map((op) => ({ owner: op.owner, year: op.f.year }));
+        expect((o.sponsorship[program] ?? []).map((b) => b.year)).toEqual(yearsOf(mine));
+        for (const b of o.sponsorship[program] ?? []) {
+          const fs = usOps.filter((op) => op.owner === id && op.f.program === program && op.f.year === b.year).map((op) => op.f);
+          const cert = fs.filter((f) => f.status === "certified");
+          const months = zeros(12);
+          for (const f of cert) months[f.month - 1] += program === "perm" ? 1 : f.lca!.newHires + f.lca!.changeEmployer;
+          const parts = (t: UsCell) =>
+            program === "perm" ||
+            ((t.newHires !== undefined || sumOf(cert, (f) => f.lca!.newHires) === 0) &&
+              (t.changeEmployer !== undefined || sumOf(cert, (f) => f.lca!.changeEmployer) === 0));
+          const lca = program === "lca";
+          checkBlock(b, fs, (rs) => rs.filter((f) => f.status === "certified").length, (c, rs) => checkUsCell(c, rs, lca), months, parts);
+          blocks++;
+        }
+      }
+      expect((o.sponsorship.lmia ?? []).map((b) => b.year)).toEqual(
+        yearsOf(caOps.map((op) => ({ owner: op.owner, year: op.a.year }))),
+      );
+      for (const b of o.sponsorship.lmia ?? []) {
+        const rows = caOps.filter((op) => op.owner === id && op.a.year === b.year).map((op) => op.a);
+        const months = zeros(4);
+        for (const a of rows) months[a.quarter - 1] += a.positions;
+        checkBlock(b, rows, (rs) => sumOf(rs, (a) => a.lmias), checkCaCell, months, () => true);
+        blocks++;
+      }
+    }
+    expect(blocks).toBeGreaterThan(80);
   });
 });

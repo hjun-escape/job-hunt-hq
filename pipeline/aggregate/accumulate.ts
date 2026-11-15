@@ -1,9 +1,11 @@
 // Per-owner accumulation of typed filings into published year blocks. Keeps running sums and pay values per
-// breakdown cell, never whole filings. Applies the small-cell rule and the person-name privacy gate.
-import type { CaCell, Sponsorship, Totals, UsCell } from "../schema/published";
+// breakdown cell, never whole filings. Applies the small-cell rule, withholds small sub-counts, and applies
+// the person-name privacy gate.
+import { personNameSignal } from "../normalize/names";
+import type { CaCell, Sponsorship, Totals, TrendPair, UsCell } from "../schema/published";
 import type { YearSelection } from "../sources";
 import { WAGE_LEVELS, type CaApproval, type Country, type Place, type UsFiling } from "../types";
-import { payStats, rollUp, type RawCell } from "./cells";
+import { payStats, rollUp, SUB_MIN, withholdCa, withholdUs, type RawCell } from "./cells";
 import { headlineOf, trend, type Program, type YearBlock } from "./trend";
 
 /** Small-cell threshold: certified filings (US) or approved LMIAs (Canada). */
@@ -39,16 +41,15 @@ type UsSums = RawCell & {
 /** count = approved LMIAs. streams = approved positions per Program Stream value, verbatim. */
 type CaSums = RawCell & { positions: number; streams: Map<string, number> };
 
-/** One program-year of one owner: its threshold count, headline per month (or quarter), cells and name tallies. */
-type YearAcc<S> = {
-  count: number;
-  months: number[];
-  cells: Map<string, S>;
-  names: Map<string, number>;
-  personLike: Set<string>;
-  tradeNames: Map<string, number>;
-  regions: Map<string, number>;
-};
+/**
+ * One program-year of one owner, split by quarter so a partial year can leave out the quarters past its
+ * `through`. counts: threshold count per quarter. months: raw headline per fiscal month (12) or quarter (4).
+ * Cell keys start with the quarter digit. Tally keys are the quarter digit, a kind letter and the value
+ * (n: raw name, p: person-like raw name, t: trade name, r: employer region).
+ */
+type YearAcc<S> = { counts: number[]; months: number[]; cells: Map<string, S>; tally: Map<string, number> };
+/** The program-year as planned, with tally keys reduced to kind letter and value. */
+type YearView<S> = { count: number; months: number[]; cells: S[]; tally: Map<string, number> };
 type OwnerAcc = {
   lca: Map<number, YearAcc<UsSums>>;
   perm: Map<number, YearAcc<UsSums>>;
@@ -68,22 +69,14 @@ function tally(maps: Map<string, number>[]): Map<string, number> {
 function yearAcc<S>(years: Map<number, YearAcc<S>>, year: number, slots: number): YearAcc<S> {
   let y = years.get(year);
   if (!y) {
-    y = {
-      count: 0,
-      months: Array<number>(slots).fill(0),
-      cells: new Map(),
-      names: new Map(),
-      personLike: new Set(),
-      tradeNames: new Map(),
-      regions: new Map(),
-    };
+    y = { counts: [0, 0, 0, 0], months: Array<number>(slots).fill(0), cells: new Map(), tally: new Map() };
     years.set(year, y);
   }
   return y;
 }
 
-function cellOf<S extends RawCell>(y: YearAcc<S>, role: string, place: Place, make: (base: RawCell) => S): S {
-  const key = `${role}\u0000${place.metro ?? ""}\u0000${place.region}`;
+function cellOf<S extends RawCell>(y: YearAcc<S>, q: number, role: string, place: Place, make: (base: RawCell) => S): S {
+  const key = `${q}\u0000${role}\u0000${place.metro ?? ""}\u0000${place.region}`;
   let c = y.cells.get(key);
   if (!c) {
     c = make({ role, metro: place.metro, region: place.region, count: 0 });
@@ -92,11 +85,15 @@ function cellOf<S extends RawCell>(y: YearAcc<S>, role: string, place: Place, ma
   return c;
 }
 
-function note(y: YearAcc<unknown>, name: string, tradeName: string | null, region: string | null, personLike: boolean) {
-  bump(y.names, name);
-  if (personLike) y.personLike.add(name);
-  if (tradeName) bump(y.tradeNames, tradeName);
-  if (region) bump(y.regions, region);
+function note(y: YearAcc<unknown>, q: number, name: string, trade: string | null, region: string | null, person: boolean) {
+  bump(y.tally, `${q}n${name}`);
+  if (person) y.tally.set(`${q}p${name}`, 1);
+  if (trade) bump(y.tally, `${q}t${trade}`);
+  if (region) bump(y.tally, `${q}r${region}`);
+}
+
+function checkRole(role: string) {
+  if (role === "all") throw new Error('role id "all" is reserved for totals and merged cells');
 }
 
 const newUs = (base: RawCell): UsSums => ({
@@ -135,7 +132,7 @@ const mergeCa = (a: CaSums, b: CaSums): CaSums => ({
   streams: tally([a.streams, b.streams]),
 });
 
-/** PERM cells carry no LCA keys. `levels` lists only wage levels with a count above 0. `pay` only from 3 values. */
+/** A cell with its raw sums, before withholding. PERM cells carry no LCA keys; `levels` only above 0. */
 function usCell(c: UsSums, role: string, place: string, lca: boolean): UsCell {
   const out: UsCell = { role, place, filings: c.count, denied: c.denied, withdrawn: c.withdrawn };
   if (lca) {
@@ -153,6 +150,8 @@ function usCell(c: UsSums, role: string, place: string, lca: boolean): UsCell {
   if (pay) out.pay = pay;
   return out;
 }
+const lcaCell = (c: UsSums, role: string, place: string) => usCell(c, role, place, true);
+const permCell = (c: UsSums, role: string, place: string) => usCell(c, role, place, false);
 
 function caCell(c: CaSums, role: string, place: string): CaCell {
   const streams: Record<string, number> = {};
@@ -161,12 +160,12 @@ function caCell(c: CaSums, role: string, place: string): CaCell {
 }
 
 /**
- * A published year block. `through` is in the unit of `months`: `perQuarter` is 3 for US fiscal months
+ * A year block with raw sums. `through` is in the unit of `months`: `perQuarter` is 3 for US fiscal months
  * and 1 for Canadian quarters. Under MIN the block is only { year, partial, through?, tooFew }.
  */
 function block<S extends RawCell, C>(
   year: number,
-  y: YearAcc<S>,
+  v: YearView<S>,
   sel: YearSelection,
   perQuarter: number,
   merge: (a: S, b: S) => S,
@@ -174,26 +173,94 @@ function block<S extends RawCell, C>(
 ): YearBlock<C> {
   const partial = sel.partial?.year === year;
   const head = { year, partial, ...(sel.partial && partial ? { through: sel.partial.through * perQuarter } : {}) };
-  if (y.count < MIN) return { ...head, tooFew: true };
-  const cells = [...y.cells.values()];
+  if (v.count < MIN) return { ...head, tooFew: true };
   return {
     ...head,
-    months: [...y.months],
-    total: publish(cells.reduce(merge), "all", "all"),
-    cells: rollUp(cells, merge, MIN).map((c) => publish(c, c.role, c.metro ?? c.region)),
+    months: v.months,
+    total: publish(v.cells.reduce(merge), "all", "all"),
+    cells: rollUp(v.cells, merge, MIN).map((c) => publish(c, c.role, c.metro ?? c.region)),
   };
+}
+
+/**
+ * The block as published: sub-counts withheld in the total and every cell. `months` is kept only when no
+ * entry is 1 or 2 and `sumShown` says their sum gives away nothing withheld in the total.
+ */
+function publishBlock<C>(b: YearBlock<C>, withhold: (c: C) => C, sumShown: (raw: C, shown: C) => boolean): YearBlock<C> {
+  if ("tooFew" in b) return b;
+  const total = withhold(b.total);
+  const months = b.months && b.months.every((n) => n === 0 || n >= SUB_MIN) && sumShown(b.total, total);
+  return {
+    year: b.year,
+    partial: b.partial,
+    ...(b.through !== undefined ? { through: b.through } : {}),
+    ...(months ? { months: b.months } : {}),
+    total,
+    cells: b.cells.map(withhold),
+  };
+}
+
+// LCA months sum to newHires + changeEmployer, so they are shown only when neither non-zero part is withheld.
+// PERM and LMIA months sum to filings and positions, which are always shown.
+const lcaSumShown = (raw: UsCell, shown: UsCell) =>
+  (!raw.newHires || shown.newHires !== undefined) && (!raw.changeEmployer || shown.changeEmployer !== undefined);
+const alwaysShown = () => true;
+
+/** Published blocks for one program, and its trends from the raw blocks (withholding never changes a trend). */
+function publishProgram<S extends RawCell, C extends UsCell | CaCell>(
+  p: Program,
+  rows: [number, YearView<S>][],
+  sel: YearSelection,
+  merge: (a: S, b: S) => S,
+  cell: (c: S, role: string, place: string) => C,
+  withhold: (c: C) => C,
+  sumShown: (raw: C, shown: C) => boolean,
+): { blocks: YearBlock<C>[]; trend: TrendPair } {
+  const raw = rows.map(([year, v]) => block(year, v, sel, p === "lmia" ? 1 : 3, merge, cell));
+  return { blocks: raw.map((b) => publishBlock(b, withhold, sumShown)), trend: trend(raw, (t) => headlineOf(p, t)) };
 }
 
 function plannedYears(sel: YearSelection): number[] {
   return [...new Set([...sel.complete, ...(sel.partial ? [sel.partial.year] : [])])].sort((a, b) => a - b);
 }
 
-/** The owner's program-years inside the plan, by year. */
-function inPlan<S>(years: Map<number, YearAcc<S>>, sel: YearSelection): [number, YearAcc<S>][] {
+/** A program-year as planned: a partial year's quarters past `through` are outside the plan and left out. */
+function view<S extends RawCell>(y: YearAcc<S>, quarters: number, perQuarter: number, merge: (a: S, b: S) => S): YearView<S> {
+  const cells = new Map<string, S>();
+  for (const [key, c] of y.cells) {
+    if (Number(key[0]) > quarters) continue;
+    const prev = cells.get(key.slice(2));
+    cells.set(key.slice(2), prev ? merge(prev, c) : c);
+  }
+  const tallies = new Map<string, number>();
+  for (const [key, n] of y.tally) if (Number(key[0]) <= quarters) bump(tallies, key.slice(1), n);
+  return {
+    count: y.counts.slice(0, quarters).reduce((a, b) => a + b, 0),
+    months: y.months.map((n, i) => (i < quarters * perQuarter ? n : 0)),
+    cells: [...cells.values()],
+    tally: tallies,
+  };
+}
+
+/** The owner's program-years with data inside the plan, by year. */
+function inPlan<S extends RawCell>(
+  years: Map<number, YearAcc<S>>,
+  sel: YearSelection,
+  perQuarter: number,
+  merge: (a: S, b: S) => S,
+): [number, YearView<S>][] {
   return plannedYears(sel).flatMap((year) => {
     const y = years.get(year);
-    return y ? [[year, y] as [number, YearAcc<S>]] : [];
+    const v = y && view(y, sel.partial?.year === year ? sel.partial.through : 4, perQuarter, merge);
+    return v && v.cells.length > 0 ? [[year, v] as [number, YearView<S>]] : [];
   });
+}
+
+/** One kind of tally (n, p, t or r) summed across views. */
+function kind(views: YearView<unknown>[], k: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const v of views) for (const [key, n] of v.tally) if (key[0] === k) bump(out, key.slice(1), n);
+  return out;
 }
 
 const PROGRAMS: Program[] = ["lca", "perm", "lmia"];
@@ -210,15 +277,20 @@ export function createAccumulator() {
   };
 
   function addUs(owner: string, f: UsFiling): void {
+    if (!Number.isInteger(f.month) || f.month < 1 || f.month > 12) {
+      throw new Error(`US filing fiscal month must be 1 to 12, got ${f.month}`);
+    }
+    checkRole(f.role);
+    const q = Math.ceil(f.month / 3);
     const y = yearAcc(ownerAcc(owner)[f.program], f.year, 12);
     const e = f.employer;
-    note(y, e.name, e.tradeName, e.state ? `US-${e.state}` : null, e.personLike === true);
-    const c = cellOf(y, f.role, f.place, newUs);
+    note(y, q, e.name, e.tradeName, e.state ? `US-${e.state}` : null, e.personLike === true);
+    const c = cellOf(y, q, f.role, f.place, newUs);
     if (f.status === "denied") c.denied++;
     else if (f.status === "withdrawn") c.withdrawn++;
     else {
       c.count++;
-      y.count++;
+      y.counts[q - 1]++;
       if (f.annualPay !== null) c.pay.push(f.annualPay);
       if (f.program === "perm") y.months[f.month - 1] += 1;
       else if (f.lca) {
@@ -233,14 +305,19 @@ export function createAccumulator() {
   }
 
   function addCa(owner: string, a: CaApproval): void {
+    if (!Number.isInteger(a.quarter) || a.quarter < 1 || a.quarter > 4) {
+      throw new Error(`Canadian approval quarter must be 1 to 4, got ${a.quarter}`);
+    }
+    checkRole(a.role);
+    const q = a.quarter;
     const y = yearAcc(ownerAcc(owner).lmia, a.year, 4);
-    note(y, a.employer.name, null, a.employer.province ? `CA-${a.employer.province}` : null, false);
-    const c = cellOf(y, a.role, a.place, newCa);
+    note(y, q, a.employer.name, null, a.employer.province ? `CA-${a.employer.province}` : null, false);
+    const c = cellOf(y, q, a.role, a.place, newCa);
     c.count += a.lmias;
-    y.count += a.lmias;
+    y.counts[q - 1] += a.lmias;
     c.positions += a.positions;
     bump(c.streams, a.stream, a.positions);
-    y.months[a.quarter - 1] += a.positions;
+    y.months[q - 1] += a.positions;
   }
 
   /**
@@ -256,15 +333,16 @@ export function createAccumulator() {
 
     for (const id of [...owners.keys()].sort(cmp)) {
       const o = owners.get(id)!;
-      const lca = inPlan(o.lca, plan.lca);
-      const perm = inPlan(o.perm, plan.perm);
-      const lmia = inPlan(o.lmia, plan.lmia);
-      const all: YearAcc<unknown>[] = [...lca, ...perm, ...lmia].map(([, y]) => y);
+      const lca = inPlan(o.lca, plan.lca, 3, mergeUs);
+      const perm = inPlan(o.perm, plan.perm, 3, mergeUs);
+      const lmia = inPlan(o.lmia, plan.lmia, 1, mergeCa);
+      const all: YearView<unknown>[] = [...lca, ...perm, ...lmia].map(([, v]) => v);
       if (all.length === 0) continue;
 
-      const name = ranked(tally(all.map((y) => y.names)))[0];
-      const personLike = new Set(all.flatMap((y) => [...y.personLike]));
-      const usCertified = [...lca, ...perm].reduce((n, [, y]) => n + y.count, 0);
+      const names = kind(all, "n");
+      const name = ranked(names)[0];
+      const personLike = kind(all, "p");
+      const usCertified = [...lca, ...perm].reduce((n, [, v]) => n + v.count, 0);
       const small = isUnprofiledId(id) && usCertified < PERSON_LIKE_MIN_FILINGS;
       if (small && personLike.has(name)) {
         droppedPersonLike++;
@@ -272,41 +350,44 @@ export function createAccumulator() {
       }
 
       for (const [p, rows] of [["lca", lca], ["perm", perm], ["lmia", lmia]] as const) {
-        for (const [year, y] of rows) totals[p][String(year)] += y.count;
+        for (const [year, v] of rows) totals[p][String(year)] += v.count;
       }
 
-      // A small unprofiled owner's person-like spellings stay out of `also`.
-      const others = tally([...all.map((y) => y.names), ...all.map((y) => y.tradeNames)]);
+      // A small unprofiled owner's person-like spellings and trade names stay out of `also`.
+      const trade = kind(all, "t");
+      const others = tally([names, trade]);
       others.delete(name);
-      if (small) for (const n of personLike) others.delete(n);
+      if (small) {
+        for (const n of personLike.keys()) others.delete(n);
+        for (const t of trade.keys()) if (personNameSignal(t) !== null) others.delete(t);
+      }
 
       const countries: Country[] = [];
       if (lca.length + perm.length > 0) countries.push("US");
       if (lmia.length > 0) countries.push("CA");
 
       const sponsorship: Sponsorship = { trends: {} };
-      const us = (lcaKeys: boolean) => (c: UsSums, role: string, place: string) => usCell(c, role, place, lcaKeys);
       if (lca.length > 0) {
-        const blocks = lca.map(([year, y]) => block(year, y, plan.lca, 3, mergeUs, us(true)));
-        sponsorship.lca = blocks;
-        sponsorship.trends.lca = trend(blocks, (t) => headlineOf("lca", t));
+        const r = publishProgram("lca", lca, plan.lca, mergeUs, lcaCell, withholdUs, lcaSumShown);
+        sponsorship.lca = r.blocks;
+        sponsorship.trends.lca = r.trend;
       }
       if (perm.length > 0) {
-        const blocks = perm.map(([year, y]) => block(year, y, plan.perm, 3, mergeUs, us(false)));
-        sponsorship.perm = blocks;
-        sponsorship.trends.perm = trend(blocks, (t) => headlineOf("perm", t));
+        const r = publishProgram("perm", perm, plan.perm, mergeUs, permCell, withholdUs, alwaysShown);
+        sponsorship.perm = r.blocks;
+        sponsorship.trends.perm = r.trend;
       }
       if (lmia.length > 0) {
-        const blocks = lmia.map(([year, y]) => block(year, y, plan.lmia, 1, mergeCa, caCell));
-        sponsorship.lmia = blocks;
-        sponsorship.trends.lmia = trend(blocks, (t) => headlineOf("lmia", t));
+        const r = publishProgram("lmia", lmia, plan.lmia, mergeCa, caCell, withholdCa, alwaysShown);
+        sponsorship.lmia = r.blocks;
+        sponsorship.trends.lmia = r.trend;
       }
 
       result.set(id, {
         name,
         also: ranked(others).slice(0, 10).sort(cmp),
         countries: countries.sort(cmp),
-        region: ranked(tally(all.map((y) => y.regions)))[0] ?? null,
+        region: ranked(kind(all, "r"))[0] ?? null,
         sponsorship,
       });
     }

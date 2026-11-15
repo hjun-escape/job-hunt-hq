@@ -1,34 +1,139 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { payStats, rollUp, type RawCell } from "../../pipeline/aggregate/cells";
+import {
+  PAY_MIN,
+  payStats,
+  publishable,
+  rollUp,
+  SUB_MIN,
+  withholdCa,
+  withholdUs,
+  type RawCell,
+} from "../../pipeline/aggregate/cells";
 
 const c = (role: string, metro: string | null, region: string, count: number): RawCell => ({ role, metro, region, count });
 const add = (a: RawCell, b: RawCell): RawCell => ({ ...a, count: a.count + b.count });
 
 describe("payStats", () => {
   it("interpolates linearly between ranks", () => {
-    expect(payStats([100000, 200000, 300000, 400000])).toEqual({ n: 4, p25: 175000, median: 250000, p75: 325000 });
+    // n = 7: p25 at position 1.5, median at 3, p75 at 4.5.
+    expect(payStats([100000, 150000, 200000, 250000, 300000, 350000, 400000])).toEqual({
+      n: 7,
+      p25: 175000,
+      median: 250000,
+      p75: 325000,
+    });
+    // n = 6: positions 1.25, 2.5 and 3.75.
+    expect(payStats([0, 40000, 80000, 120000, 160000, 200000])).toEqual({ n: 6, p25: 50000, median: 100000, p75: 150000 });
   });
 
-  it("is undefined below 3 values", () => {
-    expect(payStats([1, 2])).toBeUndefined();
+  it("is undefined below PAY_MIN (5) values", () => {
+    expect(PAY_MIN).toBe(5);
     expect(payStats([])).toBeUndefined();
+    expect(payStats([1, 2])).toBeUndefined();
+    expect(payStats([100000, 200000, 300000, 400000])).toBeUndefined();
+    expect(payStats([100000, 200000, 300000, 400000, 500000])).toEqual({ n: 5, p25: 200000, median: 300000, p75: 400000 });
   });
 
   it("rounds every figure, the median included, to the nearest 1,000", () => {
-    expect(payStats([101400, 101500, 101600])!.median).toBe(102000);
-    expect(payStats([100400, 120000, 140600])).toEqual({ n: 3, p25: 110000, median: 120000, p75: 130000 });
+    expect(payStats([101300, 101400, 101500, 101600, 101700])!.median).toBe(102000);
+    expect(payStats([100400, 110300, 120000, 129600, 140600])).toEqual({ n: 5, p25: 110000, median: 120000, p75: 130000 });
   });
 
   it("sorts its own copy and leaves the input untouched", () => {
-    const values = [400000, 100000, 300000, 200000];
-    expect(payStats(values)).toEqual({ n: 4, p25: 175000, median: 250000, p75: 325000 });
-    expect(values).toEqual([400000, 100000, 300000, 200000]);
+    const values = [400000, 100000, 350000, 150000, 300000, 200000, 250000];
+    expect(payStats(values)).toEqual({ n: 7, p25: 175000, median: 250000, p75: 325000 });
+    expect(values).toEqual([400000, 100000, 350000, 150000, 300000, 200000, 250000]);
   });
 
   it("uses position p * (n - 1), the numpy default", () => {
     // n = 5: p25 at position 1, median at 2, p75 at 3 (exact ranks, no interpolation).
     expect(payStats([50000, 10000, 40000, 20000, 30000])).toEqual({ n: 5, p25: 20000, median: 30000, p75: 40000 });
+  });
+});
+
+describe("publishable (one exact-sum group)", () => {
+  it("withholds every value under SUB_MIN (3), zeros included", () => {
+    expect(SUB_MIN).toBe(3);
+    expect(publishable([["a", 5], ["b", 0], ["c", 3]])).toEqual([["a", 5], ["c", 3]]);
+  });
+
+  it("also withholds the smallest published member when exactly one member is withheld", () => {
+    expect(publishable([["a", 5], ["b", 1], ["c", 4]])).toEqual([["a", 5]]);
+  });
+
+  it("breaks a tie for the smallest by order", () => {
+    expect(publishable([["a", 4], ["b", 2], ["c", 4]])).toEqual([["c", 4]]);
+  });
+
+  it("withholds the only other member", () => {
+    expect(publishable([["a", 9], ["b", 2], ["c", 0]])).toEqual([]);
+  });
+
+  it("needs no extra withholding when two or more members are withheld", () => {
+    expect(publishable([["a", 9], ["b", 2], ["c", 1]])).toEqual([["a", 9]]);
+  });
+
+  it("publishes a group with nothing under SUB_MIN unchanged", () => {
+    expect(publishable([["a", 3], ["b", 0], ["c", 7]])).toEqual([["a", 3], ["c", 7]]);
+  });
+});
+
+describe("withholdUs and withholdCa", () => {
+  const pay = { n: 8, p25: 118000, median: 135000, p75: 153000 };
+
+  it("withholds small sub-counts of an LCA cell and complements the worker split and the levels", () => {
+    expect(
+      withholdUs({
+        role: "software-engineer",
+        place: "cbsa:41940",
+        filings: 8,
+        denied: 1,
+        withdrawn: 3,
+        workers: 8,
+        newHires: 4,
+        changeEmployer: 3,
+        continuing: 1,
+        levels: { II: 4, III: 3, IV: 1 },
+        pay,
+      }),
+    ).toStrictEqual({
+      role: "software-engineer",
+      place: "cbsa:41940",
+      filings: 8,
+      withdrawn: 3,
+      workers: 8,
+      newHires: 4,
+      levels: { II: 4 },
+      pay,
+    });
+  });
+
+  it("keeps a PERM cell free of LCA keys", () => {
+    expect(withholdUs({ role: "all", place: "all", filings: 4, denied: 2, withdrawn: 0 })).toStrictEqual({
+      role: "all",
+      place: "all",
+      filings: 4,
+    });
+    expect(withholdUs({ role: "all", place: "all", filings: 4, denied: 3, withdrawn: 5 })).toStrictEqual({
+      role: "all",
+      place: "all",
+      filings: 4,
+      denied: 3,
+      withdrawn: 5,
+    });
+  });
+
+  it("withholds small streams and complements them", () => {
+    expect(
+      withholdCa({
+        role: "all",
+        place: "all",
+        lmias: 5,
+        positions: 12,
+        streams: { "Global Talent Stream": 2, "High Wage": 6, "Low Wage": 4 },
+      }),
+    ).toStrictEqual({ role: "all", place: "all", lmias: 5, positions: 12, streams: { "High Wage": 6 } });
   });
 });
 

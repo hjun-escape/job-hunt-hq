@@ -18,8 +18,9 @@ export const UsCell = z.object({
   role: z.string(),
   place: z.string(),
   filings: count,
-  denied: count,
-  withdrawn: count,
+  // denied, withdrawn, the worker split, levels entries and streams entries are omitted under 3 (withheld).
+  denied: count.optional(),
+  withdrawn: count.optional(),
   workers: count.optional(),
   newHires: count.optional(),
   changeEmployer: count.optional(),

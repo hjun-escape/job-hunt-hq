@@ -1,15 +1,22 @@
-// Breakdown cells: pay statistics and the small-cell roll-up (the privacy rule for published breakdowns).
-import type { PayStats } from "../schema/published";
+// Breakdown cells: pay statistics, the small-cell roll-up and the withholding of small sub-counts
+// (the privacy rules for published breakdowns).
+import type { CaCell, PayStats, UsCell } from "../schema/published";
+import { WAGE_LEVELS } from "../types";
+
+/** A published sub-count (denied, withdrawn, worker split, wage level, stream) under this is withheld. */
+export const SUB_MIN = 3;
+/** Pay statistics need at least this many values: with 3, the quartiles give back each salary. */
+export const PAY_MIN = 5;
 
 const round1000 = (v: number) => Math.round(v / 1000) * 1000;
 
 /**
  * Quartiles by linear interpolation between ranks (position p * (n - 1), the numpy default),
- * each rounded to the nearest 1,000. Undefined below 3 values.
+ * each rounded to the nearest 1,000. Undefined below PAY_MIN values.
  */
 export function payStats(values: number[]): PayStats | undefined {
   const n = values.length;
-  if (n < 3) return undefined;
+  if (n < PAY_MIN) return undefined;
   const s = [...values].sort((a, b) => a - b);
   const at = (p: number) => {
     const pos = p * (n - 1);
@@ -81,4 +88,51 @@ export function rollUp<T extends RawCell>(cells: T[], merge: (a: T, b: T) => T, 
   }
 
   return kept.sort((a, b) => cmp(a.role, b.role) || cmp(a.metro ?? a.region, b.metro ?? b.region));
+}
+
+/**
+ * The members of one exact-sum group that may be published, in the given order. A value under SUB_MIN is
+ * withheld (a zero is left out too, but is not a member). When exactly one member is withheld, the smallest
+ * published member goes as well (ties: the first in order), so subtraction cannot give the hidden value back.
+ */
+export function publishable<K extends string>(group: [K, number][]): [K, number][] {
+  const shown = group.filter(([, n]) => n >= SUB_MIN);
+  if (group.filter(([, n]) => n > 0 && n < SUB_MIN).length !== 1 || shown.length === 0) return shown;
+  let smallest = 0;
+  shown.forEach(([, n], i) => {
+    if (n < shown[smallest][1]) smallest = i;
+  });
+  return shown.filter((_, i) => i !== smallest);
+}
+
+const atLeastMin = (n: number | undefined): n is number => n !== undefined && n >= SUB_MIN;
+
+/**
+ * A US cell or total as published. denied and withdrawn appear only from SUB_MIN. For LCA, the worker split
+ * (newHires, changeEmployer, continuing, known together through workers) and the wage levels (which sum to
+ * filings) each go through `publishable`. A cell without `workers` is PERM and gets no LCA keys.
+ */
+export function withholdUs(c: UsCell): UsCell {
+  const out: UsCell = { role: c.role, place: c.place, filings: c.filings };
+  if (atLeastMin(c.denied)) out.denied = c.denied;
+  if (atLeastMin(c.withdrawn)) out.withdrawn = c.withdrawn;
+  if (c.workers !== undefined) {
+    out.workers = c.workers;
+    const split = publishable<"newHires" | "changeEmployer" | "continuing">([
+      ["newHires", c.newHires ?? 0],
+      ["changeEmployer", c.changeEmployer ?? 0],
+      ["continuing", c.continuing ?? 0],
+    ]);
+    for (const [k, n] of split) out[k] = n;
+    out.levels = Object.fromEntries(publishable(WAGE_LEVELS.map((l) => [l, c.levels?.[l] ?? 0])));
+  }
+  if (c.pay) out.pay = c.pay;
+  return out;
+}
+
+/** A Canadian cell or total as published: the streams (which sum to positions) go through `publishable`. */
+export function withholdCa(c: CaCell): CaCell {
+  const keys = Object.keys(c.streams).sort(cmp);
+  const streams = Object.fromEntries(publishable(keys.map((k) => [k, c.streams[k]])));
+  return { role: c.role, place: c.place, lmias: c.lmias, positions: c.positions, streams };
 }
