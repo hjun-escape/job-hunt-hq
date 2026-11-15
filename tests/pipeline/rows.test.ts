@@ -1,11 +1,11 @@
 // @vitest-environment node
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
-import { afterAll, describe, expect, it } from "vitest";
-import { HeaderMismatchError, readRows } from "../../pipeline/load/rows";
+import { afterAll, describe, expect, it, vi } from "vitest";
+import { HeaderMismatchError, cellText, readRows } from "../../pipeline/load/rows";
 
 const dir = mkdtempSync(path.join(tmpdir(), "rows-test-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -219,5 +219,80 @@ describe("readRows (csv)", () => {
     const err = await collect(readRows(file, ["A", "Z"])).catch((e) => e);
     expect(err).toBeInstanceOf(HeaderMismatchError);
     expect(err.missing).toEqual(["Z"]);
+  });
+});
+
+describe("cellText", () => {
+  it("converts the known cell shapes to plain text", () => {
+    expect(cellText(null)).toBe("");
+    expect(cellText("  a  ")).toBe("a");
+    expect(cellText(12)).toBe("12");
+    expect(cellText(new Date(Date.UTC(2026, 0, 5)))).toBe("2026-01-05");
+    expect(cellText({ richText: [{ text: "a" }, { text: "b" }] })).toBe("ab");
+    expect(cellText({ formula: "A1", result: 7 })).toBe("7");
+    expect(cellText({ formula: "A1" })).toBe("");
+    expect(cellText({ text: "link", hyperlink: "https://example.com" })).toBe("link");
+    expect(cellText({ error: "#N/A" })).toBe("");
+  });
+
+  it("throws on an unresolved shared string, without echoing the value", () => {
+    expect(() => cellText({ sharedString: 3 })).toThrow(/unresolved shared string/);
+  });
+
+  it("throws on an object it does not know", () => {
+    expect(() => cellText({ surprise: "secret-value" })).toThrow(/unsupported cell value/);
+    try {
+      cellText({ surprise: "secret-value" });
+    } catch (e) {
+      expect(String(e)).not.toContain("secret-value");
+    }
+  });
+});
+
+describe("readRows temp file cleanup", () => {
+  const spool = () => new Set(readdirSync(tmpdir()).filter((n) => n.startsWith("tmp-")));
+  // The tmp library unlinks asynchronously, so give it a moment before declaring a leak.
+  const expectNoLeak = (before: Set<string>) =>
+    vi.waitFor(() => expect([...spool()].filter((n) => !before.has(n))).toEqual([]), { timeout: 3000, interval: 25 });
+
+  async function spooledFile(name: string) {
+    const data: unknown[][] = [["A", "B"]];
+    for (let i = 0; i < 5000; i++) data.push([`v${i}`, i]);
+    return xlsx(name, { S: data }, "dol");
+  }
+
+  it("removes the spooled sheet after a full read", async () => {
+    const file = await spooledFile("clean-full.xlsx");
+    const before = spool();
+    expect(await collect(readRows(file, ["A", "B"]))).toHaveLength(5000);
+    await expectNoLeak(before);
+  });
+
+  it("removes it when the consumer stops early", async () => {
+    const file = await spooledFile("clean-early.xlsx");
+    const before = spool();
+    for await (const r of readRows(file, ["A", "B"])) {
+      expect(r.A).toBe("v0");
+      break;
+    }
+    await expectNoLeak(before);
+  });
+
+  it("removes it when the consumer throws", async () => {
+    const file = await spooledFile("clean-throw.xlsx");
+    const before = spool();
+    await expect(
+      (async () => {
+        for await (const _ of readRows(file, ["A", "B"])) throw new Error("consumer failed");
+      })(),
+    ).rejects.toThrow("consumer failed");
+    await expectNoLeak(before);
+  });
+
+  it("removes it when the header does not match", async () => {
+    const file = await spooledFile("clean-header.xlsx");
+    const before = spool();
+    await expect(collect(readRows(file, ["A", "NOPE"]))).rejects.toBeInstanceOf(HeaderMismatchError);
+    await expectNoLeak(before);
   });
 });
