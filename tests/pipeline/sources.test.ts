@@ -91,6 +91,10 @@ describe("url builders and columns", () => {
     expect(EXPECTED_COLUMNS.lca).toContain("WORKSITE_POSTAL_CODE");
     expect(EXPECTED_COLUMNS.perm).toContain("PRIMARY_WORKSITE_POSTAL_CODE");
   });
+  it("reads the LCA case number (to drop withdrawal relistings, R43) and no PERM case number", () => {
+    expect(EXPECTED_COLUMNS.lca).toContain("CASE_NUMBER");
+    expect(EXPECTED_COLUMNS.perm).not.toContain("CASE_NUMBER");
+  });
 });
 
 describe("download planning", () => {

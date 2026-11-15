@@ -50,10 +50,11 @@ export const DEFAULT_USER_AGENT = "job-hunt-hq-dataset/1 (+https://github.com/hj
 export const USER_AGENTS: Record<string, string> = {};
 
 /** Allowed columns only. Personal columns (contacts, attorneys, law firms, preparers, phones, street lines) never appear here. */
-// Postal codes are read only to place a worksite in a metro and never leave the loader.
+// Postal codes are read only to place a worksite in a metro and never leave the loader. The LCA CASE_NUMBER is
+// read only to drop withdrawal relistings (R43) and never leaves the loader either.
 export const EXPECTED_COLUMNS: { lca: string[]; perm: string[]; lmia: string[] } = {
   lca: [
-    "CASE_STATUS", "DECISION_DATE", "VISA_CLASS", "JOB_TITLE", "SOC_CODE", "TOTAL_WORKER_POSITIONS",
+    "CASE_NUMBER", "CASE_STATUS", "DECISION_DATE", "VISA_CLASS", "JOB_TITLE", "SOC_CODE", "TOTAL_WORKER_POSITIONS",
     "NEW_EMPLOYMENT", "CONTINUED_EMPLOYMENT", "CHANGE_PREVIOUS_EMPLOYMENT", "NEW_CONCURRENT_EMPLOYMENT",
     "CHANGE_EMPLOYER", "AMENDED_PETITION", "EMPLOYER_NAME", "TRADE_NAME_DBA", "EMPLOYER_STATE",
     "EMPLOYER_FEIN", "WORKSITE_COUNTY", "WORKSITE_STATE", "WORKSITE_POSTAL_CODE", "WAGE_RATE_OF_PAY_FROM", "WAGE_UNIT_OF_PAY",

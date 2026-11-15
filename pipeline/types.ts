@@ -48,6 +48,11 @@ export type LoadStats = {
   invalid: Record<string, number>;
   /** Kept rows whose trade name was blanked: it held an email or was only a FEIN-shaped number. */
   tradeNamesBlanked: number;
+  /**
+   * LCA only (R43): "Certified - Withdrawn" rows left out because they relist a case certified in an earlier
+   * quarter, either seen earlier in this build or received more than 14 days before the file's quarter.
+   */
+  skippedRelisted?: number;
 };
 
 export const emptyLoadStats = (): LoadStats => ({

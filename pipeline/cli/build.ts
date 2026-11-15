@@ -82,10 +82,12 @@ export function summaryLines(r: BuildResult): string[] {
     const reasons = new Map<string, number>();
     for (const f of fs) for (const [k, n] of Object.entries(f.invalid)) reasons.set(k, (reasons.get(k) ?? 0) + n);
     const why = [...reasons].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([k, n]) => `${k} ${n}`).join(", ");
+    const counted = fs.some((f) => f.skippedRelisted !== undefined);
+    const relisted = counted ? `, withdrawal relistings ${fs.reduce((n, f) => n + (f.skippedRelisted ?? 0), 0)}` : "";
     lines.push(
       `${src}: ${fs.length} files in ${sum("seconds").toFixed(1)} s, read ${sum("read")}, kept ${sum("kept")}, ` +
         `person-named ${sum("skippedPerson")}, invalid ${sum("skippedInvalid")}${why ? ` (${why})` : ""}, ` +
-        `trade names blanked ${sum("tradeNamesBlanked")}`,
+        `trade names blanked ${sum("tradeNamesBlanked")}${relisted}`,
     );
   }
   const o = s.owners;

@@ -359,6 +359,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const ctx: LoadContext = { roles, places, profiled: (e) => map.us(e) !== undefined };
   const acc = createAccumulator();
   const read: SourceFile[] = [];
+  // R43: case numbers seen in every LCA file so far; toRead.lca is in year and quarter order.
+  const lcaCases = new Set<string>();
   for (const s of DATA_SOURCES) {
     for (const f of toRead[s]) {
       const file = path.join(cacheDir, f.path);
@@ -371,7 +373,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
           for await (const a of rows) acc.addCa(ownerForCa(a.employer, map), a);
           fileStats = st;
         } else {
-          const { rows, stats: st } = loadUs(s, file, ctx);
+          const relisting = s === "lca" ? { seen: lcaCases, period: { year: f.year!, quarter: f.quarter! } } : {};
+          const { rows, stats: st } = loadUs(s, file, ctx, relisting);
           for await (const u of rows) acc.addUs(ownerForUs(u.employer, map), u);
           fileStats = st;
         }
@@ -387,14 +390,20 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
       const seconds = Math.round((Date.now() - started) / 100) / 10;
       stats.files.push({ source: s, path: f.path, year: f.year!, quarter: f.quarter!, seconds, ...fileStats });
       read.push(f);
+      const relisted = fileStats.skippedRelisted !== undefined ? `, withdrawal relistings ${fileStats.skippedRelisted}` : "";
       log(
         `${label}: read ${fileStats.read}, kept ${fileStats.kept}, person-named ${fileStats.skippedPerson}, ` +
-          `invalid ${fileStats.skippedInvalid} (${seconds} s)`,
+          `invalid ${fileStats.skippedInvalid}${relisted} (${seconds} s)`,
       );
     }
   }
+  lcaCases.clear();
 
   lap(`read ${read.length} files`);
+  const relisted = stats.files.reduce((n, f) => n + (f.skippedRelisted ?? 0), 0);
+  if (relisted > 0) {
+    warnings.push(`lca: ${relisted} "Certified - Withdrawn" rows were left out as relistings of cases certified in an earlier quarter`);
+  }
 
   // 4. Owners and totals, then R33.
   const { owners: all, totals, droppedPersonLike } = acc.finish(years);

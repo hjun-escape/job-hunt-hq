@@ -66,11 +66,14 @@ const LCA_PERSONAL = {
 };
 const LCA_HEADER = ["EMPLOYER_POC_EMAIL", ...EXPECTED_COLUMNS.lca, "EMPLOYER_POC_LAST_NAME", "PREPARER_EMAIL", "DECL_PREP_EMAIL"];
 
-type Lca = { name: string; fein: string; date: Date; pay?: number; zip?: string; state?: string; visa?: string; trade?: string };
+type Lca = {
+  name: string; fein: string; date: Date; pay?: number; zip?: string; state?: string; visa?: string; trade?: string;
+  caseNo?: string; status?: string;
+};
 function lcaRow(r: Lca): unknown[] {
   const row: Record<string, unknown> = {
     ...LCA_PERSONAL,
-    CASE_STATUS: "Certified", DECISION_DATE: r.date, VISA_CLASS: r.visa ?? "H-1B", JOB_TITLE: "Software Engineer",
+    CASE_NUMBER: r.caseNo ?? "", CASE_STATUS: r.status ?? "Certified", DECISION_DATE: r.date, VISA_CLASS: r.visa ?? "H-1B", JOB_TITLE: "Software Engineer",
     SOC_CODE: "15-1252.00", TOTAL_WORKER_POSITIONS: 1, NEW_EMPLOYMENT: 1, CONTINUED_EMPLOYMENT: 0,
     CHANGE_PREVIOUS_EMPLOYMENT: 0, NEW_CONCURRENT_EMPLOYMENT: 0, CHANGE_EMPLOYER: 0, AMENDED_PETITION: 0,
     EMPLOYER_NAME: r.name, TRADE_NAME_DBA: r.trade ?? "", EMPLOYER_STATE: r.state ?? "CA", EMPLOYER_FEIN: r.fein,
@@ -116,12 +119,17 @@ const UNLISTED_FEINS = [GPS, ORTHO, SMALL, WEAK, STRONG, POSTAL, ACME].flatMap((
 const lca = (e: { name: string; fein: string }, date: Date, extra: Partial<Lca> = {}) => lcaRow({ ...e, date, ...extra });
 
 /** FY2025 Q1 to Q4 and FY2026 Q1 (one quarter each), PERM FY2025 Q2 and Q4 (cumulative), LMIA 2025 Q1 to Q4. */
+/** R43: a case certified in one quarter is listed again as Certified - Withdrawn in the quarter it is withdrawn. */
+const RECENT_CASE = "I-200-24355-000001"; // received 20 December 2024, 12 days before FY2025 Q2
+const OLD_CASE = "I-200-24150-000002"; // received 29 May 2024, long before FY2025 Q3
+const relisted = (caseNo: string, date: Date) => lca(G, date, { caseNo, status: "Certified - Withdrawn" });
 const LCA_FILES: Record<string, unknown[][]> = {
   "2025-1": [
     lca(G, day(2024, 10, 15), { pay: 140000 }), lca(G, day(2024, 11, 15), { pay: 145000 }),
-    lca(G, day(2024, 12, 15), { pay: 150000 }), lca(WEAK, day(2024, 11, 1)), lca(STRONG, day(2024, 11, 2)),
+    lca(G, day(2024, 12, 27), { pay: 150000, caseNo: RECENT_CASE }), lca(WEAK, day(2024, 11, 1)), lca(STRONG, day(2024, 11, 2)),
   ],
   "2025-2": [
+    relisted(RECENT_CASE, day(2025, 2, 1)), // only the case numbers seen in the earlier file catch this one
     lca(G, day(2025, 1, 15), { pay: 155000 }), lca(G, day(2025, 2, 15), { pay: 160000 }),
     lca(G, day(2025, 3, 15), { pay: 165000 }), lca(GPS, day(2025, 1, 20)), lca(GPS, day(2025, 2, 20)),
     lca(SMALL, day(2025, 2, 1)), lca(SMALL, day(2025, 3, 1)), lca(WEAK, day(2025, 2, 2)),
@@ -129,6 +137,7 @@ const LCA_FILES: Record<string, unknown[][]> = {
     lca(ORTHO, day(2025, 1, 5)), lca(ORTHO, day(2025, 2, 5)), lca(ORTHO, day(2025, 3, 5)),
   ],
   "2025-3": [
+    relisted(OLD_CASE, day(2025, 5, 1)), // the receipt date catches this one: its first listing is outside the build
     lca(G, day(2025, 4, 15), { pay: 170000 }), lca(G, day(2025, 5, 15), { pay: 175000 }),
     lca(G, day(2025, 6, 15), { pay: 180000 }), lca(G, day(2025, 6, 16), { visa: "H-2B" }),
     lca(POSTAL, day(2025, 4, 1)), lca(POSTAL, day(2025, 5, 1)), lca(POSTAL, day(2025, 6, 1)),
@@ -292,6 +301,17 @@ describe("runBuild end to end", () => {
     const ortho = readJson(outDir, "data/v1/companies/leeortho.test.json");
     expect(ortho.legalNames).toEqual(["LEE ORTHODONTICS DDS PC"]);
     expect(ortho.sponsorship.lca[0]).toMatchObject({ year: 2025, total: { filings: 3 } });
+  });
+
+  it("skips withdrawal relistings across files and by receipt date, and reports only the count (R43)", () => {
+    expect(r.stats.files.map((f) => f.skippedRelisted ?? null)).toEqual([0, 1, 1, 0, 0, null, null, null, null, null]);
+    const meta = readJson(outDir, "data/v1/meta.json") as Meta;
+    const line = meta.warnings.find((w) => w.includes("relist"));
+    expect(line).toBe(
+      'lca: 2 "Certified - Withdrawn" rows were left out as relistings of cases certified in an earlier quarter',
+    );
+    expect(r.warnings).toContain(line);
+    expect(allText(outDir)).not.toMatch(/I-200-/);
   });
 
   it("drops a weak person-named unprofiled owner with few filings and counts it", () => {
@@ -720,5 +740,23 @@ describe("dataset:build CLI summary", () => {
       "lca: 2 files in 3.0 s, read 20, kept 16, person-named 0, invalid 4 (email in name 1, status 2), trade names blanked 3",
     );
     expect(lines).toContain("lmia: 1 files in 1.5 s, read 10, kept 8, person-named 0, invalid 2, trade names blanked 0");
+  });
+
+  it("adds the relisted count for a source whose loader counts them (R43)", () => {
+    const file = (skippedRelisted: number) => ({
+      source: "lca" as const, path: "lca/x.xlsx", year: 2025, quarter: 1, seconds: 1, read: 10, kept: 8, skippedPerson: 0,
+      skippedInvalid: 0, invalid: {}, tradeNamesBlanked: 0, skippedRelisted,
+    });
+    const lines = summaryLines({
+      ok: true, problems: [], warnings: [], files: [],
+      stats: {
+        years: null, droppedPersonLike: 0, droppedPostal: 0, totals: null,
+        owners: { total: 0, us: 0, ca: 0, both: 0, profiled: 0 },
+        files: [file(2), file(0)],
+      },
+    });
+    expect(lines).toContain(
+      "lca: 2 files in 2.0 s, read 20, kept 16, person-named 0, invalid 0, trade names blanked 0, withdrawal relistings 2",
+    );
   });
 });

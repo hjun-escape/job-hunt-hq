@@ -1,6 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { annualize, fiscalYearMonth, lcaStatus, parseAmount, permStatus, wageLevel } from "../../pipeline/normalize/us";
+import {
+  annualize,
+  caseReceivedDate,
+  fiscalQuarterStart,
+  fiscalYearMonth,
+  isCertifiedWithdrawn,
+  lcaStatus,
+  parseAmount,
+  permStatus,
+  wageLevel,
+} from "../../pipeline/normalize/us";
 
 describe("parseAmount", () => {
   it("handles currency symbols, commas, spaces and plain digits", () => {
@@ -81,6 +91,35 @@ describe("statuses", () => {
     expect(permStatus("Denied")).toBe("denied");
     expect(permStatus("Withdrawn")).toBe("withdrawn");
     expect(permStatus("odd")).toBeNull();
+  });
+});
+
+describe("withdrawal relistings (R43)", () => {
+  it("tells a Certified - Withdrawn status apart from the other certified ones", () => {
+    expect(isCertifiedWithdrawn("Certified - Withdrawn")).toBe(true);
+    expect(isCertifiedWithdrawn(" certified-withdrawn ")).toBe(true);
+    expect(isCertifiedWithdrawn("Certified")).toBe(false);
+    expect(isCertifiedWithdrawn("Withdrawn")).toBe(false);
+    expect(isCertifiedWithdrawn("")).toBe(false);
+  });
+
+  it("reads the receipt date from a case number: YY is the year, DDD the day of the year", () => {
+    expect(caseReceivedDate("I-200-26010-123456")).toEqual(new Date(Date.UTC(2026, 0, 10)));
+    expect(caseReceivedDate(" i-200-25300-000001 ")).toEqual(new Date(Date.UTC(2025, 9, 27)));
+    expect(caseReceivedDate("I-203-24366-000001")).toEqual(new Date(Date.UTC(2024, 11, 31))); // a leap year
+  });
+
+  it("gives null for anything that is not a well-formed case number, without throwing", () => {
+    for (const bad of ["", "garbage", "I-200-25366-000001", "I-200-25000-000001", "I-200-2501-000001", "I-200-25001-12345", "A-200-25001-123456"]) {
+      expect(caseReceivedDate(bad), bad).toBeNull();
+    }
+  });
+
+  it("starts fiscal quarters on 1 October, 1 January, 1 April and 1 July", () => {
+    expect(fiscalQuarterStart(2026, 1)).toEqual(new Date(Date.UTC(2025, 9, 1)));
+    expect(fiscalQuarterStart(2026, 2)).toEqual(new Date(Date.UTC(2026, 0, 1)));
+    expect(fiscalQuarterStart(2026, 3)).toEqual(new Date(Date.UTC(2026, 3, 1)));
+    expect(fiscalQuarterStart(2026, 4)).toEqual(new Date(Date.UTC(2026, 6, 1)));
   });
 });
 

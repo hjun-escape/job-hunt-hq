@@ -238,6 +238,7 @@ describe("loadUs", () => {
     expect(filings).toHaveLength(2);
     expect(stats).toEqual({
       read: 6, kept: 2, skippedPerson: 1, skippedInvalid: 3, invalid: { status: 1, visa: 1, employer: 1 }, tradeNamesBlanked: 0,
+      skippedRelisted: 0,
     });
   });
 
@@ -257,7 +258,7 @@ describe("loadUs", () => {
     ]);
     expect(stats).toEqual({
       read: 5, kept: 3, skippedPerson: 0, skippedInvalid: 2,
-      invalid: { "email in name": 1, "name was only a number": 1 }, tradeNamesBlanked: 2,
+      invalid: { "email in name": 1, "name was only a number": 1 }, tradeNamesBlanked: 2, skippedRelisted: 0,
     });
   });
 
@@ -267,11 +268,12 @@ describe("loadUs", () => {
     const { rows, stats } = loadUs("perm", file, ctx);
     expect(await collect(rows)).toHaveLength(1);
     expect(stats.kept).toBe(1);
+    expect(stats.skippedRelisted).toBeUndefined();
   });
 
   it("never carries personal columns or postal codes from the file into a filing", async () => {
     const lcaHeader = [...EXPECTED_COLUMNS.lca, "EMPLOYER_POC_EMAIL", "PREPARER_EMAIL", "AGENT_ATTORNEY_EMAIL", "EMPLOYER_ADDRESS1"];
-    const lcaFile = await xlsx("lca-privacy.xlsx", lcaHeader, [row(lcaHeader, { ...lcaRow, EMPLOYER_POC_EMAIL: "poc@example.com",
+    const lcaFile = await xlsx("lca-privacy.xlsx", lcaHeader, [row(lcaHeader, { ...lcaRow, CASE_NUMBER: "I-200-26070-424242", EMPLOYER_POC_EMAIL: "poc@example.com",
       PREPARER_EMAIL: "prep@example.com", AGENT_ATTORNEY_EMAIL: "atty@example.com", EMPLOYER_ADDRESS1: "1 Example Way" })]);
     const permHeader = [...EXPECTED_COLUMNS.perm, "DECL_PREP_EMAIL", "EMP_POC_EMAIL"];
     const permFile = await xlsx("perm-privacy.xlsx", permHeader, [row(permHeader, { ...permRow,
@@ -284,5 +286,60 @@ describe("loadUs", () => {
     expect(json).not.toContain("example.com");
     expect(json).not.toContain("Example Way");
     expect(json).not.toContain("98101");
+    expect(json).not.toContain("424242");
+  });
+});
+
+describe("withdrawal relistings (R43)", () => {
+  const header = EXPECTED_COLUMNS.lca;
+  const cw = (caseNo: string, extra: Record<string, string> = {}) =>
+    row(header, { ...lcaRow, CASE_STATUS: "Certified - Withdrawn", CASE_NUMBER: caseNo, ...extra });
+  const certified = (caseNo: string) => row(header, { ...lcaRow, CASE_NUMBER: caseNo });
+
+  it("skips a Certified - Withdrawn row whose case an earlier file of the same build already listed", async () => {
+    const q1 = await xlsx("relist-q1.xlsx", header, [certified("I-200-25290-000001"), certified("I-200-25291-000002")]);
+    const q2 = await xlsx("relist-q2.xlsx", header, [cw("I-200-25290-000001", { DECISION_DATE: "2026-02-10" })]);
+    const seen = new Set<string>();
+    const a = loadUs("lca", q1, ctx, { seen, period: { year: 2026, quarter: 1 } });
+    expect(await collect(a.rows)).toHaveLength(2);
+    expect(a.stats.skippedRelisted).toBe(0);
+    // No period for the second file: only the shared set can catch it.
+    const b = loadUs("lca", q2, ctx, { seen });
+    expect(await collect(b.rows)).toEqual([]);
+    expect(b.stats).toMatchObject({ read: 1, kept: 0, skippedRelisted: 1, skippedInvalid: 0, skippedPerson: 0 });
+  });
+
+  it("skips a Certified - Withdrawn row received more than 14 days before the quarter its file covers", async () => {
+    // FY2026 Q2 starts 2026-01-01. Day 300 of 2025 is 27 October 2025, 66 days earlier.
+    const file = await xlsx("relist-old.xlsx", header, [cw("I-200-25300-000003"), certified("I-200-25300-000004")]);
+    const { rows, stats } = loadUs("lca", file, ctx, { period: { year: 2026, quarter: 2 } });
+    const kept = await collect(rows);
+    expect(kept).toHaveLength(1);
+    expect(kept[0].status).toBe("certified");
+    expect(stats).toMatchObject({ read: 2, kept: 1, skippedRelisted: 1 });
+  });
+
+  it("keeps a Certified - Withdrawn row received in its own quarter, or up to 14 days before it", async () => {
+    // 10 January 2026, and 18 December 2025 (14 days before 1 January).
+    const file = await xlsx("relist-same.xlsx", header, [cw("I-200-26010-000005"), cw("I-200-25352-000006")]);
+    const { rows, stats } = loadUs("lca", file, ctx, { seen: new Set(), period: { year: 2026, quarter: 2 } });
+    expect((await collect(rows)).map((f) => f.status)).toEqual(["certified", "certified"]);
+    expect(stats).toMatchObject({ kept: 2, skippedRelisted: 0 });
+  });
+
+  it("keeps a row with a blank or malformed case number, and never treats a blank as already seen", async () => {
+    const file = await xlsx("relist-bad.xlsx", header, [
+      certified(""), cw(""), cw("garbage"), cw("I-200-25999-000007"), cw("I-200-2530-000008"),
+    ]);
+    const { rows, stats } = loadUs("lca", file, ctx, { seen: new Set(), period: { year: 2026, quarter: 2 } });
+    expect(await collect(rows)).toHaveLength(5);
+    expect(stats).toMatchObject({ read: 5, kept: 5, skippedRelisted: 0 });
+  });
+
+  it("counts a relisting only for a row that would otherwise be kept", async () => {
+    const file = await xlsx("relist-invalid.xlsx", header, [cw("I-200-25300-000009", { VISA_CLASS: "H-2B" })]);
+    const { rows, stats } = loadUs("lca", file, ctx, { period: { year: 2026, quarter: 2 } });
+    expect(await collect(rows)).toEqual([]);
+    expect(stats).toMatchObject({ skippedInvalid: 1, skippedRelisted: 0 });
   });
 });

@@ -68,6 +68,34 @@ export function permStatus(s: string): CaseStatus | null {
   return STATUSES[statusKey(s)] ?? null;
 }
 
+/** True for an LCA "Certified - Withdrawn" status (any case, spaces around the hyphen ignored). */
+export function isCertifiedWithdrawn(s: string): boolean {
+  return statusKey(s) === "certified-withdrawn";
+}
+
+const DAY_MS = 86_400_000;
+/** I-<3-digit program code>-<YY><DDD>-<6-digit sequence>, as in I-200-25300-123456 (H-1B) or I-203-... (E-3). */
+const CASE_NUMBER = /^I-\d{3}-(\d{2})(\d{3})-\d{6}$/;
+
+/**
+ * The date DOL received an LCA, from its case number: YY is the calendar year (20YY) and DDD the day of that
+ * year (checked against RECEIVED_DATE on a real file: the same day or one day later). Null for anything that is
+ * not a well-formed case number, including a day the year does not have; never throws.
+ */
+export function caseReceivedDate(caseNumber: string): Date | null {
+  const m = CASE_NUMBER.exec(caseNumber.trim().toUpperCase());
+  if (!m) return null;
+  const year = 2000 + Number(m[1]);
+  const doy = Number(m[2]);
+  const days = (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / DAY_MS;
+  return doy >= 1 && doy <= days ? new Date(Date.UTC(year, 0, doy)) : null;
+}
+
+/** The first day (UTC midnight) of a federal fiscal quarter: Q1 starts 1 October of the year before. */
+export function fiscalQuarterStart(fiscalYear: number, quarter: number): Date {
+  return new Date(Date.UTC(quarter === 1 ? fiscalYear - 1 : fiscalYear, [9, 0, 3, 6][quarter - 1], 1));
+}
+
 /** Prevailing wage level I to IV; anything else, including blank, is "N/A". */
 export function wageLevel(s: string): WageLevel {
   const u = s.trim().toUpperCase();

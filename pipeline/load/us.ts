@@ -2,13 +2,24 @@
 // filters them), and postal codes are used to place the worksite and never stored. Filed names are cleaned
 // first: an email in a name skips the row or blanks the trade name (R34), and FEIN-shaped numbers are removed
 // from names (R35, except a Canadian numbered-company name, R37), so neither can reach a published name.
+// LCA case numbers are read only to drop withdrawal relistings (R43) and never stored.
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type LoadStats, type UsFiling } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
 import { personNameSignal, stripFeinTokens } from "../normalize/names";
 import type { PlaceIndex } from "../normalize/places";
 import type { RoleSet } from "../normalize/roles";
-import { annualize, fiscalYearMonth, lcaStatus, parseAmount, permStatus, wageLevel } from "../normalize/us";
+import {
+  annualize,
+  caseReceivedDate,
+  fiscalQuarterStart,
+  fiscalYearMonth,
+  isCertifiedWithdrawn,
+  lcaStatus,
+  parseAmount,
+  permStatus,
+  wageLevel,
+} from "../normalize/us";
 import { readRows } from "./rows";
 
 export type LoadContext = {
@@ -201,18 +212,61 @@ export function mapPermRow(row: Record<string, string>, ctx: LoadContext): UsFil
   return "filing" in o ? o.filing : null;
 }
 
+/**
+ * R43: LCA quarterly files hold one quarter each, and a case certified in one quarter and withdrawn in a later
+ * one is listed again, as "Certified - Withdrawn", in the quarter of the withdrawal. Such a relisting is left out.
+ */
+export type LcaRelisting = {
+  /**
+   * Case numbers from earlier LCA rows of this build. The build passes one set across every LCA file, read in
+   * year and quarter order. Without it each call starts its own set.
+   */
+  seen?: Set<string>;
+  /** The fiscal year and quarter the file covers, for the receipt-date rule. Without it that rule is not applied. */
+  period?: { year: number; quarter: number };
+};
+
+/** Received more than this long before the file's quarter began, a "Certified - Withdrawn" row is a relisting. */
+const RELIST_TOLERANCE_MS = 14 * 86_400_000;
+
+/**
+ * True for a "Certified - Withdrawn" row whose case number is in `seen`, or whose receipt date (from the case
+ * number) is more than 14 days before `quarterStart`. A blank or malformed case number never matches either rule.
+ */
+function isRelisting(row: Record<string, string>, caseNo: string, seen: Set<string>, quarterStart: number | null): boolean {
+  if (!isCertifiedWithdrawn(row.CASE_STATUS ?? "")) return false;
+  if (caseNo !== "" && seen.has(caseNo)) return true;
+  const received = quarterStart === null ? null : caseReceivedDate(caseNo);
+  return received !== null && quarterStart! - received.getTime() > RELIST_TOLERANCE_MS;
+}
+
 /** `stats` is filled in as `rows` is iterated, so read it after the iteration finishes. */
 export function loadUs(
   source: "lca" | "perm",
   path: string,
   ctx: LoadContext,
+  relisting: LcaRelisting = {},
 ): { rows: AsyncIterable<UsFiling>; stats: LoadStats } {
   const stats = emptyLoadStats();
   const outcome = source === "lca" ? lcaOutcome : permOutcome;
+  const lca = source === "lca";
+  if (lca) stats.skippedRelisted = 0;
+  const seen = relisting.seen ?? new Set<string>();
+  const quarterStart = relisting.period ? fiscalQuarterStart(relisting.period.year, relisting.period.quarter).getTime() : null;
   async function* rows(): AsyncGenerator<UsFiling> {
     for await (const row of readRows(path, EXPECTED_COLUMNS[source])) {
       stats.read++;
       const o = outcome(row, ctx);
+      if (lca) {
+        // Checked only for a row that would be kept, so the other skip counts are unchanged; every case is noted.
+        const caseNo = (row.CASE_NUMBER ?? "").trim().toUpperCase();
+        const relisted = "filing" in o && isRelisting(row, caseNo, seen, quarterStart);
+        if (caseNo !== "") seen.add(caseNo);
+        if (relisted) {
+          stats.skippedRelisted!++;
+          continue;
+        }
+      }
       if ("filing" in o) {
         stats.kept++;
         if (o.tradeBlanked) stats.tradeNamesBlanked++;
