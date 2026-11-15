@@ -35,7 +35,7 @@ The build refuses to continue without the comparison on purpose, so a bad week c
 
 ## If the build issue says "<source> data looks stale"
 
-The newest quarter the build found for that source (`lca`, `perm` or `lmia`) ended more than 150 days ago. DOL and ESDC post a new quarter well within that, so the usual cause is that the source moved its files and the download step only finds old ones. The live data stays as it was until this is fixed.
+The newest quarter the build found for that source (`lca`, `perm` or `lmia`) ended more than 150 days ago. Either the source moved its files, so the download step only finds old ones, or the source is late with its next quarter (ESDC's LMIA list has lagged by more than four months). The live data stays as it was until a build passes.
 
 1. Open the source page: DOL's performance data page (https://www.dol.gov/agencies/eta/foreign-labor/performance) for `lca` and `perm`, or the positive LMIA employers dataset on open.canada.ca for `lmia`.
 2. If a newer quarter is listed under a new address or file name, update `lcaUrlCandidates` / `permUrlCandidates` in `pipeline/sources.ts`, or the resource parsing in `pipeline/cli/download.ts` for LMIA, then run `npm run dataset:download` locally to confirm the new file is found, and re-run the workflow.
