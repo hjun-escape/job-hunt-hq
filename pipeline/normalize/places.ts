@@ -8,8 +8,12 @@ import type { Place } from "../types";
 export type UsCountyRow = { state: string; county: string; cbsa: string; title: string };
 export type CaCsdRow = { province: string; csd: string; cma: string; title: string };
 
+export type UsZipRow = { zip: string; cbsa: string };
+/** A well-known name inside a CMA that is not a census subdivision, pointing at the CSD that contains it. */
+export type CaAliasRow = { province: string; alias: string; csd: string };
+
 export type PlaceIndex = {
-  us(county: string | null, state: string | null): Place;
+  us(county: string | null, state: string | null, zip?: string | null): Place;
   ca(city: string | null, province: string | null): Place;
   label(key: string): string;
 };
@@ -105,9 +109,16 @@ function setUnique(map: Map<string, string | null>, key: string, value: string) 
   else if (map.get(key) !== value) map.set(key, null);
 }
 
-export function createPlaceIndex(usRows: UsCountyRow[], caRows: CaCsdRow[]): PlaceIndex {
+export function createPlaceIndex(
+  usRows: UsCountyRow[],
+  caRows: CaCsdRow[],
+  zipRows: UsZipRow[] = [],
+  aliasRows: CaAliasRow[] = [],
+): PlaceIndex {
   const usMap = new Map<string, string | null>();
   const caMap = new Map<string, string | null>();
+  const zipMap = new Map(zipRows.map((r) => [r.zip, r.cbsa]));
+  const aliasMap = new Map<string, string>();
   const labels = new Map<string, string>();
   for (const [code, name] of Object.entries(US_STATES)) labels.set(`US-${code}`, name);
   for (const [code, name] of Object.entries(CA_PROVINCES)) labels.set(`CA-${code}`, name);
@@ -122,17 +133,26 @@ export function createPlaceIndex(usRows: UsCountyRow[], caRows: CaCsdRow[]): Pla
     labels.set(`cma:${r.cma}`, r.title);
   }
 
+  for (const r of aliasRows) {
+    const cma = caMap.get(`${r.province}|${nameKey(r.csd)}`);
+    if (cma) aliasMap.set(`${r.province}|${nameKey(r.alias)}`, cma);
+  }
+
   return {
-    us(county, state) {
+    // A 5-digit ZIP (or the first five digits of ZIP+4) that maps to a metro wins; then the county; then region only.
+    us(county, state, zip) {
       const st = usStateCode(state);
-      if (!st) return { metro: null, region: "US" };
-      const cbsa = county ? usMap.get(`${st}|${countyKey(county)}`) : null;
-      return { metro: cbsa ? `cbsa:${cbsa}` : null, region: `US-${st}` };
+      const z = zip ? /^\s*(\d{5})(?:\D|$)/.exec(zip)?.[1] : undefined;
+      const byZip = z ? zipMap.get(z) : undefined;
+      const cbsa = byZip ?? (st && county ? usMap.get(`${st}|${countyKey(county)}`) : null);
+      return { metro: cbsa ? `cbsa:${cbsa}` : null, region: st ? `US-${st}` : "US" };
     },
     ca(city, province) {
       const pr = caProvinceCode(province);
       if (!pr) return { metro: null, region: "CA" };
-      const cma = city ? caMap.get(`${pr}|${nameKey(city)}`) : null;
+      const key = city ? `${pr}|${nameKey(city)}` : null;
+      // Aliases are consulted only after a direct CSD miss; an ambiguous CSD name stays unplaced.
+      const cma = key ? (caMap.has(key) ? caMap.get(key) : aliasMap.get(key)) : null;
       return { metro: cma ? `cma:${cma}` : null, region: `CA-${pr}` };
     },
     label: (key) => labels.get(key) ?? key,
@@ -141,6 +161,8 @@ export function createPlaceIndex(usRows: UsCountyRow[], caRows: CaCsdRow[]): Pla
 
 export const US_REFERENCE_FILE = "us-counties-cbsa.csv";
 export const CA_REFERENCE_FILE = "ca-csd-cma.csv";
+export const ZIP_REFERENCE_FILE = "us-zip-cbsa.csv";
+export const CA_ALIAS_FILE = "ca-aliases.csv";
 
 export async function loadPlaceIndex(dir = "data/reference"): Promise<PlaceIndex> {
   const us: UsCountyRow[] = [];
@@ -151,7 +173,13 @@ export async function loadPlaceIndex(dir = "data/reference"): Promise<PlaceIndex
   for await (const r of readRows(path.join(dir, CA_REFERENCE_FILE), ["province", "csd", "cma", "title"])) {
     ca.push({ province: r.province, csd: r.csd, cma: r.cma, title: r.title });
   }
-  return createPlaceIndex(us, ca);
+  const zips: UsZipRow[] = [];
+  for await (const r of readRows(path.join(dir, ZIP_REFERENCE_FILE), ["zip", "cbsa"])) zips.push({ zip: r.zip, cbsa: r.cbsa });
+  const aliases: CaAliasRow[] = [];
+  for await (const r of readRows(path.join(dir, CA_ALIAS_FILE), ["province", "alias", "csd"])) {
+    aliases.push({ province: r.province, alias: r.alias, csd: r.csd });
+  }
+  return createPlaceIndex(us, ca, zips, aliases);
 }
 
 const PROVINCE_TOKEN = [

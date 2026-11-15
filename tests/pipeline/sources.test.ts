@@ -88,6 +88,8 @@ describe("url builders and columns", () => {
     expect(all.filter((c) => banned.test(c))).toEqual([]);
     const usOnly = [...EXPECTED_COLUMNS.lca, ...EXPECTED_COLUMNS.perm];
     expect(usOnly.filter((c) => /ADDRESS|_ADDR/i.test(c))).toEqual([]);
+    expect(EXPECTED_COLUMNS.lca).toContain("WORKSITE_POSTAL_CODE");
+    expect(EXPECTED_COLUMNS.perm).toContain("PRIMARY_WORKSITE_POSTAL_CODE");
   });
 });
 
@@ -230,6 +232,8 @@ describe("download run", () => {
   it("downloads only lca, perm and lmia by default", () => {
     expect(parseArgs([]).only).toEqual(["lca", "perm", "lmia"]);
     expect(parseArgs(["--only", "cbsa"]).only).toEqual(["cbsa"]);
+    expect(parseArgs(["--only", "zcta"]).only).toEqual(["zcta"]);
+    expect(parseArgs([]).only).not.toContain("zcta");
     expect(parseArgs(["--gaf-file", "/x/a.zip"])).toMatchObject({ gafFile: "/x/a.zip" });
     expect(parseArgs(["--gaf-file", "/x/a.zip"]).only).toContain("gaf");
   });

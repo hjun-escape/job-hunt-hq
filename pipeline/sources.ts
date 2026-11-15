@@ -7,6 +7,8 @@ export const LMIA_PACKAGE_API =
   "https://open.canada.ca/data/api/3/action/package_show?id=90fed587-1364-4f33-a9ee-208181dc0b97";
 export const CBSA_DELINEATION_URL =
   "https://www2.census.gov/programs-surveys/metro-micro/geographies/reference-files/2023/delineation-files/list1_2023.xlsx";
+export const ZCTA_COUNTY_URL =
+  "https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt";
 export const STATCAN_GAF_PAGE_URL =
   "https://www12.statcan.gc.ca/census-recensement/2021/geo/aip-pia/attribute-attribs/index2021-eng.cfm?year=2021";
 export const STATCAN_GAF_URL =
@@ -47,18 +49,19 @@ export const DEFAULT_USER_AGENT = "job-hunt-hq-dataset/1 (+https://github.com/hj
 export const USER_AGENTS: Record<string, string> = {};
 
 /** Allowed columns only. Personal columns (contacts, attorneys, law firms, preparers, phones, street lines) never appear here. */
+// Postal codes are read only to place a worksite in a metro and never leave the loader.
 export const EXPECTED_COLUMNS: { lca: string[]; perm: string[]; lmia: string[] } = {
   lca: [
     "CASE_STATUS", "DECISION_DATE", "VISA_CLASS", "JOB_TITLE", "SOC_CODE", "TOTAL_WORKER_POSITIONS",
     "NEW_EMPLOYMENT", "CONTINUED_EMPLOYMENT", "CHANGE_PREVIOUS_EMPLOYMENT", "NEW_CONCURRENT_EMPLOYMENT",
     "CHANGE_EMPLOYER", "AMENDED_PETITION", "EMPLOYER_NAME", "TRADE_NAME_DBA", "EMPLOYER_STATE",
-    "EMPLOYER_FEIN", "WORKSITE_COUNTY", "WORKSITE_STATE", "WAGE_RATE_OF_PAY_FROM", "WAGE_UNIT_OF_PAY",
+    "EMPLOYER_FEIN", "WORKSITE_COUNTY", "WORKSITE_STATE", "WORKSITE_POSTAL_CODE", "WAGE_RATE_OF_PAY_FROM", "WAGE_UNIT_OF_PAY",
     "PW_WAGE_LEVEL",
   ],
   perm: [
     "CASE_STATUS", "DECISION_DATE", "EMP_BUSINESS_NAME", "EMP_TRADE_NAME", "EMP_FEIN", "EMP_STATE",
     "JOB_TITLE", "PWD_SOC_CODE", "JOB_OPP_WAGE_FROM", "JOB_OPP_WAGE_PER", "PRIMARY_WORKSITE_COUNTY",
-    "PRIMARY_WORKSITE_STATE",
+    "PRIMARY_WORKSITE_STATE", "PRIMARY_WORKSITE_POSTAL_CODE",
   ],
   // "Address" is kept for the city and province; the loader discards the street line in its mapper.
   lmia: [
@@ -68,7 +71,7 @@ export const EXPECTED_COLUMNS: { lca: string[]; perm: string[]; lmia: string[] }
 };
 
 export type SourceFile = {
-  source: "lca" | "perm" | "lmia" | "cbsa" | "gaf";
+  source: "lca" | "perm" | "lmia" | "cbsa" | "gaf" | "zcta";
   year?: number;
   quarter?: number;
   url: string;

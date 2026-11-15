@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { checkZipListing, validateAliases, zipModes } from "../../pipeline/cli/reference";
 import {
   caProvinceCode,
   createPlaceIndex,
@@ -28,7 +29,20 @@ const ca: CaCsdRow[] = [
   { province: "ON", csd: "Clash", cma: "100", title: "A" },
   { province: "ON", csd: "Clash", cma: "200", title: "B" },
 ];
-const idx = createPlaceIndex(us, ca);
+const idx = createPlaceIndex(
+  us,
+  ca,
+  [
+    { zip: "02139", cbsa: "14460" },
+    { zip: "95054", cbsa: "41940" },
+  ],
+  [
+    { province: "ON", alias: "Scarborough", csd: "Toronto" },
+    { province: "QC", alias: "Saint-Laurent", csd: "Montréal" },
+    { province: "ON", alias: "Ghost", csd: "Nowhere" },
+    { province: "ON", alias: "Mississauga", csd: "Ottawa" },
+  ],
+);
 
 describe("PlaceIndex.us", () => {
   it("places counties and normalises both sides", () => {
@@ -54,6 +68,41 @@ describe("PlaceIndex.us", () => {
 
   it("gives no metro when a county name maps to two metros", () => {
     expect(idx.us("Dup", "TX")).toEqual({ metro: null, region: "US-TX" });
+  });
+});
+
+describe("PlaceIndex.us with a ZIP", () => {
+  it("lets a ZIP that maps to a metro win, even when the county is missing or a town name", () => {
+    expect(idx.us(null, "MA", "02139")).toEqual({ metro: "cbsa:14460", region: "US-MA" });
+    expect(idx.us("CAMBRIDGE CITY", "MA", "02139").metro).toBe("cbsa:14460");
+    expect(idx.us("Santa Clara", "CA", "02139").metro).toBe("cbsa:14460");
+  });
+
+  it("uses the first five digits of ZIP+4 and ignores anything that is not a ZIP", () => {
+    expect(idx.us(null, "CA", "95054-1234").metro).toBe("cbsa:41940");
+    expect(idx.us(null, "CA", "950541234").metro).toBeNull();
+    expect(idx.us(null, "CA", "9505").metro).toBeNull();
+    expect(idx.us(null, "CA", "ABCDE").metro).toBeNull();
+  });
+
+  it("falls back to the county when the ZIP is unknown, and to the region when both are blank", () => {
+    expect(idx.us("Santa Clara", "CA", "99999")).toEqual({ metro: "cbsa:41940", region: "US-CA" });
+    expect(idx.us("", "CA", "")).toEqual({ metro: null, region: "US-CA" });
+    expect(idx.us(null, "CA", null)).toEqual({ metro: null, region: "US-CA" });
+    expect(idx.us(null, null, undefined)).toEqual({ metro: null, region: "US" });
+  });
+});
+
+describe("PlaceIndex.ca aliases", () => {
+  it("places a former municipality through its alias", () => {
+    expect(idx.ca("Scarborough", "ON")).toEqual({ metro: "cma:535", region: "CA-ON" });
+    expect(idx.ca("Saint Laurent", "QC").metro).toBe("cma:462");
+    expect(idx.ca("Scarborough", "QC").metro).toBeNull();
+  });
+
+  it("ignores an alias whose CSD is unknown, and prefers a direct CSD match over an alias", () => {
+    expect(idx.ca("Ghost", "ON").metro).toBeNull();
+    expect(idx.ca("Mississauga", "ON").metro).toBe("cma:535");
   });
 });
 
@@ -153,5 +202,43 @@ describe("parseCaAddress", () => {
     expect(parseCaAddress("123 Main St, ON")).toEqual({ city: null, province: "ON" });
     expect(parseCaAddress("123 Main St, Nowhereland")).toEqual({ city: null, province: null });
     expect(parseCaAddress("   ")).toEqual({ city: null, province: null });
+  });
+});
+
+describe("reference CLI safety checks", () => {
+  const plain = ["-rw-r--r--", "drwxr-xr-x"];
+  it("accepts a plain listing", () => {
+    expect(() => checkZipListing(["a.csv", "dir/b.csv"], plain)).not.toThrow();
+  });
+
+  it("rejects traversal, absolute paths, backslashes and an empty archive", () => {
+    expect(() => checkZipListing(["../x"], plain)).toThrow(/unsafe path/);
+    expect(() => checkZipListing(["a/../../x"], plain)).toThrow(/unsafe path/);
+    expect(() => checkZipListing(["/etc/x"], plain)).toThrow(/unsafe path/);
+    expect(() => checkZipListing(["a\\b"], plain)).toThrow(/unsafe path/);
+    expect(() => checkZipListing([], [])).toThrow(/empty/);
+  });
+
+  it("rejects a symlink entry, read from unzip -Z output", () => {
+    const out = [
+      "Archive:  x.zip",
+      "-rw-r--r--  3.0 unx      10 tx stor 22-Jan-27 14:29 a.csv",
+      "lrwxr-xr-x  3.0 unx       5 tx stor 22-Jan-27 14:29 attributes.utf8.csv",
+      "2 files, 15 bytes uncompressed",
+    ].join("\n");
+    expect(zipModes(out)).toEqual(["-rw-r--r--", "lrwxr-xr-x"]);
+    expect(() => checkZipListing(["a.csv", "attributes.utf8.csv"], zipModes(out))).toThrow(/non-regular/);
+  });
+
+  it("validates the alias table against the CSD table", () => {
+    const csds: CaCsdRow[] = [{ province: "ON", csd: "Toronto", cma: "535", title: "Toronto" }];
+    expect(() => validateAliases([{ province: "ON", alias: "York", csd: "Toronto" }], csds)).not.toThrow();
+    expect(() => validateAliases([{ province: "ON", alias: "York", csd: "Nowhere" }], csds)).toThrow(/unknown CSD/);
+    expect(() =>
+      validateAliases(
+        [{ province: "ON", alias: "York", csd: "Toronto" }, { province: "ON", alias: "Etobicoke", csd: "Toronto" }],
+        csds,
+      ),
+    ).toThrow(/not sorted/);
   });
 });

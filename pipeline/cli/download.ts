@@ -1,4 +1,4 @@
-// Usage: npm run dataset:download -- [--only lca,perm,lmia,cbsa,gaf] [--cache .cache/dataset]
+// Usage: npm run dataset:download -- [--only lca,perm,lmia,cbsa,gaf,zcta] [--cache .cache/dataset]
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -9,6 +9,7 @@ import { pipeline } from "node:stream/promises";
 import { politeFetch } from "../http";
 import {
   CBSA_DELINEATION_URL,
+  ZCTA_COUNTY_URL,
   LMIA_PACKAGE_API,
   STATCAN_GAF_PAGE_URL,
   currentFiscalYear,
@@ -24,7 +25,7 @@ import {
 } from "../sources";
 
 type Source = SourceFile["source"];
-const ALL_SOURCES: Source[] = ["lca", "perm", "lmia", "cbsa", "gaf"];
+const ALL_SOURCES: Source[] = ["lca", "perm", "lmia", "cbsa", "gaf", "zcta"];
 
 // ---- pure logic (tested offline) ----
 
@@ -227,6 +228,8 @@ async function resolveTargets(source: Source): Promise<Target[]> {
       return lmiaTargets();
     case "cbsa":
       return [{ source: "cbsa", url: CBSA_DELINEATION_URL, path: "cbsa/list1_2023.xlsx" }];
+    case "zcta":
+      return [{ source: "zcta", url: ZCTA_COUNTY_URL, path: "zcta/tab20_zcta520_county20_natl.txt" }];
     default:
       return [];
   }
