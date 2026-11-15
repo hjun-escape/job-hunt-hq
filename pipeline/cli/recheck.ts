@@ -1,26 +1,17 @@
 // Usage: npm run dataset:recheck -- --issue-body recheck.md [--report <url>]
 // Re-fetches every page cited by an official fact, compares text fingerprints with data/fingerprints.json,
-// rewrites that file and writes the weekly issue body. Never prints page text.
+// rewrites that file (URLs no longer cited are dropped) and writes the weekly issue body. Never prints page text.
 import { readFile, writeFile } from "node:fs/promises";
 import { loadProfiles } from "../profiles/load";
 import { politeFetch } from "../http";
 import { Report } from "../schema/published";
-import { issueBody, recheck, type Fetcher, type FingerprintStore } from "../check/recheck";
+import { issueBody, recheck, serializeStore, type Fetcher, type FingerprintStore } from "../check/recheck";
 
 const STORE_PATH = "data/fingerprints.json";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
   return i >= 0 ? process.argv[i + 1] : undefined;
-}
-
-export function serializeStore(store: FingerprintStore): string {
-  const sorted: FingerprintStore = {};
-  for (const k of Object.keys(store).sort()) {
-    const v = store[k];
-    sorted[k] = { checked: v.checked, hash: v.hash, status: v.status };
-  }
-  return JSON.stringify(sorted, null, 2) + "\n";
 }
 
 const fetcher: Fetcher = async (url) => {
