@@ -77,13 +77,13 @@ function entryOf(hash: string, status: number, checked: string, lastHash: string
 async function verdict(
   url: string,
   prev: FingerprintEntry | undefined,
-  fetched: ReturnType<Fetcher>,
+  fetcher: Fetcher,
   today: string,
 ): Promise<{ entry: FingerprintEntry | undefined; kinds: FlagKind[] }> {
   const lastReal = prev?.lastHash ?? (prev && prev.hash !== "manual" ? prev.hash : undefined);
   let res: Awaited<ReturnType<Fetcher>>;
   try {
-    res = await fetched;
+    res = await fetcher(url);
   } catch {
     return { entry: prev, kinds: ["manual"] }; // unreachable this week; keep the old fingerprint
   }
@@ -139,7 +139,7 @@ export async function recheck(
   for (const url of [...citing.keys()].sort(cmp)) {
     const facts = citing.get(url)!;
     const prev = store[url];
-    const { entry, kinds } = await verdict(url, prev, fetcher(url), todayStr);
+    const { entry, kinds } = await verdict(url, prev, fetcher, todayStr);
     const fresh = kinds.some((k) => PENDING.includes(k));
     let since = fresh ? (prev?.flaggedSince ?? todayStr) : prev?.flaggedSince;
     if (since !== undefined && facts.every((f) => f.checked >= since!)) since = undefined;

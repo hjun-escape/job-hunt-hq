@@ -111,6 +111,9 @@ describe("recheck", () => {
     const r = await recheck([profile()], store, async () => { throw new Error("boom"); }, today);
     expect(r.flags.map((f) => f.kind)).toEqual(["manual"]);
     expect(r.store).toEqual(store);
+    // A fetcher that throws before returning a promise is unreachable too, not a crash.
+    const sync = await recheck([profile()], store, (() => { throw new Error("boom"); }) as never, today);
+    expect(sync.flags.map((f) => f.kind)).toEqual(["manual"]);
   });
 
   it("does not fetch reported facts but flags them as old", async () => {
