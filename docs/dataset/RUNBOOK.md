@@ -8,7 +8,7 @@ Everything here is plain GitHub Actions plus a few local commands. Any workflow 
 
 **ci** (`.github/workflows/ci.yml`). Runs on every pull request and every push to master: typecheck, tests, and `npm run dataset:validate` (checks the hand-written company profiles). A red run means a profile or a code change is invalid; the log names the file. Re-run it from the Actions tab or by pushing a fix.
 
-**dataset-recheck** (`.github/workflows/dataset-recheck.yml`). The weekly source re-check of live links and profile data. Its issue lists profiles that need a human look. Re-run it from the Actions tab once you have fixed what it lists.
+**dataset-recheck** (`.github/workflows/dataset-recheck.yml`). Runs every Monday at 10:00 UTC, and on demand. It re-fetches every page cited by an official fact in `data/companies`, compares a fingerprint of the readable text with `data/fingerprints.json`, and writes the single open issue labelled `dataset-weekly` (created, or edited and commented on if one is already open). The issue lists changed sources, moved or gone pages, pages that need a manual check, facts not re-confirmed in 12 months, and the largest sponsors without a profile (from the published `report.json`, or "Not available" until the dataset is published). On master a second job commits the updated `data/fingerprints.json` as `data: update source fingerprints`. Review what the issue lists, update the profiles, and close the issue when done; the next run edits a fresh one if needed.
 
 ## Totals changes (`accept_totals_change`)
 

@@ -1,0 +1,267 @@
+{
+  "https://about.daangn.com/": {
+    "checked": "2026-11-15",
+    "hash": "113d0de8ab24e9d12d56e6c91d07cada209657723e7cb45405a1cfab97f899be",
+    "status": 200
+  },
+  "https://about.google/company-info/": {
+    "checked": "2026-11-15",
+    "hash": "b94ade5a7d8cb119aae831244f5553f1d1565ac582be37f1b93180a172e45ced",
+    "status": 200
+  },
+  "https://about.google/company-info/philosophy/": {
+    "checked": "2026-11-15",
+    "hash": "40e4d59d66f7cd1edb33d0356d531cbf1d42a0661966c3cd1aac1dd95aaee1f2",
+    "status": 200
+  },
+  "https://amazon.jobs/content/en/how-we-hire/interview-loop": {
+    "checked": "2026-11-15",
+    "hash": "f4952e5dc5e0cdc19ee0fd3ca6ed6873b9888e3cb1368efa623d1035e4ed4c72",
+    "status": 200
+  },
+  "https://careers.daangn.com/": {
+    "checked": "2026-11-15",
+    "hash": "23f2f7c218e67466d6fb2d65bd61b772f24b96302022ae1838089562276134e7",
+    "status": 200
+  },
+  "https://careers.daangn.com/culture/": {
+    "checked": "2026-11-15",
+    "hash": "f2544167c2ca8700c24038ea4a59da6d40a06ee67612660d1f0c6b4084a9fde8",
+    "status": 200
+  },
+  "https://careers.daangn.com/faq/%EC%A0%84%ED%98%95-%EA%B4%80%EB%A0%A8/": {
+    "checked": "2026-11-15",
+    "hash": "f16e2f4f041ea7f94c5fa8b07d400741bd45e4d9143acf59cb48bccef88e74d9",
+    "status": 200
+  },
+  "https://careers.daangn.com/faq/%EC%A7%80%EC%9B%90-%EA%B4%80%EB%A0%A8/": {
+    "checked": "2026-11-15",
+    "hash": "fa6187e59aca5824439ed5bf14994b02b34e67bf7ffbf584e42c1baab19362ef",
+    "status": 200
+  },
+  "https://careers.hootsuite.com/": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 202
+  },
+  "https://careers.hootsuite.com/privacy-policy": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 202
+  },
+  "https://careers.microsoft.com/v2/global/en/hiring-tips.html": {
+    "checked": "2026-11-15",
+    "hash": "bd6cf84a8cfad97688c0e0b80950c05ccafb1707a02ffb9e3fa2c69ca0ca46f3",
+    "status": 200
+  },
+  "https://cohere.com/about": {
+    "checked": "2026-11-15",
+    "hash": "05d4573e32fbd392b3bef923a45d1bd6203b16ee97329ece3762b498e2310917",
+    "status": 200
+  },
+  "https://cohere.com/careers": {
+    "checked": "2026-11-15",
+    "hash": "f8be3d5d232f64dbbe389150e0357df743aa3fea2fd551bfe19258097c1350ce",
+    "status": 200
+  },
+  "https://images.nvidia.com/aem-dam/en-zz/Solutions/about-us/NVIDIA-Code-of-Conduct-External.pdf": {
+    "checked": "2026-11-15",
+    "hash": "17f2d1448d89483d42bd42a4931ae253c4d3249911846b56937607182c1ff5e1",
+    "status": 200
+  },
+  "https://openai.com/about/": {
+    "checked": "2026-11-15",
+    "hash": "8ab2d2b1274ff006124342a59917ec64cfc1bc1fee9fef3ce581fc9c4e93d386",
+    "status": 200
+  },
+  "https://openai.com/careers/": {
+    "checked": "2026-11-15",
+    "hash": "c8bdee6ad28cefd6e2ecaaf6d65837ea91ded214dd541d01f8dba6a04fbffba5",
+    "status": 200
+  },
+  "https://openai.com/interview-guide/": {
+    "checked": "2026-11-15",
+    "hash": "71f51f157ce8971c169c3c6bd98ba21285a66f753f017c18ac8264bd6a09caba",
+    "status": 200
+  },
+  "https://shopify.engineering/nail-your-technical-shopify-interview": {
+    "checked": "2026-11-15",
+    "hash": "2bda3092b4bfac4f547522e1e43333e4e80f60743d7bafeeaa1a7cca6306ed39",
+    "status": 200
+  },
+  "https://stripe.com/careers": {
+    "checked": "2026-11-15",
+    "hash": "6eaec92392913545fe3ba898cbb34f726c27ba1eb1eedb3bc10d2697953d04f3",
+    "status": 200
+  },
+  "https://stripe.com/jobs/culture": {
+    "checked": "2026-11-15",
+    "hash": "95d0f4aca9a21ae018015aacf8c5eebb657a01b13ca2b84e743129eb1fca9eb1",
+    "status": 200
+  },
+  "https://stripe.com/jobs/search": {
+    "checked": "2026-11-15",
+    "hash": "2fcc299d8df9bd954c02ca574a2c4695df75970682dfe353beeadf4b175f7c41",
+    "status": 200
+  },
+  "https://support.google.com/googlecareers/answer/6095391": {
+    "checked": "2026-11-15",
+    "hash": "27e32ab3dc1d6c23fb2131b620958b33449deeb448e7a1d31f7f5f7389328e68",
+    "status": 200
+  },
+  "https://toss.im/career/faq/302": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://toss.im/career/faq/305": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://toss.im/career/faq/306": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://toss.im/career/faq/307": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://toss.im/career/faq/313": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://toss.im/career/faq/315": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://toss.im/career/joining-guide": {
+    "checked": "2026-11-15",
+    "hash": "1d1ae3fb79003e6b6e39aac6da38dc0cd050c408215201b7af80538071da86dc",
+    "status": 200
+  },
+  "https://toss.im/company": {
+    "checked": "2026-11-15",
+    "hash": "d774ca83c5bfa7c6a2e05c118385a20ab54ad64846b89ace4c796a0a2bf9dbd1",
+    "status": 200
+  },
+  "https://www.aboutamazon.com/about-us": {
+    "checked": "2026-11-15",
+    "hash": "5cd41b2e63a2cb77c16b269d0e367886c6be12764ae0ba1ebba25bb218693b19",
+    "status": 200
+  },
+  "https://www.amazon.jobs/content/en/faq/application": {
+    "checked": "2026-11-15",
+    "hash": "3ac102ca7efaa917465fa3ed24c03bf1f1c41b415a1471f511024397f4a60cc0",
+    "status": 200
+  },
+  "https://www.amazon.jobs/content/en/how-we-hire/interviewing-at-amazon": {
+    "checked": "2026-11-15",
+    "hash": "48beb75463443c19ecce0d7dc353df1686e33c18b11f827758a0a889c7554db2",
+    "status": 200
+  },
+  "https://www.amazon.jobs/content/en/our-workplace/leadership-principles": {
+    "checked": "2026-11-15",
+    "hash": "90df65a5c59ae2c3f3df0dba7be1b063f968b9312455f90e8133bf8750bebd54",
+    "status": 200
+  },
+  "https://www.anthropic.com/candidate-ai-guidance": {
+    "checked": "2026-11-15",
+    "hash": "e30c9d88fda5e37c2bd6966eb2cfbf8ac86400773123b56cdea03b98c379eec2",
+    "status": 200
+  },
+  "https://www.anthropic.com/careers": {
+    "checked": "2026-11-15",
+    "hash": "afe4dff2f7adda886d5113f17dcf5f6c630107ee5c26a9bdc40302ce2cda2e65",
+    "status": 200
+  },
+  "https://www.anthropic.com/company": {
+    "checked": "2026-11-15",
+    "hash": "410040170362751473fc99df9a89b42445a1810d89513c0836894f94a65feb3f",
+    "status": 200
+  },
+  "https://www.apple.com/": {
+    "checked": "2026-11-15",
+    "hash": "7f62ffb4197768f9ed2564b5c4342f5593b117d63886cf74aa9c4694788038f2",
+    "status": 200
+  },
+  "https://www.databricks.com/company/about-us": {
+    "checked": "2026-11-15",
+    "hash": "714088fe695c46d6221422d536687909cbd4453c3cbea1e9002a3e2ebf4550fb",
+    "status": 200
+  },
+  "https://www.databricks.com/company/careers/culture": {
+    "checked": "2026-11-15",
+    "hash": "a483eb875bf6648fa25ff8fb6eba56fe66c65bc59caee8abb587cbbd6921b8a9",
+    "status": 200
+  },
+  "https://www.databricks.com/company/careers/interview-prep": {
+    "checked": "2026-11-15",
+    "hash": "d4f3b27787a4434c5bf82e150198ea6ebe422d1e6a615c6697abad8c63fbbe8c",
+    "status": 200
+  },
+  "https://www.google.com/about/careers/applications/how-we-hire/": {
+    "checked": "2026-11-15",
+    "hash": "6b9c331e3740f013f32b8601be053ec97228df2738d2b8773a8ac725cf256377",
+    "status": 200
+  },
+  "https://www.hootsuite.com/about": {
+    "checked": "2026-11-15",
+    "hash": "769ed477bcb6b77ea582ce4472906ae258cf090e869643dad13571780fefb815",
+    "status": 200
+  },
+  "https://www.meta.com/about/company-info/": {
+    "checked": "2026-11-15",
+    "hash": "cae495ed386f7c33b5c941bb86d767f6b1fd75891be8aef30580087239e30410",
+    "status": 200
+  },
+  "https://www.metacareers.com/culture": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://www.metacareers.com/hiring-process/": {
+    "checked": "2026-11-15",
+    "hash": "manual",
+    "status": 200
+  },
+  "https://www.microsoft.com/en-us/about": {
+    "checked": "2026-11-15",
+    "hash": "3b980dd1d4077290a4710fac4327221d87272d88cae79a34ff67532f8e7c2a41",
+    "status": 200
+  },
+  "https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/": {
+    "checked": "2026-11-15",
+    "hash": "2a18d895700bc7576c5b43bef2cb80e03168c54e1b3cbb0d67fa57c9aadc5c13",
+    "status": 200
+  },
+  "https://www.shopify.com/careers": {
+    "checked": "2026-11-15",
+    "hash": "d3d72e096bc1869071365d9df0277c5f5714994f8d1f9799c255426c75a68e70",
+    "status": 200
+  },
+  "https://www.shopify.com/careers/candidate-guide/ai-usage": {
+    "checked": "2026-11-15",
+    "hash": "87cec502d73c4f1313e1b6f0cd888a486497493e6e05a4ae196d904667cc998d",
+    "status": 200
+  },
+  "https://www.shopify.com/careers/candidate-guide/are-you-ready": {
+    "checked": "2026-11-15",
+    "hash": "2528240bbb64424ebbc9b2014a3be8b0faaa28710cf281861f661498f770b228",
+    "status": 200
+  },
+  "https://www.shopify.com/careers/candidate-guide/world-view": {
+    "checked": "2026-11-15",
+    "hash": "28f2b67c714c995b58b5681ac84260da7dce8a6cf780258f536a60e8d680494b",
+    "status": 200
+  },
+  "https://www.shopify.com/careers/extraordinary": {
+    "checked": "2026-11-15",
+    "hash": "99fe6f8236f256564b42b2cd59095c94a9106fa3222824c61818ffa56a134862",
+    "status": 200
+  }
+}
