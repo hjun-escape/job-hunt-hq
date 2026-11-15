@@ -1,12 +1,13 @@
-// Per-owner accumulation of typed filings into published year blocks. Keeps running sums and pay values per
-// breakdown cell, never whole filings. Applies the small-cell rule, withholds small sub-counts, and applies
-// the person-name privacy gate.
+// Per-owner accumulation of typed filings into year blocks. Keeps running sums and pay values per breakdown
+// cell, never whole filings. Applies the small-cell rule and the person-name privacy gate; publish.ts decides
+// what each block shows.
 import { personNameSignal } from "../normalize/names";
-import type { CaCell, Sponsorship, Totals, TrendPair, UsCell } from "../schema/published";
+import type { CaCell, Sponsorship, Totals, UsCell } from "../schema/published";
 import type { YearSelection } from "../sources";
 import { WAGE_LEVELS, type CaApproval, type Country, type Place, type UsFiling } from "../types";
-import { payStats, rollUp, SUB_MIN, withholdCa, withholdUs, type RawCell } from "./cells";
-import { headlineOf, trend, type Program, type YearBlock } from "./trend";
+import { payStats, rollUp, type RawCell } from "./cells";
+import { publishCa, publishUs } from "./publish";
+import type { Program, YearBlock } from "./trend";
 
 /** Small-cell threshold: certified filings (US) or approved LMIAs (Canada). */
 const MIN = 3;
@@ -160,8 +161,9 @@ function caCell(c: CaSums, role: string, place: string): CaCell {
 }
 
 /**
- * A year block with raw sums. `through` is in the unit of `months`: `perQuarter` is 3 for US fiscal months
- * and 1 for Canadian quarters. Under MIN the block is only { year, partial, through?, tooFew }.
+ * A year block with raw sums, before publish.ts withholds anything. `through` is in the unit of `months`:
+ * `perQuarter` is 3 for US fiscal months and 1 for Canadian quarters. Under MIN the block is only
+ * { year, partial, through?, tooFew }.
  */
 function block<S extends RawCell, C>(
   year: number,
@@ -180,44 +182,6 @@ function block<S extends RawCell, C>(
     total: publish(v.cells.reduce(merge), "all", "all"),
     cells: rollUp(v.cells, merge, MIN).map((c) => publish(c, c.role, c.metro ?? c.region)),
   };
-}
-
-/**
- * The block as published: sub-counts withheld in the total and every cell. `months` is kept only when no
- * entry is 1 or 2 and `sumShown` says their sum gives away nothing withheld in the total.
- */
-function publishBlock<C>(b: YearBlock<C>, withhold: (c: C) => C, sumShown: (raw: C, shown: C) => boolean): YearBlock<C> {
-  if ("tooFew" in b) return b;
-  const total = withhold(b.total);
-  const months = b.months && b.months.every((n) => n === 0 || n >= SUB_MIN) && sumShown(b.total, total);
-  return {
-    year: b.year,
-    partial: b.partial,
-    ...(b.through !== undefined ? { through: b.through } : {}),
-    ...(months ? { months: b.months } : {}),
-    total,
-    cells: b.cells.map(withhold),
-  };
-}
-
-// LCA months sum to newHires + changeEmployer, so they are shown only when neither non-zero part is withheld.
-// PERM and LMIA months sum to filings and positions, which are always shown.
-const lcaSumShown = (raw: UsCell, shown: UsCell) =>
-  (!raw.newHires || shown.newHires !== undefined) && (!raw.changeEmployer || shown.changeEmployer !== undefined);
-const alwaysShown = () => true;
-
-/** Published blocks for one program, and its trends from the raw blocks (withholding never changes a trend). */
-function publishProgram<S extends RawCell, C extends UsCell | CaCell>(
-  p: Program,
-  rows: [number, YearView<S>][],
-  sel: YearSelection,
-  merge: (a: S, b: S) => S,
-  cell: (c: S, role: string, place: string) => C,
-  withhold: (c: C) => C,
-  sumShown: (raw: C, shown: C) => boolean,
-): { blocks: YearBlock<C>[]; trend: TrendPair } {
-  const raw = rows.map(([year, v]) => block(year, v, sel, p === "lmia" ? 1 : 3, merge, cell));
-  return { blocks: raw.map((b) => publishBlock(b, withhold, sumShown)), trend: trend(raw, (t) => headlineOf(p, t)) };
 }
 
 function plannedYears(sel: YearSelection): number[] {
@@ -368,17 +332,17 @@ export function createAccumulator() {
 
       const sponsorship: Sponsorship = { trends: {} };
       if (lca.length > 0) {
-        const r = publishProgram("lca", lca, plan.lca, mergeUs, lcaCell, withholdUs, lcaSumShown);
+        const r = publishUs("lca", lca.map(([year, v]) => block(year, v, plan.lca, 3, mergeUs, lcaCell)));
         sponsorship.lca = r.blocks;
         sponsorship.trends.lca = r.trend;
       }
       if (perm.length > 0) {
-        const r = publishProgram("perm", perm, plan.perm, mergeUs, permCell, withholdUs, alwaysShown);
+        const r = publishUs("perm", perm.map(([year, v]) => block(year, v, plan.perm, 3, mergeUs, permCell)));
         sponsorship.perm = r.blocks;
         sponsorship.trends.perm = r.trend;
       }
       if (lmia.length > 0) {
-        const r = publishProgram("lmia", lmia, plan.lmia, mergeCa, caCell, withholdCa, alwaysShown);
+        const r = publishCa(lmia.map(([year, v]) => block(year, v, plan.lmia, 1, mergeCa, caCell)));
         sponsorship.lmia = r.blocks;
         sponsorship.trends.lmia = r.trend;
       }

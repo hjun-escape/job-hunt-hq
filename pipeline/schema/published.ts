@@ -18,7 +18,8 @@ export const UsCell = z.object({
   role: z.string(),
   place: z.string(),
   filings: count,
-  // denied, withdrawn, the worker split, levels entries and streams entries are omitted under 3 (withheld).
+  // Cells carry role, place, filings, workers (LCA) and pay only. Totals carry the sub-counts below, each
+  // omitted under 3 (withheld, or zero).
   denied: count.optional(),
   withdrawn: count.optional(),
   workers: count.optional(),
@@ -36,7 +37,8 @@ export const CaCell = z.object({
   place: z.string(),
   lmias: count,
   positions: count,
-  streams: z.record(z.string(), count),
+  // Totals only; cells carry no streams.
+  streams: z.record(z.string(), count).optional(),
 });
 export type CaCell = z.infer<typeof CaCell>;
 

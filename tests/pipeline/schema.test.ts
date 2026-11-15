@@ -152,6 +152,13 @@ describe("published schemas", () => {
     expect(UsCell.safeParse({ ...base, filings: -1 }).success).toBe(false);
   });
 
+  it("accepts published cells that carry counts and pay only, with sub-counts and streams omitted", () => {
+    expect(UsCell.safeParse({ role: "designer", place: "US-CA", filings: 3 }).success).toBe(true);
+    expect(UsCell.safeParse({ role: "designer", place: "US-CA", filings: 3, workers: 4 }).success).toBe(true);
+    expect(CaCell.safeParse({ role: "designer", place: "CA-ON", lmias: 3, positions: 5 }).success).toBe(true);
+    expect(CaCell.safeParse({ role: "designer", place: "CA-ON", lmias: 3 }).success).toBe(false);
+  });
+
   it("validates pay stats, Canadian cells and trends", () => {
     expect(PayStats.safeParse({ n: 5, p25: 1, median: 2.5, p75: 3 }).success).toBe(true);
     expect(PayStats.safeParse({ n: 5, p25: -1, median: 2, p75: 3 }).success).toBe(false);
