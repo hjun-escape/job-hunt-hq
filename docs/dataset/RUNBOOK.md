@@ -41,6 +41,14 @@ The newest quarter the build found for that source (`lca`, `perm` or `lmia`) end
 2. If a newer quarter is listed under a new address or file name, update `lcaUrlCandidates` / `permUrlCandidates` in `pipeline/sources.ts`, or the resource parsing in `pipeline/cli/download.ts` for LMIA, then run `npm run dataset:download` locally to confirm the new file is found, and re-run the workflow.
 3. If no newer quarter has been posted, the source is late: there is nothing to fix. The issue is commented on each week until the quarter appears, and the next build after that passes.
 
+## Forcing a fresh download
+
+The build keeps the downloaded government files in the GitHub Actions cache (keys starting `dataset-`), and the download step skips any file it already has. If a source republished a file under the same name, or a cached file looks wrong, delete the cache and re-run the workflow: Actions tab, Management, Caches, delete every `dataset-` entry (or `gh cache list` then `gh cache delete <key>`). The next run downloads everything again, about 1.2 GB.
+
+## Branch protection on master
+
+The `summaries` job (dataset-build) and the `commit` job (dataset-recheck) push straight to master as `github-actions[bot]`. If master ever gets branch protection or a ruleset, `github-actions[bot]` (GitHub Actions) must be allowed to push to it, or those two jobs fail every week. A failure there never touches the live site, but the summaries and the fingerprints stop being updated, and every week files a `dataset-build` or `dataset-recheck-failed` issue.
+
 ## Release fallback (if DOL refuses GitHub's runners)
 
 Today the DOL accepts GitHub's runners directly (tested), so downloads are direct. If DOL ever starts refusing them, the fallback is: download the files on your own machine with `npm run dataset:download`, attach the files in `.cache/dataset` (with `manifest.json`) to a GitHub release, and change the workflow's download step to fetch that release into `.cache/dataset` instead. The download CLI has no release option yet; add one at that point. The effort is not measured; the spec estimated about 10 minutes a quarter.
