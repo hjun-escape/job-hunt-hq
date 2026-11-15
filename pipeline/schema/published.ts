@@ -18,15 +18,16 @@ export const UsCell = z.object({
   role: z.string(),
   place: z.string(),
   filings: count,
-  // Cells carry role, place, filings, workers (LCA) and pay only. Totals carry the sub-counts below, each
-  // omitted under 3 (withheld, or zero).
+  // Cells carry role, place, filings, workers (LCA) and pay only. Totals carry the sub-counts below. Each is
+  // omitted when it is 0, 1 or 2, and every member of an exact-sum group (the worker split: newHires,
+  // changeEmployer, continuing; the wage levels) is omitted, even one of 3 or more, when any member is 1 or 2.
   denied: count.optional(),
   withdrawn: count.optional(),
   workers: count.optional(),
   newHires: count.optional(),
   changeEmployer: count.optional(),
   continuing: count.optional(),
-  // Partial: only wage levels with a count above 0 appear.
+  // Partial: only published wage levels appear (see above).
   levels: z.partialRecord(z.enum(WAGE_LEVELS), count).optional(),
   pay: PayStats.optional(),
 });

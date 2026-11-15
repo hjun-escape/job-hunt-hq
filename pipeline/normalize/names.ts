@@ -197,13 +197,23 @@ function shortHash(input: string): string {
   return createHash("sha256").update(input).digest("hex").slice(0, 10);
 }
 
-export function usEmployerId(fein: string | null, normName: string, state: string | null): string {
+/** What a US employer id hashes: the FEIN when there is one, else the normalised name and state. */
+export function usEmployerKey(fein: string | null, normName: string, state: string | null): string {
   const cleanFein = fein?.trim();
-  return `us-${shortHash(cleanFein ? `fein:${cleanFein}` : `name:${normName}|${state}`)}`;
+  return cleanFein ? `fein:${cleanFein}` : `name:${normName}|${state}`;
+}
+
+export function usEmployerId(fein: string | null, normName: string, state: string | null): string {
+  return `us-${shortHash(usEmployerKey(fein, normName, state))}`;
+}
+
+/** What a Canadian employer id hashes: the normalised name and province. */
+export function caEmployerKey(normName: string, province: string): string {
+  return `${normName}|${province}`;
 }
 
 export function caEmployerId(normName: string, province: string): string {
-  return `ca-${shortHash(`${normName}|${province}`)}`;
+  return `ca-${shortHash(caEmployerKey(normName, province))}`;
 }
 
 const TWO_LABEL_SUFFIXES = new Set([

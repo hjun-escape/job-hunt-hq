@@ -366,6 +366,24 @@ describe("decision 1: summary CSVs", () => {
       }
     }
   });
+  it("writes a field that a spreadsheet would run as a formula with a leading apostrophe", () => {
+    const names: [string, string][] = [
+      ["=HYPERLINK(1)", "'=HYPERLINK(1)"],
+      ["+1 LLC", "'+1 LLC"],
+      ["-DASH INC", "'-DASH INC"],
+      ["@HOME LLC", "'@HOME LLC"],
+      ["\tTAB INC", "'\tTAB INC"],
+      ["\rCR INC", '"\'\rCR INC"'],
+      ["=SUM(A1,B1)", `"'=SUM(A1,B1)"`],
+      ["PLAIN-NAME INC", "PLAIN-NAME INC"],
+    ];
+    for (const [name, field] of names) {
+      const m = buildModel();
+      m.owners.get(ACME_ID)!.name = name;
+      const line = summaryCsvs(m)["lca-2025.csv"].split("\n").find((r) => r.startsWith(`${ACME_ID},`));
+      expect(line, JSON.stringify(name)).toBe(`${ACME_ID},${field},US-CA,14,14`);
+    }
+  });
   it("quotes fields per RFC 4180", () => {
     expect(row("lca-2025.csv", WIDGETS_ID)).toBe(`${WIDGETS_ID},"WIDGETS, ""WORLDWIDE"" INC",US-WA,3,3`);
   });

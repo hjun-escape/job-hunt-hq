@@ -49,6 +49,11 @@ describe("annualize", () => {
     expect(annualize(null, "Year")).toBeNull();
     expect(annualize(0, "Year")).toBeNull();
   });
+  it("never maps an inherited object key as a unit", () => {
+    for (const unit of ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"]) {
+      expect(annualize(100000, unit), unit).toBeNull();
+    }
+  });
   it("applies the bounds inclusively", () => {
     expect(annualize(15000, "Year")).toBe(15000);
     expect(annualize(1500000, "Year")).toBe(1500000);
@@ -83,6 +88,12 @@ describe("statuses", () => {
     expect(lcaStatus("Withdrawn")).toBe("withdrawn");
     expect(lcaStatus("odd")).toBeNull();
     expect(lcaStatus("")).toBeNull();
+  });
+  it("never maps an inherited object key as a status", () => {
+    for (const s of ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"]) {
+      expect(lcaStatus(s), s).toBeNull();
+      expect(permStatus(s), s).toBeNull();
+    }
   });
   it("maps PERM statuses", () => {
     expect(permStatus("Certified-Expired")).toBe("certified");

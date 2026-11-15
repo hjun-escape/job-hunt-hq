@@ -105,6 +105,13 @@ describe("compareTotals: a complete year the new build lost", () => {
     expect(compareTotals(t({}), t({}), nextLmia, liveLmia)).toEqual([]);
   });
 
+  it("flags a lost year hidden behind a roll-off: two events in one build ([2024, 2025, 2026] to [2026, 2027])", () => {
+    const livePlan: YearPlans = { ...plan, lca: { complete: [2024, 2025, 2026] } };
+    const nextPlan: YearPlans = { ...plan, lca: { complete: [2026, 2027] } };
+    const problems = compareTotals(t({}), t({}), nextPlan, livePlan);
+    expect(problems).toEqual([expect.stringContaining("lca 2024"), expect.stringContaining("lca 2025")]);
+  });
+
   it("flags the oldest complete year lost without a newer one (one cached quarter of FY2024 gone)", () => {
     const livePlan: YearPlans = { ...plan, lca: selectionFor("lca", quarters([2024, 2025, 2026])) };
     const nextPlan: YearPlans = { ...plan, lca: selectionFor("lca", quarters([2024, 2025, 2026], "2024-2")) };

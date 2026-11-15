@@ -1,7 +1,14 @@
 // Per-owner accumulation of typed filings into year blocks. Keeps running sums and pay values per breakdown
 // cell, never whole filings. Applies the small-cell rule and the person-name privacy gate; publish.ts decides
 // what each block shows.
-import { isPlaceholderName, looksLikeStreetAddress, personNameSignal } from "../normalize/names";
+import {
+  caEmployerKey,
+  isPlaceholderName,
+  looksLikeStreetAddress,
+  normalizeName,
+  personNameSignal,
+  usEmployerKey,
+} from "../normalize/names";
 import type { CaCell, Sponsorship, Totals, UsCell } from "../schema/published";
 import type { YearSelection } from "../sources";
 import { WAGE_LEVELS, type CaApproval, type Country, type Place, type UsFiling } from "../types";
@@ -230,8 +237,22 @@ function kind(views: YearView<unknown>[], k: string): Map<string, number> {
 
 const PROGRAMS: Program[] = ["lca", "perm", "lmia"];
 
+/** The key a filing's generated owner id was hashed from (see usEmployerKey); the name is normalised only without a FEIN. */
+function usKey(e: UsFiling["employer"]): string {
+  return e.fein?.trim() ? usEmployerKey(e.fein, "", null) : usEmployerKey(null, normalizeName(e.name), e.state);
+}
+
 export function createAccumulator() {
   const owners = new Map<string, OwnerAcc>();
+  /** Generated id to the FEIN or name key it was hashed from. Two keys under one id would merge two employers. */
+  const keys = new Map<string, string>();
+  const claim = (owner: string, key: () => string) => {
+    if (!isUnprofiledId(owner)) return;
+    const k = key();
+    const had = keys.get(owner);
+    if (had === undefined) keys.set(owner, k);
+    else if (had !== k) throw new Error(`employer id collision: two different employers hash to ${owner}; nothing is published`);
+  };
   const ownerAcc = (id: string): OwnerAcc => {
     let o = owners.get(id);
     if (!o) {
@@ -246,6 +267,7 @@ export function createAccumulator() {
       throw new Error(`US filing fiscal month must be 1 to 12, got ${f.month}`);
     }
     checkRole(f.role);
+    claim(owner, () => usKey(f.employer));
     const q = Math.ceil(f.month / 3);
     const y = yearAcc(ownerAcc(owner)[f.program], f.year, 12);
     const e = f.employer;
@@ -273,6 +295,7 @@ export function createAccumulator() {
       throw new Error(`Canadian approval quarter must be 1 to 4, got ${a.quarter}`);
     }
     checkRole(a.role);
+    claim(owner, () => caEmployerKey(normalizeName(a.employer.name), a.employer.province));
     const q = a.quarter;
     const y = yearAcc(ownerAcc(owner).lmia, a.year, 4);
     note(y, q, a.employer.name, null, a.employer.province ? `CA-${a.employer.province}` : null, false);

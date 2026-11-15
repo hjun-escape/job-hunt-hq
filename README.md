@@ -57,7 +57,7 @@ The shard is the first letter of the name after `normalizeName` (in `pipeline/no
 
 A profiled company's id is its website domain, such as `google.com`. Any other employer's id is `us-` or `ca-` and 10 hexadecimal characters, the same in every build. A `us-` id is a short hash of the employer's FEIN (its federal tax ID); a filing without a FEIN is hashed from the normalised name and state instead. A `ca-` id is a hash of the normalised name and province. The hash keeps URLs short but does not hide the FEIN, which the DOL files already publish. The published files never show the FEIN of an employer without a profile.
 
-A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in this repository: id, name, region, filings and headline) is committed after each good build, so changes show in the history. Its `headline` is the headline described below, so for LCA and PERM it equals `filings`.
+A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in this repository: id, name, region, filings and headline) is committed after each good build, so changes show in the history. Its `headline` is the headline described below, so for LCA and PERM it equals `filings`. A field that starts with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading apostrophe, so a spreadsheet never runs it as a formula.
 
 ### Reading the numbers
 

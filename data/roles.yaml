@@ -54,7 +54,8 @@
 - id: engineering-manager
   label: Engineering manager
   soc: ["11-3021", "11-9041", "15-1"]
-  titles: ["engineering manager", "software engineering manager", "software development manager", "development manager", "director of engineering", "director engineering", "head of engineering", "vp of engineering", "vp engineering", "vice president of engineering", "vice president engineering"]
+  # The "manager ..." phrases catch comma-inverted titles such as "Manager, Software Engineering".
+  titles: ["engineering manager", "software engineering manager", "software development manager", "development manager", "manager software engineering", "manager software development", "manager engineering", "senior manager engineering", "senior manager software engineering", "director of engineering", "director engineering", "head of engineering", "vp of engineering", "vp engineering", "vice president of engineering", "vice president engineering"]
   noc: ["20012"]
 - id: solutions-architect
   label: Solutions architect

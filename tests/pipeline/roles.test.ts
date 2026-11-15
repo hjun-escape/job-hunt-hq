@@ -67,12 +67,23 @@ describe("US classification", () => {
     expect(r.us("SDET", "15-1253")).toBe("qa-engineer");
   });
 
+  it("reads comma-inverted manager titles as engineering manager, not software engineer", () => {
+    for (const title of [
+      "Manager, Software Engineering", "Manager, Software Development", "Manager, Engineering", "Senior Manager, Engineering",
+      "Senior Manager, Software Engineering", "MANAGER - SOFTWARE ENGINEERING",
+    ]) {
+      expect(r.us(title, "11-3021"), title).toBe("engineering-manager");
+      expect(r.us(title, "15-1252"), title).toBe("engineering-manager");
+    }
+  });
+
   it("assigns representative titles in every family", () => {
     expect(r.us("iOS Developer", "15-1252")).toBe("mobile-engineer");
     expect(r.us("DevOps Engineer", "15-1252")).toBe("devops-sre");
     expect(r.us("Information Security Analyst", "15-1212")).toBe("security-engineer");
     expect(r.us("Embedded Firmware Engineer", "15-1252")).toBe("embedded-engineer");
     expect(r.us("Engineering Manager", "11-3021")).toBe("engineering-manager");
+    expect(r.us("Software Engineer", "15-1252")).toBe("software-engineer");
     expect(r.us("Solutions Architect", "15-1299")).toBe("solutions-architect");
     expect(r.us("Sales Engineer", "41-9031")).toBe("sales-engineer");
     expect(r.us("Research Scientist", "15-2051")).toBe("research-scientist");

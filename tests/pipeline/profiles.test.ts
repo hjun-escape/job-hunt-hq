@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -148,11 +149,32 @@ describe("personal text scan", () => {
 });
 
 describe("loadProfiles", () => {
-  it("loads yaml files sorted by name and ignores other files", async () => {
+  it("loads yaml files sorted by name", async () => {
     const r = await loadProfiles(DIR, TODAY);
     const files = [...new Set(r.problems.map((p) => p.file))];
     expect(files).toEqual([...files].sort());
     expect(r.profiles.map((p) => p.id)).toContain("example.com");
+  });
+  it("reports every file that is not .yaml or .gitkeep, so a contributor's file is never silently ignored", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "profiles-load-"));
+    try {
+      writeFileSync(path.join(dir, "example.com.yaml"), readFileSync(path.join(DIR, "example.com.yaml")));
+      writeFileSync(path.join(dir, "stripe.com.yml"), "id: stripe.com\n");
+      writeFileSync(path.join(dir, "notes.md"), "x\n");
+      writeFileSync(path.join(dir, ".gitkeep"), "");
+      mkdirSync(path.join(dir, "drafts"));
+      const r = await loadProfiles(dir, TODAY);
+      expect(r.profiles.map((p) => p.id)).toEqual(["example.com"]);
+      expect(r.problems).toEqual(
+        ["drafts", "notes.md", "stripe.com.yml"].map((file) => ({
+          file,
+          path: "(file)",
+          message: "not a profile: profiles are files named <domain>.yaml (rename it, or move it out of this folder)",
+        })),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
   it("returns nothing for a missing directory", async () => {
     const r = await loadProfiles(path.join(DIR, "does-not-exist"), TODAY);

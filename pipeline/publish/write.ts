@@ -304,8 +304,14 @@ function metaFile(model: SiteModel): Meta {
 
 // ---- Summary CSVs -------------------------------------------------------------------------------------
 
-/** RFC 4180: a field holding a comma, a quote or a line break is quoted, with quotes doubled. */
-const csvField = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+/**
+ * RFC 4180: a field holding a comma, a quote or a line break is quoted, with quotes doubled. A field a spreadsheet
+ * would run as a formula (starting with =, +, -, @, a tab or a carriage return) gets a leading apostrophe first.
+ */
+const csvField = (raw: string) => {
+  const v = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+};
 
 /**
  * `<program>-<year>.csv` for every planned year (complete and partial): one row per owner whose block for

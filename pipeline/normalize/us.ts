@@ -31,8 +31,9 @@ const MAX_ANNUAL = 1_500_000;
 export function annualize(amount: number | null, unit: string): number | null {
   if (amount === null) return null;
   const key = unitKey(unit);
+  // Own keys only, so "constructor" or "__proto__" never reads an inherited property.
+  if (!Object.hasOwn(PERIODS_PER_YEAR, key)) return null;
   const periods = PERIODS_PER_YEAR[key];
-  if (periods === undefined) return null;
   if (key === "hour" && amount > MAX_HOURLY) return null;
   const annual = amount * periods;
   return annual >= MIN_ANNUAL && annual <= MAX_ANNUAL ? annual : null;
@@ -60,12 +61,18 @@ const STATUSES: Record<string, CaseStatus> = {
   withdrawn: "withdrawn",
 };
 
+/** The status for a key, own keys only, so "constructor" or "__proto__" never maps. */
+function statusOf(s: string): CaseStatus | null {
+  const key = statusKey(s);
+  return Object.hasOwn(STATUSES, key) ? STATUSES[key] : null;
+}
+
 export function lcaStatus(s: string): CaseStatus | null {
-  return STATUSES[statusKey(s)] ?? null;
+  return statusOf(s);
 }
 
 export function permStatus(s: string): CaseStatus | null {
-  return STATUSES[statusKey(s)] ?? null;
+  return statusOf(s);
 }
 
 /** True for an LCA "Certified - Withdrawn" status (any case, spaces around the hyphen ignored). */

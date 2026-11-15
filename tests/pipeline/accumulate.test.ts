@@ -442,6 +442,38 @@ describe("year blocks", () => {
     expect(totals.lmia["2026"]).toBe(3);
   });
 
+  it("throws on an employer id collision, naming only the id", () => {
+    const acc = createAccumulator();
+    const id = "us-00000000ab";
+    acc.addUs(id, us({ name: "ACME ROBOTICS INC" }));
+    acc.addUs(id, us({ name: "Acme Robotics, Inc." })); // the same FEIN under another spelling is the same employer
+    const other = us();
+    other.employer = { ...other.employer, fein: "987654321" };
+    let err: Error | null = null;
+    try {
+      acc.addUs(id, other);
+    } catch (e) {
+      err = e as Error;
+    }
+    expect(err?.message).toMatch(/us-00000000ab/);
+    expect(err?.message).not.toMatch(/123456789|987654321|ACME/);
+    // Without a FEIN the key is the normalised name and state.
+    const noFein = (name: string, state: string) => {
+      const f = us({ name, state });
+      f.employer = { ...f.employer, fein: null };
+      return f;
+    };
+    acc.addUs("us-00000000cd", noFein("Widget Co", "WA"));
+    acc.addUs("us-00000000cd", noFein("WIDGET CO.", "WA"));
+    expect(() => acc.addUs("us-00000000cd", noFein("Widget Co", "OR"))).toThrow(/us-00000000cd/);
+    acc.addCa("ca-00000000ef", ca({ name: "MAPLE SOFTWARE INC" }));
+    acc.addCa("ca-00000000ef", ca({ name: "Maple Software Inc." }));
+    expect(() => acc.addCa("ca-00000000ef", ca({ name: "OAK SOFTWARE INC" }))).toThrow(/ca-00000000ef/);
+    // Profile ids (domains) and test ids that are not generated ids are not checked.
+    acc.addUs("google.com", other);
+    acc.addUs("google.com", us());
+  });
+
   it("throws on a month or quarter out of range and on the reserved role id", () => {
     const acc = createAccumulator();
     for (const month of [0, 13, 1.5]) expect(() => acc.addUs("us-aaa", us({ month }))).toThrow(/month/);
@@ -923,7 +955,8 @@ function randomOps(seed: number): Op[] {
         const a = ca({
           year,
           quarter: int(1, 4) as 1 | 2 | 3 | 4,
-          province: region.slice(3),
+          // One province per owner: a generated id stands for one name and province (the id-collision check).
+          province: o % 2 === 0 ? "ON" : "BC",
           stream: pick(streams),
           role: pick(roles),
           metro,
@@ -965,7 +998,7 @@ const sub = (shown: number | undefined, raw: number) => {
 
 const payOf = (cert: UsFiling[]) => payStats(cert.flatMap((f) => (f.annualPay === null ? [] : [f.annualPay])));
 
-/** A total: every sub-count from SUB_MIN, each exact-sum group never with exactly one withheld member. */
+/** A total: every sub-count from SUB_MIN; an exact-sum group with any member of 1 or 2 is withheld whole (R30). */
 function checkUsTotal(pub: UsCell, fs: UsFiling[], lca: boolean) {
   const cert = fs.filter((f) => f.status === "certified");
   expect(pub.filings).toBe(cert.length);
