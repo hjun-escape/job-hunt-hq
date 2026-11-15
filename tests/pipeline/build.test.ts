@@ -52,14 +52,14 @@ const LCA_PERSONAL = {
 };
 const LCA_HEADER = ["EMPLOYER_POC_EMAIL", ...EXPECTED_COLUMNS.lca, "EMPLOYER_POC_LAST_NAME", "PREPARER_EMAIL", "DECL_PREP_EMAIL"];
 
-type Lca = { name: string; fein: string; date: Date; pay?: number; zip?: string; state?: string; visa?: string };
+type Lca = { name: string; fein: string; date: Date; pay?: number; zip?: string; state?: string; visa?: string; trade?: string };
 function lcaRow(r: Lca): unknown[] {
   const row: Record<string, unknown> = {
     ...LCA_PERSONAL,
     CASE_STATUS: "Certified", DECISION_DATE: r.date, VISA_CLASS: r.visa ?? "H-1B", JOB_TITLE: "Software Engineer",
     SOC_CODE: "15-1252.00", TOTAL_WORKER_POSITIONS: 1, NEW_EMPLOYMENT: 1, CONTINUED_EMPLOYMENT: 0,
     CHANGE_PREVIOUS_EMPLOYMENT: 0, NEW_CONCURRENT_EMPLOYMENT: 0, CHANGE_EMPLOYER: 0, AMENDED_PETITION: 0,
-    EMPLOYER_NAME: r.name, TRADE_NAME_DBA: "", EMPLOYER_STATE: r.state ?? "CA", EMPLOYER_FEIN: r.fein,
+    EMPLOYER_NAME: r.name, TRADE_NAME_DBA: r.trade ?? "", EMPLOYER_STATE: r.state ?? "CA", EMPLOYER_FEIN: r.fein,
     WORKSITE_COUNTY: "", WORKSITE_STATE: r.state ?? "CA", WORKSITE_POSTAL_CODE: r.zip ?? "94043",
     WAGE_RATE_OF_PAY_FROM: r.pay ?? 150000, WAGE_UNIT_OF_PAY: "Year", PW_WAGE_LEVEL: "II",
   };
@@ -409,6 +409,23 @@ describe("runBuild end to end", () => {
     expect(existsSync(out2)).toBe(false);
   });
 
+  it("fails on an email in an unprofiled owner's filed names, naming only its id, and still counts owners", async () => {
+    const cache2 = fresh("cache");
+    cpSync(cacheDir, cache2, { recursive: true });
+    const rows = [1, 2, 3, 4].map((d) => lca(ACME, day(2025, 8, d), { state: "WA", zip: "98101", trade: "hire@acme-robots.invalid" }));
+    await xlsx(path.join(cache2, "lca/lca_fy2025_q4.xlsx"), [LCA_HEADER, ...LCA_FILES["2025-4"].slice(0, 5), ...rows]);
+    const data2 = makeDataDir(fresh("data"));
+    const out2 = fresh("out");
+    const r9 = await runBuild({ cacheDir: cache2, outDir: out2, dataDir: data2, today: TODAY });
+    const id = usEmployerId(ACME.fein.replace("-", ""), normalizeName(ACME.name), "WA");
+    expect(r9.ok).toBe(false);
+    expect(r9.problems).toEqual([expect.stringContaining(`owner ${id}`)]);
+    expect(r9.problems.join()).not.toMatch(/acme|hire@/i);
+    expect(r9.stats.owners.total).toBeGreaterThan(0);
+    expect(existsSync(out2)).toBe(false);
+    expect(existsSync(path.join(data2, "summary"))).toBe(false);
+  }, 60_000);
+
   it("fails when the cache has no manifest", async () => {
     const r7 = await runBuild({ cacheDir: fresh("empty"), outDir: fresh("out"), dataDir, today: TODAY });
     expect(r7.ok).toBe(false);
@@ -445,6 +462,29 @@ describe("screenNames (R33)", () => {
     expect(s.problems[1]).toContain("ca-0000000005");
     expect(s.problems.join("\n")).not.toMatch(/leaky|EMPLOYER_POC|A1B2C3/);
     expect(s.dropped).toEqual([]);
+  });
+
+  it("fails on a FEIN in an unprofiled US owner's filed names, never echoing it", () => {
+    const own = usEmployerId("123456789", "", null);
+    const owners = new Map([
+      [own, owner("ACME INC", ["123456789"])], // its own FEIN typed as a trade name
+      ["us-0000000006", owner("BETA LLC", ["BETA 98-7654321"])], // the dashed FEIN form
+      [usEmployerId("221234567", "", null), owner("EPSILON INC", ["22-1234567"])], // its own, dashed
+      ["us-0000000007", owner("GAMMA 555444333 LLC")], // nine digits in the display name
+      ["us-0000000008", owner("DELTA 12345678 LLC", ["DELTA 1234567890"])], // 8 and 10 digits: not FEIN-shaped
+      ["ca-0000000009", owner("101234567 SASKATCHEWAN LTD")], // a Canadian numbered company
+      ["google.com", owner("GOOGLE LLC", ["77-0493581"])], // profiled: guarded by its profile
+    ]);
+    const s = screenNames(owners);
+    expect(s.problems).toHaveLength(4);
+    expect(s.problems[0]).toContain(`owner ${own}`);
+    expect(s.problems[0]).toContain("its own FEIN");
+    expect(s.problems[1]).toContain("us-0000000006");
+    expect(s.problems[1]).toContain("a FEIN-shaped number");
+    expect(s.problems[2]).toContain("its own FEIN");
+    expect(s.problems[3]).toContain("us-0000000007");
+    expect(s.problems.join("\n")).not.toMatch(/123456789|7654321|1234567|555444333/);
+    expect([...s.kept.keys()]).toEqual(["us-0000000008", "ca-0000000009", "google.com"]);
   });
 });
 

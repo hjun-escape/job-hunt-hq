@@ -30,7 +30,8 @@ export function problemsReport(r: Pick<BuildResult, "problems" | "warnings">, at
   return [
     "# Dataset build failed",
     "",
-    `Build of ${at.toISOString()}. Nothing was deployed: the live data is the last good build, and the yearly summaries were not updated.`,
+    `Build of ${at.toISOString()}. Nothing was deployed: the live data is the last good build, and the yearly ` +
+      "summaries were not updated.",
     "",
     "## Problems",
     "",
@@ -70,8 +71,12 @@ export function summaryLines(r: BuildResult): string[] {
         `invalid ${sum("skippedInvalid")}`,
     );
   }
-  lines.push(`owners: ${s.owners.total} (US ${s.owners.us}, CA ${s.owners.ca}, both ${s.owners.both}, profiled ${s.owners.profiled})`);
-  lines.push(`left out: ${s.droppedPersonLike} person-like owners under 10 filings, ${s.droppedPostal} with postal-code-like names`);
+  const o = s.owners;
+  lines.push(`owners: ${o.total} (US ${o.us}, CA ${o.ca}, both ${o.both}, profiled ${o.profiled})`);
+  lines.push(
+    `left out: ${s.droppedPersonLike} person-like owners under 10 filings, ` +
+      `${s.droppedPostal} with postal-code-like names`,
+  );
   if (s.totals) {
     for (const [p, byYear] of Object.entries(s.totals)) {
       lines.push(`totals ${p}: ${Object.entries(byYear).map(([y, n]) => `${y} ${n}`).join(", ") || "none"}`);
@@ -102,7 +107,8 @@ async function main(): Promise<void> {
       log: (line) => console.log(line),
     });
   } catch (e) {
-    const problem = `the build stopped on an unexpected error: ${(e instanceof Error ? e.message : String(e)).split("\n")[0]}`;
+    const why = (e instanceof Error ? e.message : String(e)).split("\n")[0];
+    const problem = `the build stopped on an unexpected error: ${why}`;
     await writeFile(PROBLEMS_FILE, problemsReport({ problems: [problem], warnings: [] }, started));
     console.error(problem);
     process.exit(1);

@@ -16,6 +16,7 @@ import { HeaderMismatchError } from "./load/rows";
 import { loadUs, type LoadContext } from "./load/us";
 import { buildEntityMap, ownerForCa, ownerForUs } from "./match/entities";
 import { buildReport } from "./match/report";
+import { usEmployerId } from "./normalize/names";
 import { loadPlaceIndex, type PlaceIndex } from "./normalize/places";
 import { loadRoles, type RoleSet } from "./normalize/roles";
 import { loadProfiles } from "./profiles/load";
@@ -37,17 +38,26 @@ export type BuildOptions = {
   today: Date;
   /** Fetches liveMetaUrl. Default politeFetch. */
   fetchFn?: (url: string) => Promise<Response>;
-  /** Progress lines (one per file read). Default none. */
+  /** Progress lines: one per file read and one per phase, counts and seconds only. Default none. */
   log?: (line: string) => void;
 };
 
-export type FileStats = LoadStats & { source: DataSource; path: string; year: number; quarter: number; seconds: number };
+export type FileStats = LoadStats & {
+  source: DataSource;
+  path: string;
+  year: number;
+  quarter: number;
+  seconds: number;
+};
 
 /** Counts for the build log. Nothing here names an employer. */
 export type BuildStats = {
   years: YearPlans | null;
   files: FileStats[];
-  /** Published owners: US and CA count owners with data in that country, `both` those in the two. */
+  /**
+   * Owners the accumulator kept, then (once the name screen passes) the ones published. US and CA count owners
+   * with data in that country, `both` those in the two.
+   */
   owners: { total: number; us: number; ca: number; both: number; profiled: number };
   droppedPersonLike: number;
   /** Unprofiled owners left out because a filed name looks like a postal code (R33). */
@@ -55,7 +65,13 @@ export type BuildStats = {
   totals: Totals | null;
 };
 
-export type BuildResult = { ok: boolean; problems: string[]; warnings: string[]; files: WrittenFile[]; stats: BuildStats };
+export type BuildResult = {
+  ok: boolean;
+  problems: string[];
+  warnings: string[];
+  files: WrittenFile[];
+  stats: BuildStats;
+};
 
 // ---- Live meta.json ---------------------------------------------------------------------------------------
 
@@ -64,7 +80,10 @@ export type LiveMeta = { ok: true; meta: Meta | null } | { ok: false; problem: s
 const REFUSE = "could not read the live meta.json; refusing to compare";
 
 /** The live meta.json: null on a 404 (nothing deployed yet, a first build). Anything else unreadable is a problem. */
-export async function readLiveMeta(url: string, fetchFn: (url: string) => Promise<Response> = politeFetch): Promise<LiveMeta> {
+export async function readLiveMeta(
+  url: string,
+  fetchFn: (url: string) => Promise<Response> = politeFetch,
+): Promise<LiveMeta> {
   let res: Response;
   try {
     res = await fetchFn(url);
@@ -80,18 +99,36 @@ export async function readLiveMeta(url: string, fetchFn: (url: string) => Promis
     return { ok: false, problem: "the live meta.json is not valid JSON; refusing to compare" };
   }
   const parsed = Meta.safeParse(body);
-  if (!parsed.success) return { ok: false, problem: "the live meta.json does not match the meta.json schema; refusing to compare" };
+  if (!parsed.success) {
+    return { ok: false, problem: "the live meta.json does not match the meta.json schema; refusing to compare" };
+  }
   return { ok: true, meta: parsed.data };
 }
 
-// ---- R33: names that look like postal codes ----------------------------------------------------------------
+// ---- Name screen: R33 postal-code look-alikes, emails, column names and FEINs --------------------------------
+
+/** FEIN-shaped numbers: the dashed form NN-NNNNNNN, or a bare run of exactly nine digits. */
+const FEIN_SHAPED = /(?<![\w.-])\d{2}-\d{7}(?![\w-])|(?<![\w.])\d{9}(?![\w.])/g;
 
 /**
- * Screens every unprofiled owner's name and other names with the shared text scan. A postal-code-pattern
- * hit (a government name such as "A1B2C3 HOLDINGS INC", which nobody can edit) leaves the owner out. An
- * email or a personal column name means personal data got past the loader, which is a problem. Profiled
- * owners pass through: their names come with a profile a maintainer reviewed, and the writer still scans
- * them. Problems and `dropped` name only owner ids.
+ * For an unprofiled US owner, how a filed name holds a FEIN, or null: its own (a FEIN-shaped number whose
+ * generated id is the owner's), or any other FEIN-shaped number. Unprofiled FEINs are never published, and a
+ * trade name that is a FEIN would publish one. Canadian owners have no FEIN (numbered companies such as
+ * "101234567 SASKATCHEWAN LTD" are names), so they are not checked.
+ */
+function feinIn(id: string, text: string): string | null {
+  if (!id.startsWith("us-")) return null;
+  const found = [...text.matchAll(FEIN_SHAPED)].map((m) => m[0].replace("-", ""));
+  if (found.length === 0) return null;
+  return found.some((digits) => usEmployerId(digits, "", null) === id) ? "its own FEIN" : "a FEIN-shaped number";
+}
+
+/**
+ * Screens every unprofiled owner's name and other names. A postal-code-pattern hit (a government name such
+ * as "A1B2C3 HOLDINGS INC", which nobody can edit) leaves the owner out. An email or a personal column name
+ * means personal data got past the loader, and a FEIN-shaped number (see feinIn) would publish a FEIN: both
+ * are problems. Profiled owners pass through: their names come with a profile a maintainer reviewed, and the
+ * writer still scans them. Problems and `dropped` name only owner ids.
  */
 export function screenNames(owners: Map<string, OwnerResult>): {
   kept: Map<string, OwnerResult>;
@@ -108,8 +145,11 @@ export function screenNames(owners: Map<string, OwnerResult>): {
     }
     const texts = [o.name, ...o.also];
     const leak = texts.map((t) => personalText(t, { postal: false })).find((what) => what !== null);
+    const fein = texts.map((t) => feinIn(id, t)).find((what) => what !== null);
     if (leak) {
       problems.push(`owner ${id}: a name it filed under contains ${leak}, so personal data got past the loader`);
+    } else if (fein) {
+      problems.push(`owner ${id}: a name it filed under contains ${fein}; unprofiled FEINs are never published`);
     } else if (texts.some((t) => personalText(t) === POSTAL_CODE)) {
       dropped.push(id);
     } else {
@@ -137,11 +177,15 @@ async function readManifest(cacheDir: string): Promise<SourceFile[] | string> {
     raw = JSON.parse(await readFile(path.join(cacheDir, "manifest.json"), "utf8"));
   } catch (e) {
     const why = (e as NodeJS.ErrnoException).code === "ENOENT" ? "it does not exist" : "it is not valid JSON";
-    return `cannot read the cache manifest (manifest.json in the cache directory): ${why}; run npm run dataset:download first`;
+    return `cannot read the cache manifest (manifest.json in the cache directory): ${why}; ` +
+      "run npm run dataset:download first";
   }
   const valid = (e: unknown) =>
-    typeof e === "object" && e !== null && typeof (e as SourceFile).source === "string" && typeof (e as SourceFile).path === "string";
-  if (!Array.isArray(raw) || !raw.every(valid)) return "the cache manifest is not a list of files; run npm run dataset:download again";
+    typeof e === "object" && e !== null && typeof (e as SourceFile).source === "string" &&
+    typeof (e as SourceFile).path === "string";
+  if (!Array.isArray(raw) || !raw.every(valid)) {
+    return "the cache manifest is not a list of files; run npm run dataset:download again";
+  }
   return raw as SourceFile[];
 }
 
@@ -213,6 +257,12 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     totals: null,
   };
   const done = (): BuildResult => ({ ok: problems.length === 0, problems, warnings, files, stats });
+  let phase = Date.now();
+  /** Logs how long the step since the previous lap took, for the CI time budget. */
+  const lap = (what: string) => {
+    log(`${what} in ${Math.round((Date.now() - phase) / 100) / 10} s`);
+    phase = Date.now();
+  };
   const fail = (line: string): BuildResult => (problems.push(line), done());
 
   // 1. The cache manifest and the files to read.
@@ -221,7 +271,9 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const { years, files: toRead } = planFiles(manifest);
   stats.years = years;
   for (const s of DATA_SOURCES) {
-    if (toRead[s].length === 0) problems.push(`no ${s} files to read in the cache manifest; run npm run dataset:download`);
+    if (toRead[s].length === 0) {
+      problems.push(`no ${s} files to read in the cache manifest; run npm run dataset:download`);
+    }
   }
   if (problems.length) return done();
 
@@ -237,6 +289,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const { profiles, problems: profileProblems } = await loadProfiles(path.join(dataDir, "companies"), today);
   for (const p of profileProblems) problems.push(`profile ${p.file}: ${p.path}: ${p.message}`);
   if (problems.length) return done();
+
+  lap(`loaded the reference tables and ${profiles.length} profiles`);
 
   // 3. Stream every file into the accumulator. R3: a profiled employer with a person-like name is kept.
   const map = buildEntityMap(profiles);
@@ -278,10 +332,14 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     }
   }
 
+  lap(`read ${read.length} files`);
+
   // 4. Owners and totals, then R33.
   const { owners: all, totals, droppedPersonLike } = acc.finish(years);
+  lap(`aggregated ${all.size} owners`);
   stats.totals = totals;
   stats.droppedPersonLike = droppedPersonLike;
+  stats.owners = ownerCounts(all);
   const screened = screenNames(all);
   if (screened.problems.length) {
     problems.push(...screened.problems);
@@ -291,7 +349,9 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const owners = screened.kept;
   stats.owners = ownerCounts(owners);
   warnings.push(...compareWithPublished(totals, PUBLISHED_TOTALS));
-  for (const id of screened.dropped) warnings.push(`owner ${id} is not published: a name it filed under looks like a postal code`);
+  for (const id of screened.dropped) {
+    warnings.push(`owner ${id} is not published: a name it filed under looks like a postal code`);
+  }
 
   // 5. The site. writeSite is staged: on a throw the previous site is left as it was.
   const model: SiteModel = {
@@ -305,11 +365,13 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     ...labelsFor(owners, roles, places),
     builtAt: today.toISOString(),
   };
+  lap("screened names and built the report");
   try {
     files = await writeSite(outDir, model);
   } catch (e) {
     return fail(`the site was not written (the previous site is unchanged): ${safeMessage(e, cacheDir)}`);
   }
+  lap(`wrote the site (${files.length} files)`);
 
   // 6. Sizes, then totals against the live build. Both run so one report lists every problem.
   problems.push(...checkSizes(files));
@@ -326,6 +388,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     const dir = path.join(dataDir, "summary");
     await mkdir(dir, { recursive: true });
     for (const name of Object.keys(csvs).sort()) await writeFile(path.join(dir, name), csvs[name]);
+    lap(`wrote ${Object.keys(csvs).length} summaries`);
   } catch (e) {
     return fail(`the summaries were not written: ${safeMessage(e, cacheDir)}`);
   }
