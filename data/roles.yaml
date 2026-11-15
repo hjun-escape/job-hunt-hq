@@ -1,0 +1,158 @@
+# Role categories, most specific first. The first role whose soc prefix matches the filing's SOC code and
+# whose title phrase appears (on word boundaries, in the normalised title) wins. Phrases are lower-case
+# ASCII words separated by single spaces. `noc` lists NOC 2021 five-digit codes for Canadian rows.
+- id: data-engineer
+  label: Data engineer
+  soc: ["15-1", "15-2"]
+  titles: ["data engineer", "data engineering", "big data engineer", "etl developer", "etl engineer", "data warehouse engineer", "data warehouse developer", "analytics engineer", "business intelligence engineer", "bi engineer", "data platform engineer", "data architect", "database engineer"]
+  noc: ["21223"]
+- id: ml-engineer
+  label: Machine learning engineer
+  soc: ["15-1", "15-2"]
+  titles: ["machine learning engineer", "ml engineer", "ai engineer", "ai ml engineer", "deep learning engineer", "machine learning software engineer", "machine learning developer", "mlops engineer", "nlp engineer", "computer vision engineer"]
+  noc: []
+- id: data-scientist
+  label: Data scientist
+  soc: ["15-1", "15-2"]
+  titles: ["data scientist", "data science", "decision scientist", "machine learning scientist"]
+  noc: ["21211"]
+- id: data-analyst
+  label: Data analyst
+  soc: ["15-1", "15-2", "13-1"]
+  titles: ["data analyst", "data analytics", "analytics analyst", "business intelligence analyst", "bi analyst", "business intelligence developer", "bi developer", "statistician", "statistical analyst"]
+  noc: []
+- id: frontend-engineer
+  label: Frontend engineer
+  soc: ["15-1"]
+  titles: ["front end engineer", "frontend engineer", "front end developer", "frontend developer", "front end software engineer", "ui engineer", "ui developer", "react developer", "angular developer", "javascript developer"]
+  noc: []
+- id: mobile-engineer
+  label: Mobile engineer
+  soc: ["15-1"]
+  titles: ["ios engineer", "ios developer", "android engineer", "android developer", "mobile engineer", "mobile developer", "mobile software engineer", "mobile application developer", "mobile app developer", "mobile applications developer"]
+  noc: []
+- id: devops-sre
+  label: DevOps and site reliability engineer
+  soc: ["15-1"]
+  titles: ["devops", "dev ops", "site reliability", "sre", "cloud engineer", "infrastructure engineer", "platform engineer", "release engineer", "build engineer"]
+  noc: []
+- id: security-engineer
+  label: Security engineer
+  soc: ["15-1"]
+  titles: ["security engineer", "cyber security", "cybersecurity", "information security", "security analyst", "application security", "security architect", "infosec", "penetration tester"]
+  noc: ["21220"]
+- id: qa-engineer
+  label: QA and test engineer
+  soc: ["15-1"]
+  titles: ["qa", "quality assurance", "software tester", "test engineer", "sdet", "software test", "tester", "testing", "test automation", "automation test", "quality engineer", "quality engineering", "software quality"]
+  noc: ["22222"]
+- id: embedded-engineer
+  label: Embedded engineer
+  soc: ["15-1", "17-2"]
+  titles: ["embedded", "firmware"]
+  noc: []
+- id: engineering-manager
+  label: Engineering manager
+  soc: ["11-3021", "11-9041", "15-1"]
+  titles: ["engineering manager", "software engineering manager", "software development manager", "development manager", "director of engineering", "director engineering", "head of engineering", "vp of engineering", "vp engineering", "vice president of engineering", "vice president engineering"]
+  noc: ["20012"]
+- id: solutions-architect
+  label: Solutions architect
+  soc: ["15-1", "11-3021"]
+  titles: ["solutions architect", "solution architect", "cloud architect", "enterprise architect", "technical architect", "software architect", "systems architect", "application architect", "technology architect"]
+  noc: []
+- id: sales-engineer
+  label: Sales engineer
+  soc: ["41-9031", "15-1", "17-2"]
+  titles: ["sales engineer", "solutions engineer", "solution engineer", "pre sales", "presales", "customer engineer", "technical sales"]
+  noc: []
+- id: research-scientist
+  label: Research scientist
+  soc: ["15-1", "15-2", "17-2", "19-1", "19-2", "19-3", "19-4"]
+  titles: ["research scientist", "applied scientist", "research engineer", "research associate", "research fellow", "postdoctoral", "post doctoral", "postdoc"]
+  noc: []
+- id: software-engineer
+  label: Software engineer
+  soc: ["15-1", "17-2"]
+  titles: ["software engineer", "software engineering", "software developer", "software developers", "software development", "software programmer", "software design engineer", "software dev engineer", "system development engineer", "systems development engineer", "software designer", "sde", "swe", "programmer", "developer", "application developer", "applications developer", "application engineer", "member of technical staff", "mts", "full stack", "fullstack", "back end", "backend", "web developer", "web engineer", "java developer", "python developer", "net developer"]
+  noc: ["21230", "21231", "21232", "21234"]
+- id: hardware-engineer
+  label: Hardware engineer
+  soc: ["17-2", "15-1"]
+  titles: ["hardware engineer", "hardware design", "asic", "fpga", "rtl", "vlsi", "design verification", "verification engineer", "chip design", "ic design", "analog design", "digital design", "physical design", "silicon"]
+  noc: ["21311"]
+- id: network-engineer
+  label: Network engineer
+  soc: ["15-1", "17-2"]
+  titles: ["network engineer", "network administrator", "network architect", "network operations", "network developer", "telecommunications engineer", "wireless engineer", "rf engineer"]
+  noc: ["22220"]
+- id: product-manager
+  label: Product manager
+  soc: ["11-", "13-1", "15-1"]
+  titles: ["product manager", "product management", "product owner", "product lead", "technical product manager", "group product manager"]
+  noc: []
+- id: program-manager
+  label: Program and project manager
+  soc: ["11-", "13-1", "15-1"]
+  titles: ["program manager", "program management", "technical program manager", "tpm", "project manager", "project management", "scrum master", "delivery manager", "pmo"]
+  noc: []
+- id: designer
+  label: Designer
+  soc: ["15-1", "27-1"]
+  titles: ["ux designer", "ui designer", "ui ux", "ux ui", "product designer", "ux researcher", "user experience", "user interface designer", "interaction designer", "graphic designer", "visual designer", "web designer", "designer"]
+  noc: ["21233"]
+- id: business-analyst
+  label: Business analyst
+  soc: ["13-1", "15-1", "15-2", "11-"]
+  titles: ["business analyst", "business analysis", "business systems analyst", "functional analyst", "systems analyst", "system analyst", "it business analyst", "technical business analyst"]
+  noc: ["21221"]
+- id: financial-analyst
+  label: Financial analyst
+  soc: ["13-205", "13-2041", "13-2099", "11-3031"]
+  titles: ["financial analyst", "finance analyst", "investment analyst", "equity research", "credit analyst", "risk analyst", "quantitative analyst", "quant", "portfolio analyst", "financial planning", "fp a", "investment banking", "financial modeling"]
+  noc: ["11101"]
+- id: accountant
+  label: Accountant
+  soc: ["13-2011", "13-2081", "13-2082"]
+  titles: ["accountant", "accounting", "auditor", "audit", "tax", "cpa", "controller", "bookkeeper"]
+  noc: ["11100"]
+- id: consultant
+  label: Consultant
+  soc: ["13-1", "15-1", "11-"]
+  titles: ["consultant", "consulting"]
+  noc: ["11201"]
+- id: electrical-engineer
+  label: Electrical engineer
+  soc: ["17-207"]
+  titles: ["electrical", "electronics", "electronic engineer", "power engineer", "controls engineer"]
+  noc: ["21310"]
+- id: mechanical-engineer
+  label: Mechanical engineer
+  soc: ["17-2141"]
+  titles: ["mechanical", "thermal engineer", "hvac"]
+  noc: ["21301"]
+- id: civil-engineer
+  label: Civil engineer
+  soc: ["17-2051"]
+  titles: ["civil", "structural engineer", "geotechnical engineer", "transportation engineer", "water resources engineer", "construction engineer"]
+  noc: ["21300"]
+- id: physician
+  label: Physician
+  soc: ["29-12"]
+  titles: ["physician", "md", "doctor", "hospitalist", "surgeon", "cardiologist", "radiologist", "anesthesiologist", "pediatrician", "psychiatrist", "neurologist", "oncologist", "internist", "dermatologist", "resident"]
+  noc: ["31100", "31101", "31102"]
+- id: nurse
+  label: Nurse
+  soc: ["29-114", "29-117"]
+  titles: ["nurse", "rn", "nursing"]
+  noc: ["31301"]
+- id: professor
+  label: Professor
+  soc: ["25-1"]
+  titles: ["professor", "lecturer", "faculty", "instructor", "adjunct"]
+  noc: ["41200"]
+- id: teacher
+  label: Teacher
+  soc: ["25-2", "25-3"]
+  titles: ["teacher", "teaching", "tutor", "instructor", "educator", "special education", "kindergarten", "preschool"]
+  noc: ["41220", "41221"]
