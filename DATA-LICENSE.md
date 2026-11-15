@@ -11,7 +11,7 @@ This repository mixes code and data, and they carry different licences.
 | Canadian place reference table | `data/reference/ca-csd-cma.csv`, and the Canadian metro codes and names it puts in the published files | Statistics Canada Open Licence |
 | Code | Everything else: the pipeline, the tracker app, tests and docs | MIT, see [LICENSE](LICENSE) |
 
-The licence lines for profiles, US tables and Canadian tables are stored in `data/v1/meta.json` (under `licences`). They and the Statistics Canada notice below are also in the README and in the footer of the dataset's landing page.
+The licence lines, including the Statistics Canada notice below, are stored in `data/v1/meta.json` (under `licences`, the notice as `statcan`). They are also in the README and in the footer of the dataset's landing page.
 
 ## Company profiles: CC BY 4.0
 

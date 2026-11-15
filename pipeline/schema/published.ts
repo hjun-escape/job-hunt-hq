@@ -163,7 +163,14 @@ export const Meta = z.object({
   totals: Totals,
   warnings: z.array(z.string()),
   caveats: z.object({ lca: z.string(), perm: z.string(), lmia: z.string(), general: z.string() }),
-  licences: z.object({ code: z.string(), profiles: z.string(), us: z.string(), ca: z.string() }),
+  // statcan: the notice for Canadian metro areas adapted from Statistics Canada (added in v1, optional).
+  licences: z.object({
+    code: z.string(),
+    profiles: z.string(),
+    us: z.string(),
+    ca: z.string(),
+    statcan: z.string().optional(),
+  }),
   roles: z.record(z.string(), z.string()),
   places: z.record(z.string(), z.string()),
 });

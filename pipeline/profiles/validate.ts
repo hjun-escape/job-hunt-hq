@@ -1,4 +1,5 @@
 // Rules beyond the schema for hand-written company profiles.
+import { personalText, textFields } from "../check/text-scan";
 import { companyIdFromUrl, normalizeName } from "../normalize/names";
 import { ProfileSchema, type Profile } from "../schema/profile";
 
@@ -58,6 +59,12 @@ function checkProfile(file: string, p: Profile, today: string, problems: Problem
         add(`${path}.sources[${i}].url`, "official fact cites a host outside the company");
       }
     });
+  }
+
+  // The same scan the site writer runs, so a profile that passes validation never fails the build.
+  for (const { path, text } of textFields(p)) {
+    const what = personalText(text);
+    if (what) add(path, `contains ${what}`);
   }
 
   if (p.countries.includes("KR")) {

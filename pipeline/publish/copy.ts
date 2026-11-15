@@ -8,18 +8,18 @@ export const CAVEATS = {
   general: "These figures show past filings, not whether a company will sponsor you.",
 } as const;
 
+/**
+ * Notice the Statistics Canada Open Licence asks for on a product adapted from its data: the Canadian metro
+ * codes and names come from the 2021 Census Geographic Attribute File.
+ */
+export const STATCAN_NOTICE =
+  "Adapted from Statistics Canada, Geographic Attribute File (catalogue no. 92-151-X), 2021 Census. This does not constitute an endorsement by Statistics Canada of this product.";
+
 /** The Canadian attribution is the licence's required statement; keep its EN dash (U+2013) exactly. */
 export const LICENCES = {
   code: "MIT",
   profiles: "CC BY 4.0",
   us: "US government work, public domain",
   ca: "Contains information licensed under the Open Government Licence – Canada.",
+  statcan: STATCAN_NOTICE,
 } as const;
-
-/**
- * Notice the Statistics Canada Open Licence asks for on a product adapted from its data: the Canadian metro
- * codes and names come from the 2021 Census Geographic Attribute File. Shown in the README, DATA-LICENSE.md
- * and the landing page (meta.json's `licences` has no field for it in v1).
- */
-export const STATCAN_NOTICE =
-  "Adapted from Statistics Canada, Geographic Attribute File (catalogue no. 92-151-X), 2021 Census. This does not constitute an endorsement by Statistics Canada of this product.";

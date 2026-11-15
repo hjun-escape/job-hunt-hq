@@ -77,6 +77,60 @@ describe("validateProfiles", () => {
   });
 });
 
+describe("personal text scan", () => {
+  const base = { id: "zeta.test", name: "Zeta", countries: ["US"], entities: {} };
+  const fact = (en: string, url = "https://zeta.test/about", kind = "official") => ({
+    value: { en },
+    kind,
+    sources: [{ url, seen: "2026-01-01" }],
+    checked: "2026-01-01",
+  });
+  const check = (profile: Record<string, unknown>) =>
+    validateProfiles([{ file: "zeta.test.yaml", profile: { ...base, ...profile } }], TODAY);
+
+  it("reports an email address with the fact path, never the address, and drops the profile", () => {
+    const r = check({ mission: fact("Write to careers@zeta.example to apply.") });
+    expect(r.problems).toEqual([{ file: "zeta.test.yaml", path: "mission.value.en", message: "contains an email address" }]);
+    expect(JSON.stringify(r.problems)).not.toContain("careers@");
+    expect(r.profiles).toEqual([]);
+  });
+  it("reports email-shaped text such as an image name in any text field", () => {
+    expect(check({ otherNames: ["Zeta logo@2x.png"] }).problems).toEqual([
+      { file: "zeta.test.yaml", path: "otherNames[0]", message: "contains an email address" },
+    ]);
+  });
+  it("reports an upper-case Canadian postal code", () => {
+    expect(check({ hiringProcess: fact("Interviews are held at our office, M5V 1J2.") }).problems).toEqual([
+      { file: "zeta.test.yaml", path: "hiringProcess.value.en", message: "contains what looks like a postal code" },
+    ]);
+  });
+  it("reports a contact or preparer column name", () => {
+    expect(check({ applicationRules: [fact("Copied from EMPLOYER_POC_EMAIL.")] }).problems).toEqual([
+      { file: "zeta.test.yaml", path: "applicationRules[0].value.en", message: "contains a contact or preparer column name" },
+    ]);
+  });
+  it("skips URLs and lower-case look-alikes", () => {
+    const r = check({
+      mission: fact("We build tools; use code a1b2c3 at checkout.", "https://bit.ly/a1b2c3", "reported"),
+      links: [{ label: "Blind", url: "https://bit.ly/a1b2c3" }],
+    });
+    expect(r.problems).toEqual([]);
+    expect(r.profiles).toHaveLength(1);
+  });
+  it("skips URLs that the postal pattern would otherwise catch", () => {
+    // Upper case, so each would be a hit if the scan read it as text.
+    const r = check({
+      mission: fact("We build tools.", "https://bit.ly/A1B2C3", "reported"),
+      links: [{ label: "Blind", url: "https://bit.ly/A1B2C3" }],
+      otherNames: ["https://bit.ly/A1B2C3"],
+    });
+    expect(r.problems).toEqual([]);
+    expect(check({ otherNames: ["see bit.ly/A1B2C3"] }).problems).toEqual([
+      { file: "zeta.test.yaml", path: "otherNames[0]", message: "contains what looks like a postal code" },
+    ]);
+  });
+});
+
 describe("loadProfiles", () => {
   it("loads yaml files sorted by name and ignores other files", async () => {
     const r = await loadProfiles(DIR, TODAY);

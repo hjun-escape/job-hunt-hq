@@ -132,6 +132,20 @@ describe("published schemas", () => {
     expect(Meta.safeParse({ ...meta, extra: 1 }).success).toBe(true);
   });
 
+  it("takes an optional Statistics Canada notice under meta licences (additive in v1)", () => {
+    const meta = {
+      schemaVersion: 1, builtAt: "2026-11-14T00:00:00.000Z",
+      years: { lca: { complete: [] }, perm: { complete: [] }, lmia: { complete: [] } },
+      sources: [], totals: { lca: {}, perm: {}, lmia: {} }, warnings: [],
+      caveats: { lca: "a", perm: "b", lmia: "c", general: "d" },
+      licences: { code: "a", profiles: "b", us: "c", ca: "d", statcan: "e" }, roles: {}, places: {},
+    };
+    expect(Meta.parse(meta).licences.statcan).toBe("e");
+    const { statcan: _statcan, ...older } = meta.licences;
+    expect(Meta.safeParse({ ...meta, licences: older }).success).toBe(true);
+    expect(Meta.safeParse({ ...meta, licences: { ...older, statcan: 1 } }).success).toBe(false);
+  });
+
   it("accepts a tooFew year block", () => {
     expect(YearBlockUs.safeParse({ year: 2025, partial: false, tooFew: true }).success).toBe(true);
     expect(YearBlockCa.safeParse({ year: 2025, partial: true, through: 2, tooFew: true }).success).toBe(true);

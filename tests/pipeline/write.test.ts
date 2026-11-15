@@ -1,9 +1,9 @@
 // @vitest-environment node
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createAccumulator, isUnprofiledId, type OwnerResult, type YearPlans } from "../../pipeline/aggregate/accumulate";
 import { headlineFor, publishedHeadline } from "../../pipeline/aggregate/trend";
 import { buildEntityMap, ownerForCa, ownerForUs } from "../../pipeline/match/entities";
@@ -23,6 +23,19 @@ import {
 } from "../../pipeline/schema/published";
 import type { SourceFile } from "../../pipeline/sources";
 import type { CaApproval, UsFiling } from "../../pipeline/types";
+
+// Lets a test make one chosen rename inside writeSite fail, to exercise the rollback.
+const renameHook = vi.hoisted(() => ({ fail: null as null | ((from: string, to: string) => boolean) }));
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...actual,
+    rename: (from: string, to: string) =>
+      renameHook.fail?.(String(from), String(to))
+        ? Promise.reject(Object.assign(new Error("injected rename failure"), { code: "EIO" }))
+        : actual.rename(from, to),
+  };
+});
 
 const ROOT = path.join(__dirname, "..", "..");
 const SJ = "cbsa:41940";
@@ -612,6 +625,54 @@ describe("decision 7: JSON format, file list and determinism", () => {
     expect(readdirSync(path.join(d, "data"))).toEqual(["v1"]);
     expect(snapshot(d)).toEqual(snapshot(out));
   });
+  it("puts back the previous tree or page left in a killed run's staging directory", async () => {
+    // A run killed between moving the old page (or tree) away and moving the new one in.
+    for (const kept of ["previous-index.html", "previous-v1"]) {
+      const d = tempDir();
+      await writeSite(d, model);
+      writeFileSync(path.join(d, "index.html"), "<p>old page</p>");
+      const files = snapshot(d);
+      const entries = listEntries(d);
+      const dead = path.join(d, ".site-staging-dead12");
+      mkdirSync(path.join(dead, "data", "v1"), { recursive: true });
+      writeFileSync(path.join(dead, "data", "v1", "partial.json"), "{}");
+      const live = kept === "previous-v1" ? path.join(d, "data", "v1") : path.join(d, "index.html");
+      renameSync(live, path.join(dead, kept));
+      // Even when the new build then fails, the old site is back and the leftover is gone.
+      const bad = buildModel();
+      const b = bad.owners.get(ACME_ID)!.sponsorship.lca!.find((x) => x.year === 2025)!;
+      if ("tooFew" in b) throw new Error("unexpected tooFew");
+      b.cells.find((c) => c.role === "software-engineer")!.role = "Bad Role";
+      await expect(writeSite(d, bad), kept).rejects.toThrow(/Bad Role/);
+      expect(listEntries(d), kept).toEqual(entries);
+      expect(snapshot(d), kept).toEqual(files);
+    }
+  });
+  it("restores both data/v1 and index.html when the swap fails part way", async () => {
+    const points: [string, (d: string, to: string) => boolean][] = [
+      ["moving the old page away", (_d, to) => to.endsWith(`${path.sep}previous-index.html`)],
+      ["moving the new page in", (d, to) => to === path.join(d, "index.html")],
+      ["moving the old tree away", (_d, to) => to.endsWith(`${path.sep}previous-v1`)],
+      ["moving the new tree in", (d, to) => to === path.join(d, "data", "v1")],
+    ];
+    for (const [what, fails] of points) {
+      const d = tempDir();
+      await writeSite(d, model);
+      writeFileSync(path.join(d, "index.html"), "<p>old page</p>");
+      const files = snapshot(d);
+      const entries = listEntries(d);
+      let fired = false;
+      renameHook.fail = (_from, to) => !fired && fails(d, to) && (fired = true);
+      try {
+        await expect(writeSite(d, model), what).rejects.toThrow("injected rename failure");
+      } finally {
+        renameHook.fail = null;
+      }
+      expect(fired, what).toBe(true);
+      expect(listEntries(d), what).toEqual(entries);
+      expect(snapshot(d), what).toEqual(files);
+    }
+  });
   it("clears a staging directory left by a killed run", async () => {
     const d = tempDir();
     mkdirSync(path.join(d, ".site-staging-dead12", "data", "v1"), { recursive: true });
@@ -739,8 +800,22 @@ describe("fix round 1: text scan before writing", () => {
   const SECRET = "jane.doe@acme-robotics.com";
   const cases: [string, (m: SiteModel) => void, RegExp][] = [
     ["an email in an owner name", (m) => (m.owners.get(ACME_ID)!.name = `ACME ROBOTICS INC ${SECRET}`), new RegExp(`owner ${ACME_ID} contains an email address`)],
-    ["a postal code in also", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE SOFTWARE LTD V6B 1A1"), /contains a Canadian postal code/],
-    ["a lower-case postal code without a space", (m) => m.owners.get(MAPLE_ID)!.also.push("maple v6b1a1"), /contains a Canadian postal code/],
+    ["a postal code in also", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE SOFTWARE LTD V6B 1A1"), /contains what looks like a postal code/],
+    ["a postal code without a space", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE M5V1J2"), /contains what looks like a postal code/],
+    [
+      "a postal code in profile text",
+      (m) =>
+        m.profiles.set("quiet.test", {
+          ...quiet,
+          hiringProcess: {
+            value: { en: "Interviews at our office, M5V 1J2." },
+            kind: "official",
+            sources: [{ url: "https://quiet.test/jobs", seen: "2026-01-01" }],
+            checked: "2026-01-01",
+          },
+        }),
+      /profile quiet\.test \(hiringProcess\.value\.en\) contains what looks like a postal code/,
+    ],
     [
       "an email deep in profile text",
       (m) =>
@@ -753,9 +828,9 @@ describe("fix round 1: text scan before writing", () => {
             checked: "2026-01-01",
           },
         }),
-      /profile quiet\.test contains an email address/,
+      /profile quiet\.test \(mission\.value\.en\) contains an email address/,
     ],
-    ["a contact column name in profile other names", (m) => m.profiles.set("quiet.test", { ...quiet, otherNames: ["EMPLOYER_POC_EMAIL"] }), /profile quiet\.test contains a contact or preparer column name/],
+    ["a contact column name in profile other names", (m) => m.profiles.set("quiet.test", { ...quiet, otherNames: ["EMPLOYER_POC_EMAIL"] }), /profile quiet\.test \(otherNames\[0\]\) contains a contact or preparer column name/],
     ...["EMPLOYER_POC", "EMP_POC", "PREPARER_", "DECL_PREP_", "ATTY_AG_", "LAWFIRM_"].map(
       (field): [string, (m: SiteModel) => void, RegExp] => [
         `${field} in a warning`,
@@ -786,10 +861,27 @@ describe("fix round 1: text scan before writing", () => {
     expect(() => summaryCsvs(bad)).toThrow(/lca-2024\.csv contains an email address/);
     const postal = buildModel();
     postal.owners.get(MAPLE_ID)!.region = "CA-BC V6B 1A1";
-    expect(() => summaryCsvs(postal)).toThrow(/lmia-2024\.csv contains a Canadian postal code/);
+    expect(() => summaryCsvs(postal)).toThrow(/lmia-2024\.csv contains what looks like a postal code/);
   });
   it("accepts the clean model", () => {
     expect(() => summaryCsvs(model)).not.toThrow();
+  });
+  it("skips URL fields and lower-case look-alikes", async () => {
+    const ok = buildModel();
+    ok.profiles.set("quiet.test", {
+      ...quiet,
+      mission: {
+        value: { en: "We make tools; promo code a1b2c3." },
+        kind: "reported",
+        sources: [{ url: "https://bit.ly/A1B2C3", seen: "2026-01-01" }],
+        checked: "2026-01-01",
+      },
+      links: [{ label: "Blind", url: "https://bit.ly/A1B2C3" }],
+      otherNames: ["https://bit.ly/A1B2C3"],
+    });
+    ok.owners.get(MAPLE_ID)!.also.push("maple v6b1a1");
+    await expect(writeSite(tempDir(), ok)).resolves.toBeInstanceOf(Array);
+    expect(() => summaryCsvs(ok)).not.toThrow();
   });
 });
 
@@ -816,7 +908,10 @@ describe("decision 8: meta.json", () => {
       profiles: "CC BY 4.0",
       us: "US government work, public domain",
       ca: "Contains information licensed under the Open Government Licence – Canada.",
+      statcan:
+        "Adapted from Statistics Canada, Geographic Attribute File (catalogue no. 92-151-X), 2021 Census. This does not constitute an endorsement by Statistics Canada of this product.",
     });
+    expect(meta.licences.statcan).toBe(STATCAN_NOTICE);
   });
   it("labels every role id and place key that appears, and nothing else", () => {
     const meta = readJson("data/v1/meta.json");

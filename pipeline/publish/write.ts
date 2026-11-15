@@ -7,6 +7,7 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { isUnprofiledId, type OwnerResult, type YearPlans } from "../aggregate/accumulate";
 import { PAY_MIN, SUB_MIN } from "../aggregate/cells";
+import { personalText, textFields } from "../check/text-scan";
 import { headlineFor, publishedHeadline, type Program, type YearBlock } from "../aggregate/trend";
 import { normalizeName } from "../normalize/names";
 import { profileJsonSchema, type Profile } from "../schema/profile";
@@ -55,11 +56,10 @@ const CSV_HEADER = "id,name,region,filings,headline";
 const CELL_KEYS = new Set(["role", "place", "filings", "workers", "pay", "lmias", "positions"]);
 /** A build is written into `<outDir>/<STAGING_PREFIX><random>` and swapped in only when complete. */
 const STAGING_PREFIX = ".site-staging-";
-/** Text that must never reach a published string: contact details and the names of personal source columns. */
-const PERSONAL_TEXT: [RegExp, string][] = [
-  [/[\w.+-]+@[\w-]+\.[\w.-]+/, "an email address"],
-  [/\b[A-Z]\d[A-Z] ?\d[A-Z]\d\b/i, "a Canadian postal code"],
-  [/EMPLOYER_POC|EMP_POC|PREPARER_|DECL_PREP_|ATTY_AG_|LAWFIRM_/, "a contact or preparer column name"],
+/** What swapIn replaces, and the name each live copy is kept under inside the staging directory meanwhile. */
+const SWAPPED: { rel: string; kept: string }[] = [
+  { rel: "index.html", kept: "previous-index.html" },
+  { rel: V1, kept: "previous-v1" },
 ];
 
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -144,32 +144,23 @@ function checkModel(model: SiteModel): void {
   }
 }
 
-/** Throws when `text` holds personal data, naming `where` but never echoing the text. */
+/** Throws when `text` holds personal data (see check/text-scan.ts), naming `where` but never echoing the text. */
 function scanText(where: string, text: string): void {
-  for (const [pattern, what] of PERSONAL_TEXT) {
-    if (pattern.test(text)) throw new Error(`${where} contains ${what}; not published`);
-  }
+  const what = personalText(text);
+  if (what) throw new Error(`${where} contains ${what}; not published`);
 }
 
-/** Every string inside a JSON-like value, keys included. */
-function stringsIn(value: unknown, out: string[] = []): string[] {
-  if (typeof value === "string") out.push(value);
-  else if (Array.isArray(value)) for (const v of value) stringsIn(v, out);
-  else if (value && typeof value === "object") {
-    for (const [k, v] of Object.entries(value)) {
-      out.push(k);
-      stringsIn(v, out);
-    }
-  }
-  return out;
-}
-
-/** Scans the free text the site publishes: owner names, other names and regions, profile text, warnings. */
+/**
+ * Scans the free text the site publishes: owner names, other names and regions, profile text (URL fields
+ * skipped, as in profile validation) and warnings.
+ */
 function checkText(model: SiteModel): void {
   for (const [id, o] of model.owners) {
     for (const text of [o.name, ...o.also, o.region ?? ""]) scanText(`owner ${id}`, text);
   }
-  for (const p of model.profiles.values()) for (const text of stringsIn(p)) scanText(`profile ${p.id}`, text);
+  for (const p of model.profiles.values()) {
+    for (const f of textFields(p)) scanText(`profile ${p.id} (${f.path})`, f.text);
+  }
   model.warnings.forEach((w, i) => scanText(`warning ${i + 1}`, w));
 }
 
@@ -346,21 +337,17 @@ export function summaryCsvs(model: SiteModel): Record<string, string> {
 /**
  * Writes the site under `outDir` and lists what it wrote, sorted by path. The model is checked (ids, the
  * privacy gate, the text scan) first. Every file is then written into a fresh staging directory inside
- * `outDir`, meta.json last as the completion marker, and only a complete tree replaces `data/v1` and
- * `index.html`: the old tree is renamed away, the new one renamed in, and the old one removed. On any throw
- * the staging directory is removed and the previous site is left exactly as it was. Nothing else in `outDir`
- * is touched, so no file from an earlier build survives in `data/v1`.
+ * `outDir`, meta.json last as the completion marker, and only a complete tree replaces `index.html` and
+ * `data/v1` (see swapIn). On any throw the staging directory is removed and the previous page and tree are
+ * left exactly as they were. Nothing else in `outDir` is touched, so no file from an earlier build survives
+ * in `data/v1`.
  */
 export async function writeSite(outDir: string, model: SiteModel): Promise<WrittenFile[]> {
   checkModel(model);
   checkText(model);
   const landing = await readFile(LANDING_PAGE);
   await mkdir(outDir, { recursive: true });
-  // A run killed mid-write leaves its staging directory behind. It holds no live file: at most the previous
-  // tree, if the run died between the two renames in swapIn, and this build replaces that tree anyway.
-  for (const name of await readdir(outDir)) {
-    if (name.startsWith(STAGING_PREFIX)) await rm(path.join(outDir, name), { recursive: true, force: true });
-  }
+  await recover(outDir);
   const stage = await mkdtemp(path.join(outDir, STAGING_PREFIX));
   try {
     const written = await writeTree(stage, model, landing);
@@ -379,21 +366,59 @@ const exists = (p: string) =>
       throw e;
     },
   );
+const at = (dir: string, rel: string) => path.join(dir, ...rel.split("/"));
 
-/** Moves a complete staged tree into place. The old `data/v1` goes into the staging directory, which the caller removes. */
+/**
+ * Cleans up after a run killed mid-write. If it died inside swapIn after moving a live copy away, that copy
+ * is still in its staging directory: when the live path is missing, it is renamed back first. Then every
+ * leftover staging directory is removed.
+ */
+async function recover(outDir: string): Promise<void> {
+  const leftovers = (await readdir(outDir)).filter((n) => n.startsWith(STAGING_PREFIX)).sort(cmp);
+  for (const { rel, kept } of SWAPPED) {
+    if (await exists(at(outDir, rel))) continue;
+    for (const name of leftovers) {
+      const copy = path.join(outDir, name, kept);
+      if (!(await exists(copy))) continue;
+      await mkdir(path.dirname(at(outDir, rel)), { recursive: true });
+      await rename(copy, at(outDir, rel));
+      break;
+    }
+  }
+  for (const name of leftovers) await rm(path.join(outDir, name), { recursive: true, force: true });
+}
+
+/**
+ * Moves a complete staged page and tree into place: for each of `index.html` and `data/v1`, the live copy is
+ * renamed into the staging directory (which the caller removes) and the staged one renamed in. If any rename
+ * fails, the ones already done are undone in reverse order, so both the page and the tree are as they were.
+ */
 async function swapIn(outDir: string, stage: string): Promise<void> {
-  const live = path.join(outDir, ...V1.split("/"));
-  const old = path.join(stage, "previous-v1");
-  await mkdir(path.dirname(live), { recursive: true });
-  const hadLive = await exists(live);
-  if (hadLive) await rename(live, old);
+  const done: [string, string][] = [];
+  const move = async (from: string, to: string) => {
+    await rename(from, to);
+    done.push([from, to]);
+  };
   try {
-    await rename(path.join(stage, ...V1.split("/")), live);
+    await mkdir(path.dirname(at(outDir, V1)), { recursive: true });
+    for (const { rel, kept } of SWAPPED) {
+      if (await exists(at(outDir, rel))) await move(at(outDir, rel), path.join(stage, kept));
+      await move(at(stage, rel), at(outDir, rel));
+    }
   } catch (e) {
-    if (hadLive) await rename(old, live);
+    const undoFailures: unknown[] = [];
+    for (const [from, to] of done.reverse()) {
+      try {
+        await rename(to, from);
+      } catch (u) {
+        undoFailures.push(u);
+      }
+    }
+    if (undoFailures.length) {
+      throw new AggregateError([e, ...undoFailures], `site swap failed and could not be fully undone: ${String(e)}`);
+    }
     throw e;
   }
-  await rename(path.join(stage, "index.html"), path.join(outDir, "index.html"));
 }
 
 /** Writes every file under `root` at its published path; meta.json goes last. */
