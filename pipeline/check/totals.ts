@@ -23,6 +23,10 @@ const moved = (from: number, to: number) => Math.abs(to - from) > TOLERANCE * fr
  * compared. A year complete in `plan` (and, when given, in the previous build's `prevPlan`) that moves more
  * than TOLERANCE either way is a problem. Any other year in both (partial now, or partial last time and
  * complete now) may grow but must not fall. `prev` null (a first build) gives none.
+ *
+ * With `prevPlan`, a year complete in the previous build but not complete in `plan` is a problem too (one
+ * missing cached quarter would otherwise drop a whole year silently), except a year older than `plan`'s
+ * oldest complete year, which is the window rolling forward.
  */
 export function compareTotals(prev: Totals | null, next: Totals, plan: YearPlans, prevPlan?: YearPlans): string[] {
   if (prev === null) return [];
@@ -42,6 +46,16 @@ export function compareTotals(prev: Totals | null, next: Totals, plan: YearPlans
       } else if (!complete && to < from) {
         problems.push(`${p} ${year}: total ${WHAT[p]} fell from ${from} to ${to} in a year that is still filling in`);
       }
+    }
+    if (!prevPlan) continue;
+    // With no complete year now, nothing counts as rolled off.
+    const oldest = plan[p].complete.length ? Math.min(...plan[p].complete) : -Infinity;
+    for (const year of [...prevPlan[p].complete].sort((a, b) => a - b)) {
+      if (plan[p].complete.includes(year) || year < oldest) continue;
+      problems.push(
+        `${p} ${year}: complete in the live build but not complete in this one; a cached quarter may be missing, ` +
+          "so the year would be dropped",
+      );
     }
   }
   return problems;

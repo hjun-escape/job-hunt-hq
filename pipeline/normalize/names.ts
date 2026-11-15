@@ -7,10 +7,22 @@ const CORPORATE_TOKENS = new Set([
   "AB", "OY", "SRL", "LTDA", "LLLP", "LC",
 ]);
 
-/** FEIN-shaped tokens: NN-NNNNNNN or nine digits, which also covers 9-digit Canadian business numbers. */
-const FEIN_TOKEN = /\b\d{2}-?\d{7}\b/g;
+/**
+ * FEIN-shaped tokens, shared by the loaders (R35) and the build's FEIN gate: nine digits, optionally split 2-7
+ * by a hyphen, an en dash or an underscore (never a space), and not inside a longer run of digits. This also
+ * covers 9-digit Canadian business numbers. It is global: use it with replace, match or matchAll only.
+ */
+export const FEIN_TOKEN = /(?<!\d)\d{2}[-\u2013_]?\d{7}(?!\d)/g;
+
+/** The FEIN-shaped tokens in a text, as nine digits each. */
+export function feinTokens(text: string): string[] {
+  return [...text.matchAll(FEIN_TOKEN)].map((m) => m[0].replace(/\D/g, ""));
+}
+
 /** Separators a removed number leaves at either end of a name. A trailing full stop ("INC.") is kept. */
-const EDGES = /^[\s,;:/#|\-\u2013\u2014.]+|[\s,;:/#|\-\u2013\u2014]+$/g;
+const EDGES = /^[\s,;:/#|_\-\u2013\u2014.]+|[\s,;:/#|_\-\u2013\u2014]+$/g;
+/** A separator left standing alone between spaces, as in "ACME - - INC" or "ACME ." */
+const LONE_SEPARATOR = /(^|\s)[,;:/#|_\-\u2013\u2014.]+(?=\s|$)/g;
 
 /** Province and territory names and abbreviations (English and French), "Canada" and "Canadian", folded. */
 const NUMBERED_PLACES = new Set([
@@ -52,6 +64,7 @@ export function stripFeinTokens(name: string): string {
   return name
     .replace(FEIN_TOKEN, " ")
     .replace(/\(\s*\)|\[\s*\]/g, " ")
+    .replace(LONE_SEPARATOR, "$1")
     .replace(/\s+/g, " ")
     .replace(EDGES, "");
 }

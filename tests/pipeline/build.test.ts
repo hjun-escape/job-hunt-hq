@@ -6,8 +6,9 @@ import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { OwnerResult } from "../../pipeline/aggregate/accumulate";
-import { readLiveMeta, runBuild, screenNames } from "../../pipeline/build";
-import { parseArgs, problemsReport, summaryLines } from "../../pipeline/cli/build";
+import { readLiveMeta, runBuild, screenNames, summaryEntries, writeSummaries } from "../../pipeline/build";
+import { checkSizes } from "../../pipeline/check/sizes";
+import { parseArgs, problemsReport, summaryLines, unexpectedProblem } from "../../pipeline/cli/build";
 import { normalizeName, usEmployerId } from "../../pipeline/normalize/names";
 import type { IndexEntry, Meta } from "../../pipeline/schema/published";
 import { EXPECTED_COLUMNS, lcaUrl, permUrl, type SourceFile } from "../../pipeline/sources";
@@ -374,6 +375,34 @@ describe("runBuild end to end", () => {
     expect(existsSync(path.join(data2, "summary", "lca-2025.csv"))).toBe(true);
   }, 60_000);
 
+  it("refuses a build that lost a complete year of the live build, unless the change is accepted", async () => {
+    const live = readJson(outDir, "data/v1/meta.json") as Meta;
+    live.years.lca = { complete: [2025, 2026] }; // live had FY2026 complete; this build has it partial
+    const url = "https://pages.invalid/data/v1/meta.json";
+    const data2 = makeDataDir(fresh("data"));
+    const refused = await runBuild({ cacheDir, outDir: fresh("out"), dataDir: data2, today: TODAY, liveMetaUrl: url, fetchFn: metaResponse(live) });
+    expect(refused.ok).toBe(false);
+    expect(refused.problems).toEqual([expect.stringContaining("lca 2026")]);
+    expect(existsSync(path.join(data2, "summary"))).toBe(false);
+    const accepted = await runBuild({
+      cacheDir, outDir: fresh("out"), dataDir: data2, today: TODAY, liveMetaUrl: url, fetchFn: metaResponse(live),
+      acceptTotalsChange: true,
+    });
+    expect(accepted.ok).toBe(true);
+    expect(accepted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/^accepted totals change: lca 2026/)]));
+  }, 60_000);
+
+  it("warns when the live meta.json is a 404 and treats the build as a first build", async () => {
+    const out2 = fresh("out");
+    const r = await runBuild({
+      cacheDir, outDir: out2, dataDir: makeDataDir(fresh("data")), today: TODAY,
+      liveMetaUrl: "https://pages.invalid/data/v1/meta.json", fetchFn: async () => new Response("", { status: 404 }),
+    });
+    expect(r.ok).toBe(true);
+    expect(r.warnings).toContain("live meta.json returned 404; treated as a first build");
+    expect((readJson(out2, "data/v1/meta.json") as Meta).warnings).toContain("live meta.json returned 404; treated as a first build");
+  }, 60_000);
+
   it("still refuses an unreadable live meta.json with acceptTotalsChange", async () => {
     const data2 = makeDataDir(fresh("data"));
     const r = await runBuild({
@@ -519,18 +548,55 @@ describe("screenNames (R33)", () => {
       ["us-0000000008", owner("DELTA 12345678 LLC", ["DELTA 1234567890"])], // 8 and 10 digits: not FEIN-shaped
       ["ca-0000000009", owner("101234567 SASKATCHEWAN LTD")], // a Canadian numbered company
       ["us-0000000010", owner("123456789 Canada Inc.")], // a numbered-company name is a name, not a FEIN (R37)
+      [usEmployerId("345678912", "", null), owner("345678912 Canada Inc.")], // ...unless the number is its own FEIN
+      ["us-0000000011", owner("ZETA LLC", ["ZETA_123456789"])], // an underscore separator
       ["google.com", owner("GOOGLE LLC", ["77-0493581"])], // profiled: guarded by its profile
     ]);
     const s = screenNames(owners);
-    expect(s.problems).toHaveLength(4);
+    expect(s.problems).toHaveLength(6);
+    expect(s.problems[4]).toContain(`owner ${usEmployerId("345678912", "", null)}`);
+    expect(s.problems[4]).toContain("its own FEIN");
+    expect(s.problems[5]).toContain("us-0000000011");
     expect(s.problems[0]).toContain(`owner ${own}`);
     expect(s.problems[0]).toContain("its own FEIN");
     expect(s.problems[1]).toContain("us-0000000006");
     expect(s.problems[1]).toContain("a FEIN-shaped number");
     expect(s.problems[2]).toContain("its own FEIN");
     expect(s.problems[3]).toContain("us-0000000007");
-    expect(s.problems.join("\n")).not.toMatch(/123456789|7654321|1234567|555444333/);
+    expect(s.problems.join("\n")).not.toMatch(/123456789|7654321|1234567|555444333|345678912/);
     expect([...s.kept.keys()]).toEqual(["us-0000000008", "ca-0000000009", "us-0000000010", "google.com"]);
+  });
+});
+
+describe("summaries", () => {
+  it("swaps a complete set into place, keeping earlier years' files and leaving no staging dir", async () => {
+    const data = fresh("summary-data");
+    mkdirSync(path.join(data, "summary"), { recursive: true });
+    writeFileSync(path.join(data, "summary", "lca-2023.csv"), "old 2023\n");
+    writeFileSync(path.join(data, "summary", "lca-2024.csv"), "old 2024\n");
+    await writeSummaries(data, { "lca-2024.csv": "new 2024\n", "lca-2025.csv": "new 2025\n" });
+    expect(tree(path.join(data, "summary"))).toEqual({
+      "lca-2023.csv": Buffer.from("old 2023\n").toString("base64"),
+      "lca-2024.csv": Buffer.from("new 2024\n").toString("base64"),
+      "lca-2025.csv": Buffer.from("new 2025\n").toString("base64"),
+    });
+    expect(readdirSync(data)).toEqual(["summary"]);
+  });
+
+  it("leaves the old summaries untouched when a write fails", async () => {
+    const data = fresh("summary-data");
+    mkdirSync(path.join(data, "summary"), { recursive: true });
+    writeFileSync(path.join(data, "summary", "lca-2024.csv"), "old 2024\n");
+    const before = tree(path.join(data, "summary"));
+    await expect(writeSummaries(data, { "lca-2024.csv": "new\n", "no-such-dir/lca-2025.csv": "x\n" })).rejects.toThrow();
+    expect(tree(path.join(data, "summary"))).toEqual(before);
+    expect(readdirSync(data)).toEqual(["summary"]);
+  });
+
+  it("lists the summaries for the size check, under the 50 MB per-file limit", () => {
+    const entries = summaryEntries({ "lca-2025.csv": "id,name\n" });
+    expect(entries).toEqual([{ path: "summary/lca-2025.csv", bytes: 8, gzipBytes: 0 }]);
+    expect(checkSizes([{ ...entries[0], bytes: 50_000_001 }])).toEqual([expect.stringContaining("summary/lca-2025.csv")]);
   });
 });
 
@@ -571,6 +637,16 @@ describe("dataset:build CLI", () => {
     expect(() => parseArgs(["--accept-totals-change", "yes"])).toThrow("unknown argument");
     expect(() => parseArgs(["--liv", "x"])).toThrow("unknown argument");
     expect(() => parseArgs(["--out"])).toThrow("needs a value");
+  });
+
+  it("writes an unexpected error through the safe message: no cache path, nothing personal-looking", () => {
+    const cache = path.join(root, "cache");
+    expect(unexpectedProblem(new Error(`ENOENT: open '${cache}/lca/x.xlsx'`), cache)).toBe(
+      "the build stopped on an unexpected error: ENOENT: open '<cache>/lca/x.xlsx'",
+    );
+    const leaky = unexpectedProblem(new Error("bad cell near jane@example.org"), cache);
+    expect(leaky).not.toContain("jane@");
+    expect(leaky).toContain("details withheld");
   });
 
   it("writes an issue body listing problems and warnings, saying nothing was deployed", () => {

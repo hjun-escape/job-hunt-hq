@@ -109,6 +109,7 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
   it("removes FEIN-shaped numbers, Canadian 9-digit business numbers included, and trims what is left", () => {
     expect(mapLmiaRow({ ...lmiaRow, Employer: "ACME INC 12-3456789" }, ctx, p)!.employer.name).toBe("ACME INC");
     expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd - 123456789" }, ctx, p)!.employer.name).toBe("Acme Ltd");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd 12_3456789" }, ctx, p)!.employer.name).toBe("Acme Ltd");
     expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789 Ontario Holdings Inc." }, ctx, p)!.employer.name).toBe("Ontario Holdings Inc.");
   });
 

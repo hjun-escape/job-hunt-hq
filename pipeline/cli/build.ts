@@ -7,7 +7,7 @@
 // default, run by hand). Prints counts only.
 import { rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { runBuild, type BuildResult } from "../build";
+import { runBuild, safeMessage, type BuildResult } from "../build";
 
 export const PROBLEMS_FILE = "build-problems.md";
 
@@ -28,6 +28,11 @@ export function parseArgs(argv: string[]): BuildArgs {
     i++;
   }
   return args;
+}
+
+/** The problem line for an unexpected throw: through safeMessage, so no cache path and nothing personal. */
+export function unexpectedProblem(e: unknown, cacheDir: string): string {
+  return `the build stopped on an unexpected error: ${safeMessage(e, cacheDir)}`;
 }
 
 const list = (lines: string[]) => (lines.length ? lines.map((l) => `- ${l}`).join("\n") : "None.");
@@ -120,8 +125,7 @@ async function main(): Promise<void> {
       log: (line) => console.log(line),
     });
   } catch (e) {
-    const why = (e instanceof Error ? e.message : String(e)).split("\n")[0];
-    const problem = `the build stopped on an unexpected error: ${why}`;
+    const problem = unexpectedProblem(e, args.cache);
     await writeFile(PROBLEMS_FILE, problemsReport({ problems: [problem], warnings: [] }, started));
     console.error(problem);
     process.exit(1);

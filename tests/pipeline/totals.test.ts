@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { YearPlans } from "../../pipeline/aggregate/accumulate";
 import { compareTotals, compareWithPublished } from "../../pipeline/check/totals";
+import { selectionFor } from "../../pipeline/cli/download";
 import type { Totals } from "../../pipeline/schema/published";
 import { PUBLISHED_TOTALS } from "../../pipeline/sources";
 
@@ -71,6 +72,41 @@ describe("compareTotals", () => {
     expect(compareTotals(t({ "2025": 700 }), t({ "2025": 690 }), plan, prevPlan)).toHaveLength(1);
     // Complete in both plans: the 2% rule applies.
     expect(compareTotals(t({ "2024": 700 }), t({ "2024": 1000 }), plan, prevPlan)).toHaveLength(1);
+  });
+});
+
+describe("compareTotals: a complete year the new build lost", () => {
+  const quarters = (years: number[], skip = "") =>
+    years.flatMap((year) => [1, 2, 3, 4].map((quarter) => ({ year, quarter }))).filter((f) => `${f.year}-${f.quarter}` !== skip);
+
+  it("flags a live complete year missing from this build (one cached quarter gone: FY2025 Q2)", () => {
+    const livePlan: YearPlans = { ...plan, lca: selectionFor("lca", quarters([2024, 2025, 2026])) };
+    const nextPlan: YearPlans = { ...plan, lca: selectionFor("lca", quarters([2024, 2025, 2026], "2025-2")) };
+    expect(nextPlan.lca.complete).toEqual([2024, 2026]);
+    const problems = compareTotals(t({ "2024": 100, "2025": 100, "2026": 100 }), t({ "2024": 100, "2026": 100 }), nextPlan, livePlan);
+    expect(problems).toEqual([expect.stringContaining("lca 2025")]);
+    expect(problems[0]).toContain("missing");
+  });
+
+  it("flags a live complete year that is only partial now", () => {
+    const livePlan: YearPlans = { ...plan, lca: { complete: [2024, 2025, 2026] } };
+    const nextPlan: YearPlans = { ...plan, lca: { complete: [2024, 2025], partial: { year: 2026, through: 3 } } };
+    const totals = t({ "2024": 100, "2025": 100, "2026": 100 });
+    expect(compareTotals(totals, totals, nextPlan, livePlan)).toEqual([expect.stringContaining("lca 2026")]);
+  });
+
+  it("lets the oldest complete year roll off the window", () => {
+    const livePlan: YearPlans = { ...plan, lca: { complete: [2024, 2025, 2026] } };
+    const nextPlan: YearPlans = { ...plan, lca: { complete: [2025, 2026, 2027] } };
+    const prev = t({ "2024": 100, "2025": 100, "2026": 100 });
+    expect(compareTotals(prev, t({ "2025": 100, "2026": 100, "2027": 90 }), nextPlan, livePlan)).toEqual([]);
+  });
+
+  it("checks every source, and flags them all when this build has no complete year", () => {
+    const livePlan: YearPlans = { lca: { complete: [2025] }, perm: { complete: [2025] }, lmia: { complete: [2024, 2025] } };
+    const nextPlan: YearPlans = { lca: { complete: [2025] }, perm: { complete: [] }, lmia: { complete: [2025] } };
+    const problems = compareTotals(t({}), t({}), nextPlan, livePlan);
+    expect(problems).toEqual([expect.stringContaining("perm 2025")]);
   });
 });
 

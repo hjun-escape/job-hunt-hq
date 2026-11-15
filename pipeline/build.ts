@@ -3,7 +3,7 @@
 // file (dataset:download fills the cache), and the reference tables come from the data dir. Any failed check
 // gives ok: false with a problem line; the CLI then exits non-zero so the deploy never runs and the live data
 // stays. Problem and warning lines name files, ids, columns and years, never a value from a filing.
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createAccumulator, isUnprofiledId, type OwnerResult, type YearPlans } from "./aggregate/accumulate";
 import { checkSizes } from "./check/sizes";
@@ -16,7 +16,7 @@ import { HeaderMismatchError } from "./load/rows";
 import { loadUs, type LoadContext } from "./load/us";
 import { buildEntityMap, ownerForCa, ownerForUs } from "./match/entities";
 import { buildReport } from "./match/report";
-import { isNumberedCompanyName, usEmployerId } from "./normalize/names";
+import { feinTokens, isNumberedCompanyName, usEmployerId } from "./normalize/names";
 import { loadPlaceIndex, type PlaceIndex } from "./normalize/places";
 import { loadRoles, type RoleSet } from "./normalize/roles";
 import { loadProfiles } from "./profiles/load";
@@ -86,6 +86,7 @@ export type LiveMeta = { ok: true; meta: Meta | null } | { ok: false; problem: s
 const REFUSE = "could not read the live meta.json; refusing to compare";
 /** Prefix of a totals-check problem accepted with acceptTotalsChange (R36). */
 export const ACCEPTED = "accepted totals change: ";
+export const FIRST_BUILD_404 = "live meta.json returned 404; treated as a first build";
 
 /** The live meta.json: null on a 404 (nothing deployed yet, a first build). Anything else unreadable is a problem. */
 export async function readLiveMeta(
@@ -115,20 +116,19 @@ export async function readLiveMeta(
 
 // ---- Name screen: R33 postal-code look-alikes, emails, column names and FEINs --------------------------------
 
-/** FEIN-shaped numbers: the dashed form NN-NNNNNNN, or a bare run of exactly nine digits. */
-const FEIN_SHAPED = /(?<![\w.-])\d{2}-\d{7}(?![\w-])|(?<![\w.])\d{9}(?![\w.])/g;
-
 /**
- * For an unprofiled US owner, how a filed name holds a FEIN, or null: its own (a FEIN-shaped number whose
- * generated id is the owner's), or any other FEIN-shaped number. Unprofiled FEINs are never published, and a
- * trade name that is a FEIN would publish one. Canadian owners have no FEIN, so they are not checked, and a
- * Canadian numbered-company name such as "101234567 SASKATCHEWAN LTD" is a name, not a FEIN (R37).
+ * For an unprofiled US owner, how a filed name holds a FEIN, or null: its own (a FEIN-shaped token whose
+ * generated id is the owner's), or any other FEIN-shaped token (the loaders' FEIN_TOKEN). Unprofiled FEINs are
+ * never published, and a trade name that is a FEIN would publish one. Canadian owners have no FEIN, so they are
+ * not checked. A Canadian numbered-company name such as "101234567 SASKATCHEWAN LTD" is a name (R37), so only
+ * the "other FEIN-shaped number" case exempts it: its own FEIN is refused even there.
  */
 function feinIn(id: string, text: string): string | null {
-  if (!id.startsWith("us-") || isNumberedCompanyName(text)) return null;
-  const found = [...text.matchAll(FEIN_SHAPED)].map((m) => m[0].replace("-", ""));
+  if (!id.startsWith("us-")) return null;
+  const found = feinTokens(text);
   if (found.length === 0) return null;
-  return found.some((digits) => usEmployerId(digits, "", null) === id) ? "its own FEIN" : "a FEIN-shaped number";
+  if (found.some((digits) => usEmployerId(digits, "", null) === id)) return "its own FEIN";
+  return isNumberedCompanyName(text) ? null : "a FEIN-shaped number";
 }
 
 /**
@@ -167,6 +167,52 @@ export function screenNames(owners: Map<string, OwnerResult>): {
   return { kept, dropped, problems };
 }
 
+// ---- Summaries ------------------------------------------------------------------------------------------
+
+/** The summary CSVs as size-check entries: they are committed to git, so the 50 MB per-file limit applies. */
+export function summaryEntries(csvs: Record<string, string>): WrittenFile[] {
+  return Object.keys(csvs)
+    .sort()
+    .map((name) => ({ path: `summary/${name}`, bytes: Buffer.byteLength(csvs[name], "utf8"), gzipBytes: 0 }));
+}
+
+/**
+ * Writes the summary CSVs into <dataDir>/summary atomically. Every file goes into a fresh staging directory
+ * beside it, with earlier years' files this build no longer produces copied over (a year that rolled out of the
+ * window keeps its last summary), then the staging directory is swapped in. On any failure the old summaries are
+ * left exactly as they were and the staging directory is removed.
+ */
+export async function writeSummaries(dataDir: string, csvs: Record<string, string>): Promise<void> {
+  const dir = path.join(dataDir, "summary");
+  await mkdir(dataDir, { recursive: true });
+  const stage = await mkdtemp(path.join(dataDir, ".summary-staging-"));
+  const previous = `${stage}-previous`;
+  try {
+    let existing: string[] = [];
+    let hadDir = true;
+    try {
+      existing = await readdir(dir);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+      hadDir = false;
+    }
+    for (const name of existing.filter((n) => !Object.prototype.hasOwnProperty.call(csvs, n))) {
+      await copyFile(path.join(dir, name), path.join(stage, name));
+    }
+    for (const name of Object.keys(csvs).sort()) await writeFile(path.join(stage, name), csvs[name]);
+    if (hadDir) await rename(dir, previous);
+    try {
+      await rename(stage, dir);
+    } catch (e) {
+      if (hadDir) await rename(previous, dir);
+      throw e;
+    }
+    if (hadDir) await rm(previous, { recursive: true, force: true });
+  } finally {
+    await rm(stage, { recursive: true, force: true });
+  }
+}
+
 // ---- Helpers --------------------------------------------------------------------------------------------
 
 function firstLine(e: unknown): string {
@@ -174,7 +220,7 @@ function firstLine(e: unknown): string {
 }
 
 /** An error message fit for a public issue: one line, the local cache path removed, nothing personal-looking. */
-function safeMessage(e: unknown, cacheDir: string): string {
+export function safeMessage(e: unknown, cacheDir: string): string {
   const msg = firstLine(e).split(path.resolve(cacheDir)).join("<cache>").split(cacheDir).join("<cache>");
   return personalText(msg) ? "(details withheld: the error text looked like personal data)" : msg;
 }
@@ -365,7 +411,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   if (opts.liveMetaUrl) {
     const live = await readLiveMeta(opts.liveMetaUrl, opts.fetchFn);
     if (!live.ok) problems.push(live.problem);
-    else if (live.meta) {
+    else if (live.meta === null) warnings.push(FIRST_BUILD_404);
+    else {
       const moved = compareTotals(live.meta.totals, totals, years, live.meta.years);
       if (opts.acceptTotalsChange) warnings.push(...moved.map((p) => `${ACCEPTED}${p}`));
       else problems.push(...moved);
@@ -394,17 +441,21 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   lap(`wrote the site (${files.length} files)`);
 
   problems.push(...checkSizes(files));
+  let csvs: Record<string, string> = {};
+  try {
+    csvs = summaryCsvs(model);
+    problems.push(...checkSizes(summaryEntries(csvs)));
+  } catch (e) {
+    problems.push(`the summaries could not be built: ${safeMessage(e, cacheDir)}`);
+  }
   if (problems.length) return done();
 
-  // 7. Only a build that passed everything writes the committed summaries.
+  // 7. Only a build that passed everything writes the committed summaries, atomically.
   try {
-    const csvs = summaryCsvs(model);
-    const dir = path.join(dataDir, "summary");
-    await mkdir(dir, { recursive: true });
-    for (const name of Object.keys(csvs).sort()) await writeFile(path.join(dir, name), csvs[name]);
+    await writeSummaries(dataDir, csvs);
     lap(`wrote ${Object.keys(csvs).length} summaries`);
   } catch (e) {
-    return fail(`the summaries were not written: ${safeMessage(e, cacheDir)}`);
+    return fail(`the summaries were not written (the previous ones are unchanged): ${safeMessage(e, cacheDir)}`);
   }
   return done();
 }

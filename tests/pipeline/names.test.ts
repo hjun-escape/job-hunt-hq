@@ -6,6 +6,7 @@ import {
   isNumberedCompanyName,
   looksLikePersonName,
   personNameSignal,
+  feinTokens,
   normalizeName,
   stripFeinTokens,
   usEmployerId,
@@ -37,7 +38,32 @@ describe("isNumberedCompanyName (R37)", () => {
   });
 });
 
+describe("feinTokens", () => {
+  it("finds FEIN-shaped tokens by digit boundaries, with a hyphen, en dash, underscore or no separator", () => {
+    expect(feinTokens("ACME 12-3456789")).toEqual(["123456789"]);
+    expect(feinTokens("123456789.")).toEqual(["123456789"]);
+    expect(feinTokens("12-3456789-0001")).toEqual(["123456789"]);
+    expect(feinTokens("ACME_123456789")).toEqual(["123456789"]);
+    expect(feinTokens("12\u20133456789 and 98_7654321")).toEqual(["123456789", "987654321"]);
+    expect(feinTokens("ABC123456789DEF")).toEqual(["123456789"]);
+  });
+
+  it("does not match a space separator, 8 digits or 10 digits", () => {
+    expect(feinTokens("12 3456789")).toEqual([]);
+    expect(feinTokens("ACME 12345678 LLC")).toEqual([]);
+    expect(feinTokens("ACME 1234567890 LLC")).toEqual([]);
+  });
+});
+
 describe("stripFeinTokens", () => {
+  it("removes the new separator forms and the punctuation they leave", () => {
+    expect(stripFeinTokens("ACME_123456789")).toBe("ACME");
+    expect(stripFeinTokens("ACME 123456789.")).toBe("ACME");
+    expect(stripFeinTokens("ACME - 12\u20133456789 - INC")).toBe("ACME INC");
+    expect(stripFeinTokens("ACME 12-3456789-0001")).not.toMatch(/3456789/);
+    expect(stripFeinTokens("ACME 12 3456789")).toBe("ACME 12 3456789");
+  });
+
   it("strips FEIN-shaped tokens but keeps a numbered-company name whole", () => {
     expect(stripFeinTokens("ACME INC 12-3456789")).toBe("ACME INC");
     expect(stripFeinTokens("101234567 Saskatchewan Ltd.")).toBe("101234567 Saskatchewan Ltd.");

@@ -142,6 +142,8 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
     expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME INC - 12-3456789" }, ctx)!.employer.name).toBe("ACME INC");
     expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "123456789 ACME INC" }, ctx)!.employer.name).toBe("ACME INC");
     expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME (12-3456789) INC" }, ctx)!.employer.name).toBe("ACME INC");
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME_123456789" }, ctx)!.employer.name).toBe("ACME");
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME INC 123456789." }, ctx)!.employer.name).toBe("ACME INC");
     expect(mapPermRow({ ...permRow, EMP_BUSINESS_NAME: "Acme Software Inc, 987654321" }, ctx)!.employer.name).toBe("Acme Software Inc");
   });
 
