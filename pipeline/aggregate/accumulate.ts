@@ -11,6 +11,11 @@ const MIN = 3;
 /** An unprofiled owner named like a person is published only from this many certified US filings (R23 d). */
 export const PERSON_LIKE_MIN_FILINGS = 10;
 
+/** True only for a generated employer id (`us-` or `ca-` plus 10 hex characters); a profile id is a domain. */
+export function isUnprofiledId(id: string): boolean {
+  return /^(us|ca)-[0-9a-f]{10}$/.test(id);
+}
+
 export type YearPlans = { lca: YearSelection; perm: YearSelection; lmia: YearSelection };
 export type OwnerResult = {
   name: string;
@@ -260,8 +265,7 @@ export function createAccumulator() {
       const name = ranked(tally(all.map((y) => y.names)))[0];
       const personLike = new Set(all.flatMap((y) => [...y.personLike]));
       const usCertified = [...lca, ...perm].reduce((n, [, y]) => n + y.count, 0);
-      const profiled = !id.startsWith("us-") && !id.startsWith("ca-");
-      const small = !profiled && usCertified < PERSON_LIKE_MIN_FILINGS;
+      const small = isUnprofiledId(id) && usCertified < PERSON_LIKE_MIN_FILINGS;
       if (small && personLike.has(name)) {
         droppedPersonLike++;
         continue;

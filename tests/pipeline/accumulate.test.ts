@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createAccumulator,
+  isUnprofiledId,
   PERSON_LIKE_MIN_FILINGS,
   type YearPlans,
 } from "../../pipeline/aggregate/accumulate";
@@ -375,6 +376,12 @@ describe("owner identity", () => {
   });
 });
 
+// Generated employer ids (prefix plus 10 hex characters), the only unprofiled form.
+const JANE = "us-0a0a0a0a0a";
+const ACME = "us-0b0b0b0b0b";
+const MIX = "us-0c0c0c0c0c";
+const BIG = "us-0d0d0d0d0d";
+
 describe("person-like privacy gate (R23 d)", () => {
   const jane = { name: "JANE DOE", personLike: true };
   // 9 certified across LCA 2024 and PERM 2025, plus denied ones and out-of-plan ones that do not count.
@@ -389,13 +396,21 @@ describe("person-like privacy gate (R23 d)", () => {
     expect(PERSON_LIKE_MIN_FILINGS).toBe(10);
   });
 
+  it("treats only the exact generated-id form as unprofiled", () => {
+    expect(isUnprofiledId("us-0123456789")).toBe(true);
+    expect(isUnprofiledId("ca-abcdef0123")).toBe(true);
+    expect(isUnprofiledId("us-foods.com")).toBe(false);
+    expect(isUnprofiledId("ca-example.org")).toBe(false);
+    expect(isUnprofiledId("google.com")).toBe(false);
+  });
+
   it("drops an unprofiled weak person-like owner under 10 certified filings from owners and totals", () => {
     const acc = createAccumulator();
-    feedJane(acc, "us-jane", 9);
-    times(3, () => acc.addUs("us-acme", us({ year: 2024 })));
+    feedJane(acc, JANE, 9);
+    times(3, () => acc.addUs(ACME, us({ year: 2024 })));
     const r = acc.finish(plan);
-    expect(r.owners.has("us-jane")).toBe(false);
-    expect([...r.owners.keys()]).toEqual(["us-acme"]);
+    expect(r.owners.has(JANE)).toBe(false);
+    expect([...r.owners.keys()]).toEqual([ACME]);
     expect(r.droppedPersonLike).toBe(1);
     expect(r.totals).toStrictEqual({
       lca: { "2023": 0, "2024": 3, "2025": 0, "2026": 0 },
@@ -407,9 +422,9 @@ describe("person-like privacy gate (R23 d)", () => {
 
   it("keeps the same owner at 10 certified filings", () => {
     const acc = createAccumulator();
-    feedJane(acc, "us-jane", 10);
+    feedJane(acc, JANE, 10);
     const r = acc.finish(plan);
-    expect(r.owners.get("us-jane")!.name).toBe("JANE DOE");
+    expect(r.owners.get(JANE)!.name).toBe("JANE DOE");
     expect(r.droppedPersonLike).toBe(0);
     expect(r.totals.lca["2024"]).toBe(5);
     expect(r.totals.perm["2025"]).toBe(5);
@@ -424,15 +439,25 @@ describe("person-like privacy gate (R23 d)", () => {
     expect(r.totals.lca["2025"]).toBe(2);
   });
 
+  it("treats a profiled domain that starts like a generated id as profiled", () => {
+    const acc = createAccumulator();
+    times(2, () => acc.addUs("us-foods.com", us(jane)));
+    times(2, () => acc.addCa("ca-example.org", ca({ name: "JANE DOE" })));
+    acc.addUs("ca-example.org", us(jane));
+    const r = acc.finish(plan);
+    expect([...r.owners.keys()]).toEqual(["ca-example.org", "us-foods.com"]);
+    expect(r.droppedPersonLike).toBe(0);
+  });
+
   it("decides by the display name, and keeps a person-like alias of a small owner out of `also`", () => {
     const acc = createAccumulator();
-    times(3, () => acc.addUs("us-mix", us({ name: "MIX HOLDINGS LLC" })));
-    acc.addUs("us-mix", us(jane));
-    times(9, () => acc.addUs("us-big", us({ name: "BIG HOLDINGS LLC" })));
-    acc.addUs("us-big", us(jane));
+    times(3, () => acc.addUs(MIX, us({ name: "MIX HOLDINGS LLC" })));
+    acc.addUs(MIX, us(jane));
+    times(9, () => acc.addUs(BIG, us({ name: "BIG HOLDINGS LLC" })));
+    acc.addUs(BIG, us(jane));
     const r = acc.finish(plan);
-    expect(r.owners.get("us-mix")).toMatchObject({ name: "MIX HOLDINGS LLC", also: [] });
-    expect(r.owners.get("us-big")).toMatchObject({ name: "BIG HOLDINGS LLC", also: ["JANE DOE"] });
+    expect(r.owners.get(MIX)).toMatchObject({ name: "MIX HOLDINGS LLC", also: [] });
+    expect(r.owners.get(BIG)).toMatchObject({ name: "BIG HOLDINGS LLC", also: ["JANE DOE"] });
     expect(r.droppedPersonLike).toBe(0);
   });
 });
@@ -523,7 +548,7 @@ function sampleOps(): Op[] {
       }
     }
   }
-  for (let k = 0; k < 6; k++) ops.push({ kind: "us", owner: "us-jane", f: us({ name: "JANE DOE", personLike: true, year: 2024 + (k % 2) }) });
+  for (let k = 0; k < 6; k++) ops.push({ kind: "us", owner: JANE, f: us({ name: "JANE DOE", personLike: true, year: 2024 + (k % 2) }) });
   return ops;
 }
 
