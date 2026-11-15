@@ -95,18 +95,34 @@ describe("compareTotals: a complete year the new build lost", () => {
     expect(compareTotals(totals, totals, nextPlan, livePlan)).toEqual([expect.stringContaining("lca 2026")]);
   });
 
-  it("lets the oldest complete year roll off the window", () => {
+  it("lets the oldest complete year roll off when a newer complete year arrived", () => {
     const livePlan: YearPlans = { ...plan, lca: { complete: [2024, 2025, 2026] } };
     const nextPlan: YearPlans = { ...plan, lca: { complete: [2025, 2026, 2027] } };
     const prev = t({ "2024": 100, "2025": 100, "2026": 100 });
     expect(compareTotals(prev, t({ "2025": 100, "2026": 100, "2027": 90 }), nextPlan, livePlan)).toEqual([]);
+    const liveLmia: YearPlans = { ...plan, lmia: { complete: [2023, 2024, 2025] } };
+    const nextLmia: YearPlans = { ...plan, lmia: { complete: [2024, 2025, 2026] } };
+    expect(compareTotals(t({}), t({}), nextLmia, liveLmia)).toEqual([]);
+  });
+
+  it("flags the oldest complete year lost without a newer one (one cached quarter of FY2024 gone)", () => {
+    const livePlan: YearPlans = { ...plan, lca: selectionFor("lca", quarters([2024, 2025, 2026])) };
+    const nextPlan: YearPlans = { ...plan, lca: selectionFor("lca", quarters([2024, 2025, 2026], "2024-2")) };
+    expect(nextPlan.lca.complete).toEqual([2025, 2026]);
+    expect(compareTotals(t({}), t({}), nextPlan, livePlan)).toEqual([expect.stringContaining("lca 2024")]);
+  });
+
+  it("flags PERM FY2025 lost when its cumulative Q4 file is gone", () => {
+    const livePlan: YearPlans = { ...plan, perm: { complete: [2025, 2026] } };
+    const nextPlan: YearPlans = { ...plan, perm: { complete: [2026] } };
+    expect(compareTotals(t({}), t({}), nextPlan, livePlan)).toEqual([expect.stringContaining("perm 2025")]);
   });
 
   it("checks every source, and flags them all when this build has no complete year", () => {
     const livePlan: YearPlans = { lca: { complete: [2025] }, perm: { complete: [2025] }, lmia: { complete: [2024, 2025] } };
     const nextPlan: YearPlans = { lca: { complete: [2025] }, perm: { complete: [] }, lmia: { complete: [2025] } };
     const problems = compareTotals(t({}), t({}), nextPlan, livePlan);
-    expect(problems).toEqual([expect.stringContaining("perm 2025")]);
+    expect(problems).toEqual([expect.stringContaining("perm 2025"), expect.stringContaining("lmia 2024")]);
   });
 });
 

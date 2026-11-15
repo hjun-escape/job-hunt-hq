@@ -180,9 +180,10 @@ export function summaryEntries(csvs: Record<string, string>): WrittenFile[] {
  * Writes the summary CSVs into <dataDir>/summary atomically. Every file goes into a fresh staging directory
  * beside it, with earlier years' files this build no longer produces copied over (a year that rolled out of the
  * window keeps its last summary), then the staging directory is swapped in. On any failure the old summaries are
- * left exactly as they were and the staging directory is removed.
+ * left exactly as they were and the staging directory is removed. Once the swap is done the new summaries are in
+ * place, so failing to remove the previous directory only gives a warning, which is returned.
  */
-export async function writeSummaries(dataDir: string, csvs: Record<string, string>): Promise<void> {
+export async function writeSummaries(dataDir: string, csvs: Record<string, string>): Promise<string[]> {
   const dir = path.join(dataDir, "summary");
   await mkdir(dataDir, { recursive: true });
   const stage = await mkdtemp(path.join(dataDir, ".summary-staging-"));
@@ -207,7 +208,14 @@ export async function writeSummaries(dataDir: string, csvs: Record<string, strin
       if (hadDir) await rename(previous, dir);
       throw e;
     }
-    if (hadDir) await rm(previous, { recursive: true, force: true });
+    if (!hadDir) return [];
+    try {
+      await rm(previous, { recursive: true, force: true });
+      return [];
+    } catch (e) {
+      const where = path.join(dataDir, path.basename(previous));
+      return [`could not remove the previous summaries directory ${where}; delete it by hand (${firstLine(e)})`];
+    }
   } finally {
     await rm(stage, { recursive: true, force: true });
   }
@@ -452,7 +460,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
 
   // 7. Only a build that passed everything writes the committed summaries, atomically.
   try {
-    await writeSummaries(dataDir, csvs);
+    warnings.push(...(await writeSummaries(dataDir, csvs)));
     lap(`wrote ${Object.keys(csvs).length} summaries`);
   } catch (e) {
     return fail(`the summaries were not written (the previous ones are unchanged): ${safeMessage(e, cacheDir)}`);

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { OwnerResult } from "../../pipeline/aggregate/accumulate";
 import { readLiveMeta, runBuild, screenNames, summaryEntries, writeSummaries } from "../../pipeline/build";
 import { checkSizes } from "../../pipeline/check/sizes";
@@ -12,6 +12,19 @@ import { parseArgs, problemsReport, summaryLines, unexpectedProblem } from "../.
 import { normalizeName, usEmployerId } from "../../pipeline/normalize/names";
 import type { IndexEntry, Meta } from "../../pipeline/schema/published";
 import { EXPECTED_COLUMNS, lcaUrl, permUrl, type SourceFile } from "../../pipeline/sources";
+
+// Lets a test make chosen rm calls fail, to exercise the summary swap's cleanup.
+const rmHook = vi.hoisted(() => ({ fail: null as null | ((target: string) => boolean) }));
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...actual,
+    rm: (target: string, opts?: Parameters<typeof actual.rm>[1]) =>
+      rmHook.fail?.(String(target))
+        ? Promise.reject(Object.assign(new Error("injected rm failure"), { code: "EBUSY" }))
+        : actual.rm(target, opts),
+  };
+});
 
 const root = mkdtempSync(path.join(tmpdir(), "build-test-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -403,6 +416,23 @@ describe("runBuild end to end", () => {
     expect((readJson(out2, "data/v1/meta.json") as Meta).warnings).toContain("live meta.json returned 404; treated as a first build");
   }, 60_000);
 
+  it("passes with a warning when only the cleanup of the previous summaries fails", async () => {
+    const data2 = makeDataDir(fresh("data"));
+    mkdirSync(path.join(data2, "summary"));
+    writeFileSync(path.join(data2, "summary", "lca-2025.csv"), "old\n");
+    rmHook.fail = (target) => target.endsWith("-previous");
+    let r: Awaited<ReturnType<typeof runBuild>>;
+    try {
+      r = await runBuild({ cacheDir, outDir: fresh("out"), dataDir: data2, today: TODAY });
+    } finally {
+      rmHook.fail = null;
+    }
+    expect(r.problems).toEqual([]);
+    expect(r.ok).toBe(true);
+    expect(r.warnings).toEqual(expect.arrayContaining([expect.stringContaining("could not remove the previous summaries directory")]));
+    expect(readFileSync(path.join(data2, "summary", "lca-2025.csv"), "utf8")).not.toBe("old\n");
+  }, 60_000);
+
   it("still refuses an unreadable live meta.json with acceptTotalsChange", async () => {
     const data2 = makeDataDir(fresh("data"));
     const r = await runBuild({
@@ -591,6 +621,21 @@ describe("summaries", () => {
     await expect(writeSummaries(data, { "lca-2024.csv": "new\n", "no-such-dir/lca-2025.csv": "x\n" })).rejects.toThrow();
     expect(tree(path.join(data, "summary"))).toEqual(before);
     expect(readdirSync(data)).toEqual(["summary"]);
+  });
+
+  it("warns, and keeps the new summaries, when only removing the previous directory fails", async () => {
+    const data = fresh("summary-data");
+    mkdirSync(path.join(data, "summary"), { recursive: true });
+    writeFileSync(path.join(data, "summary", "lca-2024.csv"), "old 2024\n");
+    rmHook.fail = (target) => target.endsWith("-previous");
+    try {
+      const warnings = await writeSummaries(data, { "lca-2024.csv": "new 2024\n" });
+      expect(warnings).toEqual([expect.stringContaining("could not remove the previous summaries directory")]);
+    } finally {
+      rmHook.fail = null;
+    }
+    expect(readFileSync(path.join(data, "summary", "lca-2024.csv"), "utf8")).toBe("new 2024\n");
+    expect(await writeSummaries(fresh("summary-data"), { "lca-2025.csv": "x\n" })).toEqual([]);
   });
 
   it("lists the summaries for the size check, under the 50 MB per-file limit", () => {

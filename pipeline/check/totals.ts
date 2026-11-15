@@ -25,8 +25,9 @@ const moved = (from: number, to: number) => Math.abs(to - from) > TOLERANCE * fr
  * complete now) may grow but must not fall. `prev` null (a first build) gives none.
  *
  * With `prevPlan`, a year complete in the previous build but not complete in `plan` is a problem too (one
- * missing cached quarter would otherwise drop a whole year silently), except a year older than `plan`'s
- * oldest complete year, which is the window rolling forward.
+ * missing cached quarter would otherwise drop a whole year silently). The only exception is the window rolling
+ * forward: a year older than `plan`'s oldest complete year, and only when `plan`'s newest complete year is newer
+ * than the previous build's.
  */
 export function compareTotals(prev: Totals | null, next: Totals, plan: YearPlans, prevPlan?: YearPlans): string[] {
   if (prev === null) return [];
@@ -48,10 +49,13 @@ export function compareTotals(prev: Totals | null, next: Totals, plan: YearPlans
       }
     }
     if (!prevPlan) continue;
-    // With no complete year now, nothing counts as rolled off.
-    const oldest = plan[p].complete.length ? Math.min(...plan[p].complete) : -Infinity;
-    for (const year of [...prevPlan[p].complete].sort((a, b) => a - b)) {
-      if (plan[p].complete.includes(year) || year < oldest) continue;
+    const now = plan[p].complete;
+    const before = prevPlan[p].complete;
+    // A year rolls off only when a newer complete year arrived; with no complete year now, nothing rolls off.
+    const movedForward = now.length > 0 && before.length > 0 && Math.max(...now) > Math.max(...before);
+    const oldest = movedForward ? Math.min(...now) : -Infinity;
+    for (const year of [...before].sort((a, b) => a - b)) {
+      if (now.includes(year) || year < oldest) continue;
       problems.push(
         `${p} ${year}: complete in the live build but not complete in this one; a cached quarter may be missing, ` +
           "so the year would be dropped",

@@ -5,3 +5,5 @@ dist
 site
 build-problems.md
 recheck.md
+# Leftovers of a killed summary write (pipeline/build.ts writeSummaries); never commit them.
+data/.summary-staging-*
