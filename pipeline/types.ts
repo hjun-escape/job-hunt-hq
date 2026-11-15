@@ -46,7 +46,7 @@ export type LoadStats = {
   skippedInvalid: number;
   /** skippedInvalid by reason, such as "status", "email in name" or "name was only a number". */
   invalid: Record<string, number>;
-  /** Kept rows whose trade name was blanked: it held an email or was only a FEIN-shaped number. */
+  /** Kept rows whose trade name was blanked: it held an email, was only a FEIN-shaped number, filler or a street address. */
   tradeNamesBlanked: number;
   /**
    * LCA only (R43): "Certified - Withdrawn" rows left out because they relist a case certified in an earlier

@@ -819,6 +819,9 @@ describe("fix round 1: text scan before writing", () => {
     ["an email in an owner name", (m) => (m.owners.get(ACME_ID)!.name = `ACME ROBOTICS INC ${SECRET}`), new RegExp(`owner ${ACME_ID} contains an email address`)],
     ["a postal code in also", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE SOFTWARE LTD V6B 1A1"), /contains what looks like a postal code/],
     ["a postal code without a space", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE M5V1J2"), /contains what looks like a postal code/],
+    ["a street address in also", (m) => m.owners.get(ACME_ID)!.also.push("123 Main St Suite 4"), new RegExp(`owner ${ACME_ID} has a street address in also`)],
+    ["a placeholder in also", (m) => m.owners.get(ACME_ID)!.also.push("N/A"), new RegExp(`owner ${ACME_ID} has a placeholder in also`)],
+    ["a dash run in a profiled owner's also", (m) => m.owners.get("google.com")!.also.push("--"), /owner google\.com has a placeholder in also/],
     ["a lower-case postal code in an owner name", (m) => (m.owners.get(MAPLE_ID)!.name = "MAPLE SOFTWARE LTD m5v 1j2"), new RegExp(`owner ${MAPLE_ID} contains what looks like a postal code`)],
     [
       "a user name and password in a profile source URL",

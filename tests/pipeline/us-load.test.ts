@@ -167,6 +167,29 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
     expect(mapLcaRow({ ...lcaRow, TRADE_NAME_DBA: "ACME DBA 123456789" }, ctx)!.employer.tradeName).toBe("ACME DBA");
   });
 
+  it("blanks a trade name that is a placeholder, in LCA and PERM rows", () => {
+    for (const t of ["N/A", "n/a", "NA", "None", "SAME AS ABOVE", "Not Applicable", "NULL", "nil", "-", "...", "N/A 12-3456789"]) {
+      const lca = lcaOutcome({ ...lcaRow, TRADE_NAME_DBA: t }, ctx);
+      expect("filing" in lca && lca.filing.employer.tradeName, t).toBeNull();
+      expect(lca, t).toMatchObject({ tradeBlanked: true });
+      expect(mapPermRow({ ...permRow, EMP_TRADE_NAME: t }, ctx)!.employer.tradeName, t).toBeNull();
+    }
+  });
+
+  it("blanks a trade name that is a street address, in LCA and PERM rows", () => {
+    for (const t of ["123 Main St", "1600 Amphitheatre Pkwy, Mountain View", "500 SE 1st Ave. Suite 300"]) {
+      expect(lcaOutcome({ ...lcaRow, TRADE_NAME_DBA: t }, ctx), t).toMatchObject({ filing: { employer: { tradeName: null } }, tradeBlanked: true });
+      expect(mapPermRow({ ...permRow, EMP_TRADE_NAME: t }, ctx)!.employer.tradeName, t).toBeNull();
+    }
+  });
+
+  it("keeps real trade names, numbers and street words included", () => {
+    for (const t of ["ACME BOTS", "3M", "1 WORLD TRADE CENTER LLC", "45TH STREET DELI", "Main Street Software", "NA Holdings"]) {
+      expect(mapLcaRow({ ...lcaRow, TRADE_NAME_DBA: t }, ctx)!.employer.tradeName, t).toBe(t);
+      expect(mapPermRow({ ...permRow, EMP_TRADE_NAME: t }, ctx)!.employer.tradeName, t).toBe(t);
+    }
+  });
+
   it("skips a row whose employer name was only a number", () => {
     expect(lcaOutcome({ ...lcaRow, EMPLOYER_NAME: "12-3456789" }, ctx)).toEqual({ skip: "invalid", reason: "name was only a number" });
     expect(permOutcome({ ...permRow, EMP_BUSINESS_NAME: " 123456789 " }, ctx)).toEqual({ skip: "invalid", reason: "name was only a number" });

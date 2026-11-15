@@ -1,7 +1,7 @@
 // Per-owner accumulation of typed filings into year blocks. Keeps running sums and pay values per breakdown
 // cell, never whole filings. Applies the small-cell rule and the person-name privacy gate; publish.ts decides
 // what each block shows.
-import { personNameSignal } from "../normalize/names";
+import { isPlaceholderName, looksLikeStreetAddress, personNameSignal } from "../normalize/names";
 import type { CaCell, Sponsorship, Totals, UsCell } from "../schema/published";
 import type { YearSelection } from "../sources";
 import { WAGE_LEVELS, type CaApproval, type Country, type Place, type UsFiling } from "../types";
@@ -317,10 +317,12 @@ export function createAccumulator() {
         for (const [year, v] of rows) totals[p][String(year)] += v.count;
       }
 
-      // A small unprofiled owner's person-like spellings and trade names stay out of `also`.
+      // Filler and street addresses never go into `also` (the loaders blank such trade names; a filed name can be
+      // one too). A small unprofiled owner's person-like spellings and trade names stay out as well.
       const trade = kind(all, "t");
       const others = tally([names, trade]);
       others.delete(name);
+      for (const n of others.keys()) if (isPlaceholderName(n) || looksLikeStreetAddress(n)) others.delete(n);
       if (small) {
         for (const n of personLike.keys()) others.delete(n);
         for (const t of trade.keys()) if (personNameSignal(t) !== null) others.delete(t);

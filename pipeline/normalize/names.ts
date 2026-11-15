@@ -130,6 +130,47 @@ export function personNameSignal(raw: string): "strong" | "weak" | null {
   return tokens.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t)) ? "weak" : null;
 }
 
+/** Filler typed into a trade-name field, compared upper-cased with edge punctuation trimmed. */
+const PLACEHOLDERS = new Set(["N/A", "NA", "NONE", "SAME", "SAME AS ABOVE", "NOT APPLICABLE", "NULL", "NIL", ""]);
+
+/**
+ * True for a filed name that is filler, not a name: N/A, NA, NONE, SAME, SAME AS ABOVE, NOT APPLICABLE, NULL or
+ * NIL (any case, edge punctuation trimmed, dots and spaces around a slash ignored, so "n.a." and "N / A" count),
+ * or nothing at all once the punctuation is trimmed (a run of dashes or dots).
+ */
+export function isPlaceholderName(raw: string): boolean {
+  const key = raw.normalize("NFKC").toUpperCase().replace(PUNCT_EDGES, "").replace(/\s+/g, " ");
+  return PLACEHOLDERS.has(key) || PLACEHOLDERS.has(key.replace(/\./g, "").replace(/\s*\/\s*/g, "/"));
+}
+
+const STREET_WORDS = new Set([
+  "ST", "STREET", "AVE", "AVENUE", "RD", "ROAD", "BLVD", "DR", "DRIVE", "LN", "LANE", "WAY", "SUITE", "STE",
+  "FLOOR", "FL", "HWY", "PKWY", "CT", "PL",
+]);
+/**
+ * Corporate words that end a company name and are never a US state or a compass point, so "123 MAIN ST DENVER CO"
+ * or "500 SE 1ST AVE" still reads as an address. (CORPORATE_TOKENS also holds CO, PA, SE and the like.)
+ */
+const ADDRESS_CORPORATE_WORDS = new Set([
+  "INC", "INCORPORATED", "LLC", "LTD", "LIMITED", "CORP", "CORPORATION", "COMPANY", "LP", "LLP", "PLLC", "LLLP",
+  "PC", "GMBH", "ULC", "PLC", "PBC",
+]);
+
+/** A house number: digits, a Queens-style "99-15", or digits and one letter ("12A"); never an ordinal ("45TH"). */
+const HOUSE_NUMBER = /^\d+(?:-\d+)?[A-Z]?$/;
+
+/**
+ * True for a filed name that reads as a street address: it starts with a house number, holds a street word (ST,
+ * AVE, RD, SUITE, FL ...) and no corporate word (INC, LLC, CORP ...). Dots, commas and other punctuation split
+ * words. A name that starts with an ordinal, such as "45TH STREET DELI", is a name.
+ */
+export function looksLikeStreetAddress(raw: string): boolean {
+  const text = raw.normalize("NFKC").trim().toUpperCase();
+  if (!HOUSE_NUMBER.test(text.split(/[\s,]+/)[0])) return false;
+  const words = text.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return words.some((w) => STREET_WORDS.has(w)) && !words.some((w) => ADDRESS_CORPORATE_WORDS.has(w));
+}
+
 export function looksLikePersonName(raw: string): boolean {
   return personNameSignal(raw) !== null;
 }

@@ -508,6 +508,16 @@ describe("owner identity", () => {
     expect(o.also).toEqual(["Google LLC"]);
   });
 
+  it("keeps placeholders and street addresses out of `also`, from names and trade names alike", () => {
+    const acc = createAccumulator();
+    times(3, () => acc.addUs("us-ggg", us({ name: "GOOGLE LLC", tradeName: "N/A" })));
+    acc.addUs("us-ggg", us({ name: "1600 Amphitheatre Pkwy", tradeName: "100 Main St" }));
+    acc.addUs("us-ggg", us({ name: "SAME", tradeName: "Google" }));
+    const o = acc.finish(plan).owners.get("us-ggg")!;
+    expect(o.name).toBe("GOOGLE LLC");
+    expect(o.also).toEqual(["Google"]);
+  });
+
   it("breaks a name tie alphabetically", () => {
     const acc = createAccumulator();
     times(2, () => acc.addUs("us-ttt", us({ name: "Tie Corp" })));

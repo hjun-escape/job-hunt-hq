@@ -2,11 +2,12 @@
 // filters them), and postal codes are used to place the worksite and never stored. Filed names are cleaned
 // first: an email in a name skips the row or blanks the trade name (R34), and FEIN-shaped numbers are removed
 // from names (R35, except a Canadian numbered-company name, R37), so neither can reach a published name.
-// LCA case numbers are read only to drop withdrawal relistings (R43) and never stored.
+// A trade name that is filler ("N/A") or a street address is blanked too. LCA case numbers are read only to drop
+// withdrawal relistings (R43) and never stored.
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type LoadStats, type UsFiling } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
-import { personNameSignal, stripFeinTokens } from "../normalize/names";
+import { isPlaceholderName, looksLikeStreetAddress, personNameSignal, stripFeinTokens } from "../normalize/names";
 import type { PlaceIndex } from "../normalize/places";
 import type { RoleSet } from "../normalize/roles";
 import {
@@ -79,11 +80,15 @@ type Common = {
   date: string;
 };
 
-/** A trade name without an email (R34) and without FEIN-shaped numbers (R35); null when nothing usable is left. */
+/**
+ * A trade name without an email (R34) and without FEIN-shaped numbers (R35); null when nothing usable is left,
+ * including filler such as "N/A" or "SAME AS ABOVE" and a street address typed into the field.
+ */
 function cleanTradeName(trade: string | null): { tradeName: string | null; blanked: boolean } {
   if (trade === null) return { tradeName: null, blanked: false };
   const clean = EMAIL.test(trade) ? "" : stripFeinTokens(trade);
-  return clean === "" ? { tradeName: null, blanked: true } : { tradeName: clean, blanked: false };
+  const usable = clean !== "" && !isPlaceholderName(clean) && !looksLikeStreetAddress(clean);
+  return usable ? { tradeName: clean, blanked: false } : { tradeName: null, blanked: true };
 }
 
 type Gated = {

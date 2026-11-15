@@ -4,7 +4,9 @@ import {
   caEmployerId,
   companyIdFromUrl,
   isNumberedCompanyName,
+  isPlaceholderName,
   looksLikePersonName,
+  looksLikeStreetAddress,
   personNameSignal,
   feinTokens,
   normalizeName,
@@ -131,6 +133,36 @@ describe("corporate tokens and person signals", () => {
     expect(personNameSignal("John A. Smith")).toBe("weak");
     expect(personNameSignal("General Motors")).toBe("weak");
     expect(personNameSignal("Google LLC")).toBeNull();
+  });
+});
+
+describe("filler and street addresses typed as names", () => {
+  it("recognises placeholders in any case, with edge punctuation, dots and spaced slashes", () => {
+    for (const n of ["N/A", "n/a", "NA", "N.A.", "N / A", "(none)", "None.", "SAME", "Same as above", "NOT APPLICABLE", "null", "NIL", "-", "---", "...", ". .", "", "  ", "*"]) {
+      expect(isPlaceholderName(n), JSON.stringify(n)).toBe(true);
+    }
+  });
+  it("keeps names that only contain such a word", () => {
+    for (const n of ["NA Holdings", "Same Day Delivery LLC", "Nil Labs", "None Such Inc", "N/A Group", "ACME BOTS", "3M"]) {
+      expect(isPlaceholderName(n), n).toBe(false);
+    }
+  });
+  it("recognises a street address: a house number, a street word and no corporate word", () => {
+    for (const n of [
+      "123 Main St", "1600 Amphitheatre Pkwy", "1 Infinite Loop Suite 200", "500 SE 1st Ave.", "99-15 Ulmer Street",
+      "2000 Market Street, Philadelphia, PA 19103", "1 Main St Denver CO", "45 Fremont St. 9th Floor", "12A Elm Rd",
+    ]) {
+      expect(looksLikeStreetAddress(n), n).toBe(true);
+    }
+  });
+  it("keeps company names with numbers or street words", () => {
+    for (const n of [
+      "3M COMPANY", "7-ELEVEN, INC.", "1 WORLD TRADE CENTER LLC", "21ST CENTURY FOX", "45TH STREET HOMES",
+      "9TH AVENUE PHARMACY", "Main Street Bank", "600 Grant Street LLC", "123 DATA LLC", "2-Spirited People of the 1 st Nations",
+      "ACME WAY", "14 Street Medical PC", "",
+    ]) {
+      expect(looksLikeStreetAddress(n), n).toBe(false);
+    }
   });
 });
 
