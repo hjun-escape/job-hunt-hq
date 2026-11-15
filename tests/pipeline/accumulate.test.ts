@@ -7,7 +7,7 @@ import {
   type YearPlans,
 } from "../../pipeline/aggregate/accumulate";
 import { payStats, SUB_MIN } from "../../pipeline/aggregate/cells";
-import { headlineOf, type YearBlock } from "../../pipeline/aggregate/trend";
+import { headlineOf, publishedHeadline, type YearBlock } from "../../pipeline/aggregate/trend";
 import { personNameSignal } from "../../pipeline/normalize/names";
 import {
   Sponsorship,
@@ -192,21 +192,20 @@ describe("year blocks", () => {
     expect(headlineOf("lca", b.total)).toBe(8);
   });
 
-  it("withholds total sub-counts under 3 and complements each exact-sum group; cells carry none", () => {
+  it("withholds total sub-counts under 3 and each exact-sum group with a small member whole; cells carry none", () => {
     const acc = createAccumulator();
     const id = "us-aaa";
     times(4, (i) => acc.addUs(id, us({ month: 1, newHires: 1, level: "II", pay: 100000 + i * 10000 })));
     times(3, (i) => acc.addUs(id, us({ month: 2, newHires: 0, changeEmployer: 1, level: "III", pay: 140000 + i * 10000 })));
     acc.addUs(id, us({ month: 2, newHires: 0, continuing: 1, level: "IV", pay: 170000 }));
     acc.addUs(id, us({ status: "denied" }));
-    // continuing 1 is withheld, so the smaller of newHires 4 and changeEmployer 3 goes too; level IV 1 takes III 3
-    // with it; denied 1 is withheld. The months would give newHires + changeEmployer, so they are withheld as well.
-    // Pay needs 10 values.
+    // continuing 1 withholds the whole worker split; level IV 1 withholds every level; denied 1 is withheld.
+    // The months would give newHires + changeEmployer, so they are withheld as well. Pay needs 10 values.
     expect(acc.finish(plan).owners.get(id)!.sponsorship.lca).toStrictEqual([
       {
         year: 2025,
         partial: false,
-        total: { role: "all", place: "all", filings: 8, workers: 8, newHires: 4, levels: { II: 4 } },
+        total: { role: "all", place: "all", filings: 8, workers: 8, levels: {} },
         cells: [{ role: "software-engineer", place: "cbsa:41940", filings: 8, workers: 8 }],
       },
     ]);
@@ -340,13 +339,13 @@ describe("year blocks", () => {
     ]);
   });
 
-  it("withholds Canadian streams under 3 and complements them", () => {
+  it("withholds the Canadian streams whole when any is 1 or 2", () => {
     const acc = createAccumulator();
     acc.addCa("ca-bbb", ca({ stream: "High Wage", lmias: 2, positions: 6 }));
     acc.addCa("ca-bbb", ca({ stream: "Low Wage", lmias: 1, positions: 4 }));
     acc.addCa("ca-bbb", ca({ stream: "Global Talent Stream", lmias: 1, positions: 2 }));
     const b = acc.finish(plan).owners.get("ca-bbb")!.sponsorship.lmia![0] as { total: { streams: Record<string, number> } };
-    expect(b.total.streams).toStrictEqual({ "High Wage": 6 });
+    expect(b.total.streams).toStrictEqual({});
   });
 
   it("keeps any stream name the data uses, without a fixed list", () => {
@@ -438,6 +437,49 @@ describe("year blocks", () => {
     }
     expect(() => acc.addUs("us-aaa", us({ role: "all" }))).toThrow(/"all"/);
     expect(() => acc.addCa("ca-bbb", ca({ role: "all" }))).toThrow(/"all"/);
+  });
+});
+
+describe("reviewer probes (R30)", () => {
+  it("probe A: newHires 1, changeEmployer 1, continuing 8 withholds the whole worker split", () => {
+    const acc = createAccumulator();
+    const id = "us-0000000001";
+    acc.addUs(id, us({ newHires: 1, level: "III", pay: null }));
+    acc.addUs(id, us({ newHires: 0, changeEmployer: 1, level: "III", pay: null }));
+    times(8, () => acc.addUs(id, us({ newHires: 0, continuing: 1, level: "III", pay: null })));
+    const b = acc.finish(plan).owners.get(id)!.sponsorship.lca![0];
+    expect(b).toStrictEqual({
+      year: 2025,
+      partial: false,
+      total: { role: "all", place: "all", filings: 10, workers: 10, levels: { III: 10 } },
+      cells: [{ role: "software-engineer", place: "cbsa:41940", filings: 10, workers: 10 }],
+    });
+  });
+
+  it("probe B: levels I 1, II 1, III 4, IV 4, N/A 4 withholds every level", () => {
+    const acc = createAccumulator();
+    const id = "us-0000000001";
+    const levels: [WageLevel, number][] = [["I", 1], ["II", 1], ["III", 4], ["IV", 4], ["N/A", 4]];
+    for (const [level, n] of levels) times(n, () => acc.addUs(id, us({ level, pay: null })));
+    const total = (acc.finish(plan).owners.get(id)!.sponsorship.lca![0] as { total: UsCell }).total;
+    expect(total).toStrictEqual({ role: "all", place: "all", filings: 14, workers: 14, newHires: 14, levels: {} });
+  });
+
+  it("a withheld worker split leaves no published headline, no months and no LCA trend", () => {
+    const acc = createAccumulator();
+    const id = "us-0000000001";
+    times(4, () => acc.addUs(id, us({ year: 2024 })));
+    times(3, () => acc.addUs(id, us({ year: 2024, newHires: 0, changeEmployer: 1 })));
+    acc.addUs(id, us({ newHires: 1 }));
+    acc.addUs(id, us({ newHires: 0, changeEmployer: 1 }));
+    times(8, () => acc.addUs(id, us({ newHires: 0, continuing: 1 })));
+    const s = acc.finish(plan).owners.get(id)!.sponsorship;
+    const [y2024, y2025] = s.lca! as { total: UsCell; months?: number[] }[];
+    expect(publishedHeadline("lca", y2024.total)).toBe(7);
+    expect(y2024.months).toEqual([7, ...zeros(11)]);
+    expect(publishedHeadline("lca", y2025.total)).toBeNull();
+    expect("months" in y2025).toBe(false);
+    expect(s.trends.lca).toEqual({ full: null, ytd: null });
   });
 });
 
@@ -884,19 +926,10 @@ function cellFor<C extends { role: string; place: string }>(cells: C[], role: st
   return (place.metro ? find(role, place.metro) : undefined) ?? find(role, place.region) ?? find("all", place.region);
 }
 
-/** One exact-sum group: published members equal raw and are at least SUB_MIN; never exactly one withheld. */
+/** One exact-sum group: withheld whole when any member is 1 or 2; otherwise every member from SUB_MIN, no zeros. */
 function checkGroup(raw: [string, number][], shown: Record<string, number | undefined>, strictKeys: boolean) {
-  let withheld = 0;
-  for (const [k, n] of raw) {
-    const v = shown[k];
-    if (v === undefined) {
-      if (n > 0) withheld++;
-    } else {
-      expect(v).toBe(n);
-      expect(v).toBeGreaterThanOrEqual(SUB_MIN);
-    }
-  }
-  expect(withheld).not.toBe(1);
+  const small = raw.some(([, n]) => n > 0 && n < SUB_MIN);
+  for (const [k, n] of raw) expect(shown[k]).toBe(small || n < SUB_MIN ? undefined : n);
   if (strictKeys) for (const k of Object.keys(shown)) expect(raw.map(([rk]) => rk)).toContain(k);
 }
 

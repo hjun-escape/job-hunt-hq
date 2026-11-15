@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { withholdUs } from "../../pipeline/aggregate/publish";
 import { headlineFor, headlineOf, publishedHeadline, trend, type YearBlock } from "../../pipeline/aggregate/trend";
 import type { CaCell, Sponsorship, UsCell } from "../../pipeline/schema/published";
 
@@ -135,6 +136,14 @@ describe("publishedHeadline", () => {
     expect(publishedHeadline("lca", usTotal({ filings: 9, workers: 9, newHires: 4, changeEmployer: 3 }))).toBe(7);
     expect(publishedHeadline("perm", usTotal({ filings: 9 }))).toBe(9);
     expect(publishedHeadline("lmia", caTotal({ lmias: 4, positions: 11 }))).toBe(11);
+  });
+
+  it("is null for a total whose worker split was withheld whole (R30)", () => {
+    const shown = withholdUs(
+      usTotal({ filings: 10, workers: 10, newHires: 1, changeEmployer: 1, continuing: 8, levels: { III: 10 } }),
+    );
+    expect(shown.newHires ?? shown.changeEmployer ?? shown.continuing).toBeUndefined();
+    expect(publishedHeadline("lca", shown)).toBeNull();
   });
 
   it("is null for LCA when newHires or changeEmployer is withheld (or zero, which is omitted too)", () => {

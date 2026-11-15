@@ -15,35 +15,30 @@ import type { CaCell, UsCell } from "../../pipeline/schema/published";
 const zeros = (n: number) => Array<number>(n).fill(0);
 
 describe("publishable (one exact-sum group on a total)", () => {
-  it("withholds every value under SUB_MIN (3), zeros included", () => {
+  it("shows members from SUB_MIN (3) and leaves zeros out when no member is 1 or 2", () => {
     expect(publishable([["a", 5], ["b", 0], ["c", 3]])).toEqual([["a", 5], ["c", 3]]);
+    expect(publishable([["a", 3], ["b", 3]])).toEqual([["a", 3], ["b", 3]]);
   });
 
-  it("also withholds the smallest published member when exactly one member is withheld", () => {
-    expect(publishable([["a", 5], ["b", 1], ["c", 4]])).toEqual([["a", 5]]);
-  });
-
-  it("breaks a tie for the smallest by order", () => {
-    expect(publishable([["a", 4], ["b", 2], ["c", 4]])).toEqual([["c", 4]]);
-  });
-
-  it("withholds the only other member", () => {
+  it("withholds the whole group when any member is 1 or 2", () => {
+    expect(publishable([["a", 5], ["b", 1], ["c", 4]])).toEqual([]);
     expect(publishable([["a", 9], ["b", 2], ["c", 0]])).toEqual([]);
   });
 
-  it("needs no extra withholding when two or more members are withheld", () => {
-    expect(publishable([["a", 9], ["b", 2], ["c", 1]])).toEqual([["a", 9]]);
+  it("withholds the whole group when two members are small (the old complement left these exact)", () => {
+    expect(publishable([["a", 9], ["b", 2], ["c", 1]])).toEqual([]);
+    expect(publishable([["a", 1], ["b", 1], ["c", 8]])).toEqual([]);
   });
 
-  it("publishes a group with nothing under SUB_MIN unchanged", () => {
-    expect(publishable([["a", 3], ["b", 0], ["c", 7]])).toEqual([["a", 3], ["c", 7]]);
+  it("publishes an all-zero group as empty", () => {
+    expect(publishable([["a", 0], ["b", 0]])).toEqual([]);
   });
 });
 
 const pay = { n: 12, p25: 118000, median: 135000, p75: 153000 };
 
 describe("withholdUs and withholdCa (totals)", () => {
-  it("withholds small sub-counts of an LCA total and complements the worker split and the levels", () => {
+  it("withholds small sub-counts of an LCA total, and the worker split and levels whole", () => {
     expect(
       withholdUs({
         role: "all",
@@ -58,7 +53,7 @@ describe("withholdUs and withholdCa (totals)", () => {
         levels: { II: 4, III: 3, IV: 1 },
         pay,
       }),
-    ).toStrictEqual({ role: "all", place: "all", filings: 8, withdrawn: 3, workers: 8, newHires: 4, levels: { II: 4 }, pay });
+    ).toStrictEqual({ role: "all", place: "all", filings: 8, withdrawn: 3, workers: 8, levels: {}, pay });
   });
 
   it("keeps a PERM total free of LCA keys", () => {
@@ -76,7 +71,7 @@ describe("withholdUs and withholdCa (totals)", () => {
     });
   });
 
-  it("withholds small streams and complements them", () => {
+  it("withholds the streams whole when any is 1 or 2", () => {
     expect(
       withholdCa({
         role: "all",
@@ -85,7 +80,7 @@ describe("withholdUs and withholdCa (totals)", () => {
         positions: 12,
         streams: { "Global Talent Stream": 2, "High Wage": 6, "Low Wage": 4 },
       }),
-    ).toStrictEqual({ role: "all", place: "all", lmias: 5, positions: 12, streams: { "High Wage": 6 } });
+    ).toStrictEqual({ role: "all", place: "all", lmias: 5, positions: 12, streams: {} });
   });
 });
 
@@ -183,5 +178,141 @@ describe("publishUs and publishCa: trends from published values only", () => {
       total: { role: "all", place: "all", filings: 20, workers: 20, newHires: 4, changeEmployer: 3, continuing: 13, levels: { II: 20 } },
       cells: [{ role: "designer", place: "US-CA", filings: 20, workers: 20 }],
     });
+  });
+});
+
+// R30: every composition of each exact-sum group, through the real withholding functions. For each published
+// output, a reader knows the group's sum and the rule, so the inputs that give that output are all it can
+// tell apart. No absent member may then be pinned to one value, or to values of only 1 or 2.
+function compositions(sum: number, parts: number): number[][] {
+  if (parts === 1) return [[sum]];
+  const out: number[][] = [];
+  for (let first = 0; first <= sum; first++) {
+    for (const rest of compositions(sum - first, parts - 1)) out.push([first, ...rest]);
+  }
+  return out;
+}
+
+type Leak = { output: string; member: string; values: number[] };
+
+/** Absent members whose values across the preimage are a single value (other than a known 0) or only 1 or 2. */
+function leaks(
+  keys: string[],
+  sums: number[],
+  publish: (values: number[]) => { output: string; shown: string[] },
+): { leaks: Leak[]; checked: number; inputs: number } {
+  const byOutput = new Map<string, { shown: Set<string>; values: Set<number>[] }>();
+  let inputs = 0;
+  for (const sum of sums) {
+    for (const values of compositions(sum, keys.length)) {
+      inputs++;
+      const { output, shown } = publish(values);
+      let e = byOutput.get(output);
+      if (!e) {
+        e = { shown: new Set(shown), values: keys.map(() => new Set<number>()) };
+        byOutput.set(output, e);
+      }
+      values.forEach((v, i) => e!.values[i].add(v));
+    }
+  }
+  const found: Leak[] = [];
+  let checked = 0;
+  for (const [output, e] of byOutput) {
+    keys.forEach((member, i) => {
+      if (e.shown.has(member)) return;
+      const values = [...e.values[i]].sort((a, b) => a - b);
+      if (values.length === 1 && values[0] === 0) return; // a zero a reader can work out is not a count to protect
+      checked++;
+      if (values.length === 1 || values.every((v) => v === 1 || v === 2)) found.push({ output, member, values });
+    });
+  }
+  return { leaks: found, checked, inputs };
+}
+
+const range = (lo: number, hi: number) => Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+
+describe("exhaustive preimage check (R30)", () => {
+  const split = ["newHires", "changeEmployer", "continuing"] as const;
+
+  it("pins no hidden worker-split member (3 members, sums 3 to 20)", () => {
+    const r = leaks([...split], range(3, 20), ([newHires, changeEmployer, continuing]) => {
+      const sum = newHires + changeEmployer + continuing;
+      const out = withholdUs({
+        role: "all",
+        place: "all",
+        filings: sum,
+        workers: sum,
+        newHires,
+        changeEmployer,
+        continuing,
+        levels: { II: sum },
+      });
+      return { output: JSON.stringify(out), shown: split.filter((k) => out[k] !== undefined) };
+    });
+    expect(r.inputs).toBe(1761);
+    expect(r.checked).toBeGreaterThan(0);
+    expect(r.leaks).toEqual([]);
+  });
+
+  it("pins no hidden wage level (5 members, sums 3 to 20)", () => {
+    const levels = ["I", "II", "III", "IV", "N/A"] as const;
+    const r = leaks([...levels], range(3, 20), (values) => {
+      const sum = values.reduce((a, b) => a + b, 0);
+      const out = withholdUs({
+        role: "all",
+        place: "all",
+        filings: sum,
+        workers: sum,
+        newHires: sum,
+        changeEmployer: 0,
+        continuing: 0,
+        levels: Object.fromEntries(levels.map((l, i) => [l, values[i]])),
+      });
+      return { output: JSON.stringify(out), shown: Object.keys(out.levels ?? {}) };
+    });
+    expect(r.inputs).toBe(53109);
+    expect(r.checked).toBeGreaterThan(0);
+    expect(r.leaks).toEqual([]);
+  });
+
+  it("pins no hidden stream (3 named streams, sums 3 to 20)", () => {
+    const names = ["Global Talent Stream", "High Wage", "Low Wage"];
+    const r = leaks(names, range(3, 20), (values) => {
+      const sum = values.reduce((a, b) => a + b, 0);
+      const out = withholdCa({
+        role: "all",
+        place: "all",
+        lmias: sum,
+        positions: sum,
+        streams: Object.fromEntries(names.map((n, i) => [n, values[i]])),
+      });
+      return { output: JSON.stringify(out), shown: Object.keys(out.streams ?? {}) };
+    });
+    expect(r.inputs).toBe(1761);
+    expect(r.checked).toBeGreaterThan(0);
+    expect(r.leaks).toEqual([]);
+  });
+
+  it("does find the leaks of the old complement rule (the check bites)", () => {
+    // The R28 rule: withhold under 3; when exactly one non-zero member is withheld, also withhold the smallest shown.
+    const old = (values: number[]) => {
+      const shown = values.map((v, i) => [i, v]).filter(([, v]) => v >= 3);
+      if (values.filter((v) => v > 0 && v < 3).length === 1 && shown.length > 0) {
+        let s = 0;
+        shown.forEach(([, v], i) => {
+          if (v < shown[s][1]) s = i;
+        });
+        shown.splice(s, 1);
+      }
+      return shown;
+    };
+    const r = leaks([...split], range(3, 20), (values) => {
+      const shown = old(values);
+      const sum = values.reduce((a, b) => a + b, 0);
+      return { output: JSON.stringify([sum, shown]), shown: shown.map(([i]) => split[i]) };
+    });
+    expect(r.leaks).toContainEqual({ output: JSON.stringify([10, [[2, 8]]]), member: "newHires", values: [1] });
+    // 112 members pinned to one value and 91 to only 1 or 2.
+    expect(r.leaks.length).toBe(203);
   });
 });

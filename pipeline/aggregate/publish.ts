@@ -1,6 +1,6 @@
 // What a published year block shows. Cells (role x place) carry counts and pay only, so nothing can be
-// subtracted across them. Totals carry the sub-counts, each from SUB_MIN with complementary suppression in
-// its exact-sum group. Months and trends are shown only when they give away nothing withheld.
+// subtracted across them. Totals carry the sub-counts; an exact-sum group with any member of 1 or 2 is
+// withheld whole. Months and trends are shown only when they give away nothing withheld.
 import type { CaCell, TrendPair, UsCell } from "../schema/published";
 import { WAGE_LEVELS } from "../types";
 import { SUB_MIN } from "./cells";
@@ -9,18 +9,14 @@ import { publishedHeadline, trend, type YearBlock } from "./trend";
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
- * The members of one exact-sum group that may be published, in the given order. A value under SUB_MIN is
- * withheld (a zero is left out too, but is not a member). When exactly one member is withheld, the smallest
- * published member goes as well (ties: the first in order), so subtraction cannot give the hidden value back.
+ * The members of one exact-sum group that may be published, in the given order. When any member is 1 or 2
+ * (non-zero and under SUB_MIN), the whole group is withheld: if only some were, the known sum, the shown
+ * members and this public rule itself could pin the hidden values. Otherwise members from SUB_MIN are shown
+ * and zeros are left out.
  */
 export function publishable<K extends string>(group: [K, number][]): [K, number][] {
-  const shown = group.filter(([, n]) => n >= SUB_MIN);
-  if (group.filter(([, n]) => n > 0 && n < SUB_MIN).length !== 1 || shown.length === 0) return shown;
-  let smallest = 0;
-  shown.forEach(([, n], i) => {
-    if (n < shown[smallest][1]) smallest = i;
-  });
-  return shown.filter((_, i) => i !== smallest);
+  if (group.some(([, n]) => n > 0 && n < SUB_MIN)) return [];
+  return group.filter(([, n]) => n >= SUB_MIN);
 }
 
 const atLeastMin = (n: number | undefined): n is number => n !== undefined && n >= SUB_MIN;
