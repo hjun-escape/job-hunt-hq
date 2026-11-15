@@ -1,12 +1,15 @@
 // Hand-written company profile schema. Strict everywhere so unknown fields fail.
 import { z } from "zod";
 
+// Lower-case hostname: labels of a-z, 0-9 and inner hyphens, at least one dot.
+const HOSTNAME = /^(?!-)[a-z0-9-]+(?<!-)(\.(?!-)[a-z0-9-]+(?<!-))+$/;
+
 const httpsUrl = z.url({ protocol: /^https$/ });
 
 export const SourceRef = z.strictObject({ url: httpsUrl, seen: z.iso.date() });
 export type SourceRef = z.infer<typeof SourceRef>;
 
-/** One summary, at most 280 characters per language, counted separately. */
+/** One summary, at most 280 characters per language, counted separately. The limit counts UTF-16 code units (an emoji counts as 2). */
 export const Text280 = z.strictObject({
   en: z.string().min(1).max(280),
   ko: z.string().min(1).max(280).optional(),
@@ -23,7 +26,7 @@ export const Fact = <V extends z.ZodType>(value: V) =>
   });
 
 export const ProfileSchema = z.strictObject({
-  id: z.string().min(1),
+  id: z.string().regex(HOSTNAME, "id must be a lower-case hostname such as stripe.com"),
   name: z.string().min(1),
   otherNames: z.array(z.string().min(1)).optional(),
   countries: z.array(z.enum(["US", "CA", "KR"])).min(1),

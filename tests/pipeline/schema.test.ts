@@ -84,7 +84,54 @@ describe("ProfileSchema", () => {
   });
 });
 
+describe("profile id", () => {
+  it("must be a lower-case hostname", () => {
+    for (const id of ["stripe.com", "toss.im", "samsung.co.kr", "a-b.example.com"]) {
+      expect(ProfileSchema.safeParse({ ...minimal, id }).success, id).toBe(true);
+    }
+    for (const id of ["Stripe.com", "stripe", "-a.com", "a-.com", "a..com", "a.com.", "a b.com"]) {
+      expect(ProfileSchema.safeParse({ ...minimal, id }).success, id).toBe(false);
+    }
+  });
+});
+
 describe("published schemas", () => {
+  it("ignores unknown keys so additive v1 fields do not break older consumers", () => {
+    const entry = IndexEntry.safeParse({ id: "a.com", name: "A", c: ["US"], h: 1, future: true });
+    expect(entry.success).toBe(true);
+    expect(entry.data).not.toHaveProperty("future");
+  });
+
+  it("pins month and through ranges per country", () => {
+    const cell = { role: "all", place: "all", filings: 0, denied: 0, withdrawn: 0 };
+    const us = { year: 2025, partial: true, through: 12, months: Array(12).fill(0), total: cell, cells: [] };
+    expect(YearBlockUs.safeParse(us).success).toBe(true);
+    expect(YearBlockUs.safeParse({ ...us, months: Array(11).fill(0) }).success).toBe(false);
+    expect(YearBlockUs.safeParse({ ...us, through: 13 }).success).toBe(false);
+    expect(YearBlockUs.safeParse({ ...us, through: 0 }).success).toBe(false);
+    const ca = { year: 2025, partial: true, through: 4, months: [0, 0, 0, 0], total: { role: "all", place: "all", lmias: 0, positions: 0, streams: {} }, cells: [] };
+    expect(YearBlockCa.safeParse(ca).success).toBe(true);
+    expect(YearBlockCa.safeParse({ ...ca, through: 5 }).success).toBe(false);
+    expect(YearBlockCa.safeParse({ ...ca, months: Array(12).fill(0) }).success).toBe(false);
+    expect(YearBlockCa.safeParse({ year: 2025, partial: true, through: 5, tooFew: true }).success).toBe(false);
+  });
+
+  it("requires ISO datetimes and quarters 1-4 in meta", () => {
+    const src = { source: "lca", year: 2025, quarter: 1, url: "https://e.com/a", sha256: "ab", bytes: 1, fetchedAt: "2026-11-14T00:00:00Z" };
+    const meta = {
+      schemaVersion: 1, builtAt: "2026-11-14T00:00:00.000Z",
+      years: { lca: { complete: [] }, perm: { complete: [] }, lmia: { complete: [] } },
+      sources: [src], totals: { lca: {}, perm: {}, lmia: {} }, warnings: [],
+      caveats: { lca: "a", perm: "b", lmia: "c", general: "d" },
+      licences: { code: "a", profiles: "b", us: "c", ca: "d" }, roles: {}, places: {},
+    };
+    expect(Meta.safeParse(meta).success).toBe(true);
+    expect(Meta.safeParse({ ...meta, builtAt: "yesterday" }).success).toBe(false);
+    expect(Meta.safeParse({ ...meta, sources: [{ ...src, fetchedAt: "2026-11-14" }] }).success).toBe(false);
+    expect(Meta.safeParse({ ...meta, sources: [{ ...src, quarter: 5 }] }).success).toBe(false);
+    expect(Meta.safeParse({ ...meta, extra: 1 }).success).toBe(true);
+  });
+
   it("accepts a tooFew year block", () => {
     expect(YearBlockUs.safeParse({ year: 2025, partial: false, tooFew: true }).success).toBe(true);
     expect(YearBlockCa.safeParse({ year: 2025, partial: true, through: 2, tooFew: true }).success).toBe(true);

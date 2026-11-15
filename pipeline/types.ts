@@ -1,8 +1,10 @@
 // Internal record types shared by the loaders, aggregation and build steps.
 
-export type Country = "US" | "CA";
+export const COUNTRIES = ["US", "CA"] as const;
+export type Country = (typeof COUNTRIES)[number];
 export type CaseStatus = "certified" | "denied" | "withdrawn";
-export type WageLevel = "I" | "II" | "III" | "IV" | "N/A";
+export const WAGE_LEVELS = ["I", "II", "III", "IV", "N/A"] as const;
+export type WageLevel = (typeof WAGE_LEVELS)[number];
 
 /** metro is `cbsa:<code>` or `cma:<code>`. region is `US-<ST>`, `CA-<PR>`, or `US` / `CA` when unknown. */
 export type Place = { metro: string | null; region: string };
