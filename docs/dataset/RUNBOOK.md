@@ -33,6 +33,14 @@ A plain 404 (for example Pages is disabled or nothing was ever deployed) is diff
 
 The build refuses to continue without the comparison on purpose, so a bad week cannot silently replace good data.
 
+## If the build issue says "<source> data looks stale"
+
+The newest quarter the build found for that source (`lca`, `perm` or `lmia`) ended more than 150 days ago. DOL and ESDC post a new quarter well within that, so the usual cause is that the source moved its files and the download step only finds old ones. The live data stays as it was until this is fixed.
+
+1. Open the source page: DOL's performance data page (https://www.dol.gov/agencies/eta/foreign-labor/performance) for `lca` and `perm`, or the positive LMIA employers dataset on open.canada.ca for `lmia`.
+2. If a newer quarter is listed under a new address or file name, update `lcaUrlCandidates` / `permUrlCandidates` in `pipeline/sources.ts`, or the resource parsing in `pipeline/cli/download.ts` for LMIA, then run `npm run dataset:download` locally to confirm the new file is found, and re-run the workflow.
+3. If no newer quarter has been posted, the source is late: there is nothing to fix. The issue is commented on each week until the quarter appears, and the next build after that passes.
+
 ## Release fallback (if DOL refuses GitHub's runners)
 
 Today the DOL accepts GitHub's runners directly (tested), so downloads are direct. If DOL ever starts refusing them, the fallback is: download the files on your own machine with `npm run dataset:download`, attach the files in `.cache/dataset` (with `manifest.json`) to a GitHub release, and change the workflow's download step to fetch that release into `.cache/dataset` instead. The download CLI has no release option yet; add one at that point. The effort is not measured; the spec estimated about 10 minutes a quarter.

@@ -24,6 +24,7 @@ import {
   planLmiaDownloads,
   isManifestFresh,
   probePlan,
+  probeFiscalFiles,
   fetchToFile,
   selectionFor,
   parseArgs,
@@ -104,6 +105,23 @@ describe("download planning", () => {
     expect(plan[3]).toEqual({ year: 2027, quarter: 1 });
     expect(plan[4]).toEqual({ year: 2026, quarter: 4 });
     expect(plan).toHaveLength(20);
+  });
+
+  it("probes DOL with an injected HEAD fetch, falling back to /media/, and keeps the selected quarters", async () => {
+    // LCA FY2025 Q1-Q4 under the old path, FY2026 Q1-Q2 only under /media/.
+    const live = new Set([
+      ...[1, 2, 3, 4].map((q) => lcaUrlCandidates(2025, q)[0]),
+      ...[1, 2].map((q) => lcaUrlCandidates(2026, q)[1]),
+    ]);
+    const asked: string[] = [];
+    const head = async (url: string) => (asked.push(url), new Response(null, { status: live.has(url) ? 200 : 404 }));
+    const targets = await probeFiscalFiles("lca", lcaUrlCandidates, new Date("2026-03-01"), head);
+    expect(targets.map((t) => `${t.year}q${t.quarter}`)).toEqual(["2025q1", "2025q2", "2025q3", "2025q4", "2026q1", "2026q2"]);
+    expect(targets.find((t) => t.year === 2026 && t.quarter === 2)!.url).toBe(lcaUrlCandidates(2026, 2)[1]);
+    expect(targets[0].path).toBe("lca/lca_fy2025_q1.xlsx");
+    expect(asked.length).toBeGreaterThan(0);
+    // A source that moved every file away yields nothing (the download run then refuses to prune the cache).
+    expect(await probeFiscalFiles("lca", lcaUrlCandidates, new Date("2026-03-01"), async () => new Response(null, { status: 404 }))).toEqual([]);
   });
 
   it("parses year and quarter from resource names in several forms", () => {

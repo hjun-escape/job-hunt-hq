@@ -167,6 +167,45 @@ export function screenNames(owners: Map<string, OwnerResult>): {
   return { kept, dropped, problems };
 }
 
+// ---- Staleness (R44) ------------------------------------------------------------------------------------
+
+/** A source whose newest selected quarter ended more than this many days before the build is stale. */
+export const STALE_DAYS = 150;
+const DAY_MS = 86_400_000;
+
+/** The last day of a quarter: federal fiscal (October to September) for LCA and PERM, calendar for LMIA. */
+function quarterEnd(source: DataSource, year: number, quarter: number): Date {
+  // The day before the next quarter starts. Fiscal Q1 (October to December) ends on 31 December of year - 1.
+  const nextStart = source === "lmia" ? Date.UTC(year, quarter * 3, 1) : Date.UTC(year, [0, 3, 6, 9][quarter - 1], 1);
+  return new Date(nextStart - DAY_MS);
+}
+
+/**
+ * One problem line per source whose newest selected quarter (the partial year's last quarter, else the latest
+ * complete year's fourth) ended more than STALE_DAYS before `today`, comparing UTC dates. A source that stops
+ * advancing has usually moved its files, and the probe then finds only old ones. A source with nothing selected
+ * is left to the "no files" problem.
+ */
+export function staleness(years: YearPlans, today: Date): string[] {
+  const todayMs = Date.parse(today.toISOString().slice(0, 10));
+  const lines: string[] = [];
+  for (const s of DATA_SOURCES) {
+    const sel = years[s];
+    const newest = sel.partial
+      ? { year: sel.partial.year, quarter: sel.partial.through }
+      : sel.complete.length > 0
+        ? { year: Math.max(...sel.complete), quarter: 4 }
+        : null;
+    if (newest === null) continue;
+    const end = quarterEnd(s, newest.year, newest.quarter);
+    if ((todayMs - end.getTime()) / DAY_MS > STALE_DAYS) {
+      const date = end.toISOString().slice(0, 10);
+      lines.push(`${s} data looks stale: newest quarter ended ${date}; the source may have moved its files`);
+    }
+  }
+  return lines;
+}
+
 // ---- Summaries ------------------------------------------------------------------------------------------
 
 /** The summary CSVs as size-check entries: they are committed to git, so the 50 MB per-file limit applies. */
@@ -424,7 +463,9 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     warnings.push(`owner ${id} is not published: a name it filed under looks like a postal code`);
   }
 
-  // 5. Totals against the live build, before the site so an accepted change is recorded in meta.json.
+  // 5. Staleness (R44), then totals against the live build, before the site so an accepted change is recorded
+  // in meta.json. The build goes on after a stale source, so one report lists every problem.
+  problems.push(...staleness(years, today));
   if (opts.liveMetaUrl) {
     const live = await readLiveMeta(opts.liveMetaUrl, opts.fetchFn);
     if (!live.ok) problems.push(live.problem);

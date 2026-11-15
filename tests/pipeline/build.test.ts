@@ -6,7 +6,7 @@ import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { OwnerResult } from "../../pipeline/aggregate/accumulate";
-import { readLiveMeta, runBuild, screenNames, summaryEntries, writeSummaries } from "../../pipeline/build";
+import { readLiveMeta, runBuild, screenNames, staleness, summaryEntries, writeSummaries } from "../../pipeline/build";
 import { checkSizes } from "../../pipeline/check/sizes";
 import { parseArgs, problemsReport, summaryLines, unexpectedProblem } from "../../pipeline/cli/build";
 import { normalizeName, usEmployerId } from "../../pipeline/normalize/names";
@@ -29,7 +29,9 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 const root = mkdtempSync(path.join(tmpdir(), "build-test-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
-const TODAY = new Date("2026-11-14T00:00:00.000Z");
+// Within 150 days of each fixture source's newest quarter (LCA FY2026 Q1 and LMIA 2025 Q4 end 2025-12-31,
+// PERM FY2025 Q4 ends 2025-09-30), so the staleness alarm (R44) stays quiet.
+const TODAY = new Date("2026-02-15T00:00:00.000Z");
 let n = 0;
 const fresh = (label: string) => path.join(root, `${label}-${++n}`);
 
@@ -553,10 +555,51 @@ describe("runBuild end to end", () => {
     expect(existsSync(path.join(data2, "summary"))).toBe(false);
   }, 60_000);
 
+  it("fails, naming each stale source and its newest quarter's end, when the files stop advancing (R44)", async () => {
+    const data2 = makeDataDir(fresh("data"));
+    const out2 = fresh("out");
+    const r10 = await runBuild({ cacheDir, outDir: out2, dataDir: data2, today: new Date("2026-03-01T12:00:00.000Z") });
+    expect(r10.ok).toBe(false);
+    expect(r10.problems).toEqual([
+      "perm data looks stale: newest quarter ended 2025-09-30; the source may have moved its files",
+    ]);
+    expect(existsSync(path.join(data2, "summary"))).toBe(false);
+    const late = await runBuild({ cacheDir, outDir: fresh("out"), dataDir: makeDataDir(fresh("data")), today: new Date("2026-11-14T00:00:00.000Z") });
+    expect(late.problems).toEqual([
+      "lca data looks stale: newest quarter ended 2025-12-31; the source may have moved its files",
+      "perm data looks stale: newest quarter ended 2025-09-30; the source may have moved its files",
+      "lmia data looks stale: newest quarter ended 2025-12-31; the source may have moved its files",
+    ]);
+  }, 60_000);
+
   it("fails when the cache has no manifest", async () => {
     const r7 = await runBuild({ cacheDir: fresh("empty"), outDir: fresh("out"), dataDir, today: TODAY });
     expect(r7.ok).toBe(false);
     expect(r7.problems.join("\n")).toContain("manifest");
+  });
+});
+
+describe("staleness (R44)", () => {
+  const years = {
+    lca: { complete: [2024, 2025], partial: { year: 2026, through: 2 as const } },
+    perm: { complete: [2025, 2026] },
+    lmia: { complete: [2024, 2025], partial: { year: 2026, through: 1 as const } },
+  };
+  it("uses the newest selected quarter: the partial year's last quarter, else the latest complete year's Q4", () => {
+    // LCA FY2026 Q2 ends 2026-03-31, PERM FY2026 Q4 2026-09-30, LMIA 2026 Q1 (calendar) 2026-03-31.
+    expect(staleness(years, new Date("2026-08-28T23:00:00Z"))).toEqual([]); // 150 days after 2026-03-31
+    expect(staleness(years, new Date("2026-08-29T00:00:00Z"))).toEqual([
+      "lca data looks stale: newest quarter ended 2026-03-31; the source may have moved its files",
+      "lmia data looks stale: newest quarter ended 2026-03-31; the source may have moved its files",
+    ]);
+  });
+  it("ends fiscal quarters on 31 December, 31 March, 30 June and 30 September", () => {
+    const at = (q: 1 | 2 | 3) => staleness({ ...years, lca: { complete: [2025], partial: { year: 2026, through: q } } }, new Date("2030-01-01"))[0];
+    expect(at(1)).toContain("ended 2025-12-31");
+    expect(at(3)).toContain("ended 2026-06-30");
+  });
+  it("says nothing for a source with no selected year (the build already fails for that)", () => {
+    expect(staleness({ ...years, lca: { complete: [] } }, new Date("2026-04-01"))).toEqual([]);
   });
 });
 

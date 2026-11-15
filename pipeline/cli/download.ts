@@ -103,10 +103,15 @@ export function isManifestFresh(entry: Pick<SourceFile, "sha256"> | undefined, d
 
 export type Target = Omit<SourceFile, "sha256" | "bytes" | "fetchedAt">;
 
-async function probeFiscalFiles(
+/**
+ * The DOL files to download for one program: each probed quarter's candidate URLs are tried in order with a HEAD
+ * request (`head`, injectable for tests; default politeFetch), then the selection decides which to keep.
+ */
+export async function probeFiscalFiles(
   kind: "lca" | "perm",
   build: (fy: number, q: number) => string[],
   today: Date,
+  head: (url: string) => Promise<Response> = (url) => politeFetch(url, { method: "HEAD" }),
 ): Promise<Target[]> {
   const found: { year: number; quarter: number; url: string }[] = [];
   const have = new Set<number>();
@@ -115,7 +120,7 @@ async function probeFiscalFiles(
     // Cumulative files: quarters run 4 down to 1, so the first hit in a year is the latest. Per-quarter files need every quarter.
     if (CUMULATIVE[kind] && have.has(year)) continue;
     for (const url of build(year, quarter)) {
-      const res = await politeFetch(url, { method: "HEAD" });
+      const res = await head(url);
       if (res.ok) {
         found.push({ year, quarter, url });
         have.add(year);
