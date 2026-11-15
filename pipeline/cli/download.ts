@@ -1,7 +1,7 @@
 // Usage: npm run dataset:download -- [--only lca,perm,lmia,cbsa,gaf] [--cache .cache/dataset]
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Readable, Transform } from "node:stream";
@@ -10,7 +10,7 @@ import { politeFetch } from "../http";
 import {
   CBSA_DELINEATION_URL,
   LMIA_PACKAGE_API,
-  STATCAN_GAF_URL,
+  STATCAN_GAF_PAGE_URL,
   currentFiscalYear,
   CUMULATIVE,
   FIRST_YEAR,
@@ -100,7 +100,7 @@ export function isManifestFresh(entry: Pick<SourceFile, "sha256"> | undefined, d
 
 // ---- network and disk ----
 
-type Target = Omit<SourceFile, "sha256" | "bytes" | "fetchedAt">;
+export type Target = Omit<SourceFile, "sha256" | "bytes" | "fetchedAt">;
 
 async function probeFiscalFiles(
   kind: "lca" | "perm",
@@ -198,59 +198,132 @@ export async function fetchToFile(
   return { sha256: hash.digest("hex"), bytes };
 }
 
-export function parseArgs(argv: string[]): { only: Source[]; cache: string } {
-  let only = ALL_SOURCES;
+export const DEFAULT_SOURCES: Source[] = ["lca", "perm", "lmia"];
+
+export function parseArgs(argv: string[]): { only: Source[]; cache: string; gafFile?: string } {
+  let only = DEFAULT_SOURCES;
   let cache = ".cache/dataset";
+  let gafFile: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--only") {
       only = (argv[++i] ?? "").split(",").filter(Boolean) as Source[];
       const bad = only.filter((s) => !ALL_SOURCES.includes(s));
       if (bad.length || only.length === 0) throw new Error(`unknown source: ${bad.join(",") || "(none)"}`);
     } else if (argv[i] === "--cache") cache = argv[++i];
+    else if (argv[i] === "--gaf-file") gafFile = argv[++i];
   }
-  return { only, cache };
+  if (gafFile && !only.includes("gaf")) only = [...only, "gaf"];
+  return { only, cache, gafFile };
 }
 
-async function main() {
-  const { only, cache } = parseArgs(process.argv.slice(2));
+async function resolveTargets(source: Source): Promise<Target[]> {
   const today = new Date();
+  switch (source) {
+    case "lca":
+      return probeFiscalFiles("lca", lcaUrlCandidates, today);
+    case "perm":
+      return probeFiscalFiles("perm", permUrlCandidates, today);
+    case "lmia":
+      return lmiaTargets();
+    case "cbsa":
+      return [{ source: "cbsa", url: CBSA_DELINEATION_URL, path: "cbsa/list1_2023.xlsx" }];
+    default:
+      return [];
+  }
+}
+
+export type RunOptions = {
+  only: Source[];
+  cache: string;
+  gafFile?: string;
+  resolve?: (source: Source) => Promise<Target[]>;
+  fetchFile?: typeof fetchToFile;
+  log?: (message: string) => void;
+};
+
+/** Download the selected sources into the cache and write the manifest. Returns the manifest. */
+export async function runDownload(opts: RunOptions): Promise<SourceFile[]> {
+  const { only, cache } = opts;
+  const resolve = opts.resolve ?? resolveTargets;
+  const fetchFile = opts.fetchFile ?? fetchToFile;
+  const log = opts.log ?? console.log;
+  const wantsGaf = only.includes("gaf");
+  if (wantsGaf && !opts.gafFile) {
+    throw new Error(
+      `gaf has no automated download (StatCan refuses automated clients). Download the CSV version by hand from ${STATCAN_GAF_PAGE_URL} and pass it with --gaf-file <path>.`,
+    );
+  }
+
+  // Resolve every source before touching the cache, so a source that yields nothing prunes nothing.
   const targets: Target[] = [];
-  if (only.includes("lca")) targets.push(...(await probeFiscalFiles("lca", lcaUrlCandidates, today)));
-  if (only.includes("perm")) targets.push(...(await probeFiscalFiles("perm", permUrlCandidates, today)));
-  if (only.includes("lmia")) targets.push(...(await lmiaTargets()));
-  if (only.includes("cbsa")) targets.push({ source: "cbsa", url: CBSA_DELINEATION_URL, path: "cbsa/list1_2023.xlsx" });
-  if (only.includes("gaf")) targets.push({ source: "gaf", url: STATCAN_GAF_URL, path: "gaf/2021_92-151_X.zip" });
+  const automated = only.filter((s): s is Exclude<Source, "gaf"> => s !== "gaf");
+  for (const source of automated) {
+    const found = await resolve(source);
+    if (found.length === 0) throw new Error(`source ${source} yielded no files; cache and manifest left untouched`);
+    targets.push(...found);
+  }
 
   const manifestPath = path.join(cache, "manifest.json");
   let manifest = await readManifest(manifestPath);
   // Drop files of the selected sources that the current selection no longer wants, so a stale quarter or year
-  // is never loaded next to the current one.
+  // is never loaded next to the current one. Manual sources (gaf) are never pruned here.
   const wanted = new Set(targets.map((t) => t.path));
-  for (const m of manifest.filter((m) => only.includes(m.source) && !wanted.has(m.path))) {
-    console.log(`prune ${m.path} (no longer selected)`);
+  const automatedSet = new Set<Source>(automated);
+  for (const m of manifest.filter((m) => automatedSet.has(m.source) && !wanted.has(m.path))) {
+    log(`prune ${m.path} (no longer selected)`);
     await rm(path.join(cache, m.path), { force: true });
   }
-  manifest = manifest.filter((m) => !only.includes(m.source) || wanted.has(m.path));
+  manifest = manifest.filter((m) => !automatedSet.has(m.source) || wanted.has(m.path));
+  const save = async () => {
+    await mkdir(cache, { recursive: true });
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+  };
+  const record = (entry: SourceFile) => {
+    const i = manifest.findIndex((m) => m.path === entry.path);
+    if (i >= 0) manifest[i] = entry;
+    else manifest.push(entry);
+  };
+
   for (const t of targets) {
     const dest = path.join(cache, t.path);
     const existing = manifest.find((m) => m.path === t.path && m.url === t.url);
     const onDisk = await sha256Of(dest);
     if (onDisk && isManifestFresh(existing, onDisk)) {
-      console.log(`skip ${t.path} (unchanged)`);
+      log(`skip ${t.path} (unchanged)`);
       continue;
     }
-    console.log(`download ${t.url}`);
-    const { sha256, bytes } = await fetchToFile(t.url, dest);
-    const entry: SourceFile = { ...t, sha256, bytes, fetchedAt: new Date().toISOString() };
-    const i = manifest.findIndex((m) => m.path === t.path);
-    if (i >= 0) manifest[i] = entry;
-    else manifest.push(entry);
-    await mkdir(cache, { recursive: true });
-    await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+    log(`download ${t.url}`);
+    const { sha256, bytes } = await fetchFile(t.url, dest);
+    record({ ...t, sha256, bytes, fetchedAt: new Date().toISOString() });
+    await save();
   }
-  await mkdir(cache, { recursive: true });
-  await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-  console.log(`manifest: ${manifestPath}`);
+
+  if (wantsGaf && opts.gafFile) {
+    const rel = `gaf/${path.basename(opts.gafFile)}`;
+    const dest = path.join(cache, rel);
+    await mkdir(path.dirname(dest), { recursive: true });
+    await copyFile(opts.gafFile, dest);
+    const sha256 = (await sha256Of(dest)) as string;
+    manifest = manifest.filter((m) => m.source !== "gaf");
+    record({
+      source: "gaf",
+      url: STATCAN_GAF_PAGE_URL,
+      path: rel,
+      sha256,
+      bytes: (await stat(dest)).size,
+      fetchedAt: new Date().toISOString(),
+    });
+    log(`imported ${rel}`);
+  }
+
+  await save();
+  return manifest;
+}
+
+async function main() {
+  const { only, cache, gafFile } = parseArgs(process.argv.slice(2));
+  const manifest = await runDownload({ only, cache, gafFile });
+  console.log(`manifest: ${path.join(cache, "manifest.json")}`);
   console.log(JSON.stringify(manifest, null, 2));
 }
 

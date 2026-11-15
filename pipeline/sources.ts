@@ -7,6 +7,8 @@ export const LMIA_PACKAGE_API =
   "https://open.canada.ca/data/api/3/action/package_show?id=90fed587-1364-4f33-a9ee-208181dc0b97";
 export const CBSA_DELINEATION_URL =
   "https://www2.census.gov/programs-surveys/metro-micro/geographies/reference-files/2023/delineation-files/list1_2023.xlsx";
+export const STATCAN_GAF_PAGE_URL =
+  "https://www12.statcan.gc.ca/census-recensement/2021/geo/aip-pia/attribute-attribs/index2021-eng.cfm?year=2021";
 export const STATCAN_GAF_URL =
   "https://www12.statcan.gc.ca/census-recensement/2021/geo/aip-pia/attribute-attribs/files-fichiers/2021_92-151_X.zip";
 
@@ -38,6 +40,9 @@ export const DEFAULT_USER_AGENT = "job-hunt-hq-dataset/1 (+https://github.com/hj
  * Host to user agent. A host missing here gets DEFAULT_USER_AGENT. Checked in Task 1 Step 8: the default
  * was accepted by www.dol.gov, open.canada.ca and www2.census.gov. www12.statcan.gc.ca answered 403 (bot
  * protection page) to both the default and the "Mozilla/5.0 (compatible; ...)" form, so it is refused.
+ * The StatCan attribute file (gaf) therefore has no automated download: fetch the CSV version by hand from
+ * STATCAN_GAF_PAGE_URL and import it with `dataset:download -- --gaf-file <path>`. The reference tables are
+ * generated once and committed, so the weekly build never needs cbsa or gaf.
  */
 export const USER_AGENTS: Record<string, string> = {};
 
