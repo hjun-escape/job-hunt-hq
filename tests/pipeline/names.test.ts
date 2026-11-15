@@ -177,7 +177,10 @@ describe("filler and street addresses typed as names", () => {
     }
   });
   it("keeps names that only contain such a word", () => {
-    for (const n of ["NA Holdings", "Same Day Delivery LLC", "Nil Labs", "None Such Inc", "N/A Group", "ACME BOTS", "3M", "Unknown Worlds Entertainment", "No Limit Ltd"]) {
+    for (const n of ["N/A - None", "N/A/N", "none-n/a", "None - N/A", "N/A-NONE", "Same as above.", "Not applicable / none"]) {
+      expect(isPlaceholderName(n), n).toBe(true);
+    }
+    for (const n of ["NA Holdings", "Same Day Delivery LLC", "Nil Labs", "None Such Inc", "N/A Group", "ACME BOTS", "3M", "Unknown Worlds Entertainment", "No Limit Ltd", "N/A LLC"]) {
       expect(isPlaceholderName(n), n).toBe(false);
     }
   });
@@ -187,7 +190,8 @@ describe("filler and street addresses typed as names", () => {
       "2000 Market Street, Philadelphia, PA 19103", "1 Main St Denver CO", "45 Fremont St. 9th Floor", "12A Elm Rd",
       "100 Paseo Padre Parkway", "200 Reunion Place", "3 Laurelview Court", "4 East Broward Boulevard", "5 Pacific Coast Highway",
       "6 Ocean Terrace", "7 Gaither Circle", "8 Pine Trail", "9 Union Square", "10 Elm Ter", "11 Oak Cir", "12 Pine Trl", "13 Park Sq",
-      "9th Floor", "21st Floor", "2nd FL", "3rd floor", "Suite 200", "STE 4B",
+      "9th Floor", "21st Floor", "2nd FL", "3rd floor", "Suite 200", "STE 4B", "Suite-120", "PMB 12", "PO Box 4567", "P.O. BOX 12",
+      "12345 Premier Plaza", "9 Depot Plaza", "100 US Route 1", "5 State Rte 9",
     ]) {
       expect(looksLikeStreetAddress(n), n).toBe(true);
     }
@@ -198,6 +202,7 @@ describe("filler and street addresses typed as names", () => {
       "9TH AVENUE PHARMACY", "Main Street Bank", "600 Grant Street LLC", "123 DATA LLC", "2-Spirited People of the 1 st Nations",
       "ACME WAY", "14 Street Medical PC", "", "24 East 12th Street Associates", "32 Mott St Vancouver Restaurant",
       "99TH SQUARE INC", "9th Floor Studios", "Park Place Dental", "Circle K Stores", "Times Square Hotel",
+      "Route 66 Diner", "Box Office Inc", "1 Plaza Hotel",
     ]) {
       expect(looksLikeStreetAddress(n), n).toBe(false);
     }
@@ -212,6 +217,9 @@ describe("addresses inside filed names (R46)", () => {
     expect(addressIn("ACME INC TX 75001")).toBe(true);
     expect(addressIn("ACME INC Tx 75001-1234")).toBe(true);
     expect(addressIn("ACME LTD TORONTO ON M5H 2G4")).toBe(true);
+    // A house number split from its street by a comma is still one address.
+    expect(addressIn("1234, 100th Avenue NE, Suite-200")).toBe(true);
+    expect(addressIn("PMB 123, BOX 45678")).toBe(true);
     for (const n of ["ACME INC", "Smith, John", "ACME, INC.", "Park Place Dental", "Route 66 Diner", "TX 1000 Holdings", "INFO 12345 CORP"]) {
       expect(addressIn(n), n).toBe(false);
     }
@@ -223,6 +231,9 @@ describe("addresses inside filed names (R46)", () => {
     expect(stripTrailingAddress("ACME LTD, TORONTO ON M5H 2G4")).toBe("ACME LTD");
     expect(stripTrailingAddress("ACME INC, 9th Floor, 1 Main St")).toBe("ACME INC");
     expect(stripTrailingAddress("1600 Amphitheatre Parkway, Mountain View")).toBe("");
+    expect(stripTrailingAddress("1234, 100th Avenue NE, Suite-200")).toBe("");
+    expect(stripTrailingAddress("ACME INC, SPRINGFIELD MA, 01034")).toBe("ACME INC");
+    expect(stripTrailingAddress("ACME INC, TX 75001")).toBe("ACME INC");
   });
   it("never strips a numbered-company name, and leaves names without an address alone", () => {
     expect(stripTrailingAddress("1234567 Ontario Limited, 99 Bunting Road, St. Catharines, On")).toBe("1234567 Ontario Limited");

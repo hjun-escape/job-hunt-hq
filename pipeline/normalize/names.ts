@@ -161,13 +161,18 @@ const PLACEHOLDERS = new Set(["N/A", "NA", "NONE", "SAME", "SAME AS ABOVE", "NOT
  */
 export function isPlaceholderName(raw: string): boolean {
   const key = raw.normalize("NFKC").toUpperCase().replace(PUNCT_EDGES, "").replace(/\s+/g, " ");
-  return PLACEHOLDERS.has(key) || PLACEHOLDERS.has(key.replace(/\./g, "").replace(/\s*\/\s*/g, "/"));
+  if (PLACEHOLDERS.has(key) || PLACEHOLDERS.has(key.replace(/\./g, "").replace(/\s*\/\s*/g, "/"))) return true;
+  // Filler strung together, such as "N/A - None" or "none-n/a": every word is a filler word.
+  const words = key.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return words.length > 0 && words.every((w) => PLACEHOLDER_WORDS.has(w));
 }
+
+const PLACEHOLDER_WORDS = new Set(["N", "A", "NA", "NONE", "SAME", "AS", "ABOVE", "NOT", "APPLICABLE", "NULL", "NIL", "UNKNOWN", "NO"]);
 
 const STREET_WORDS = new Set([
   "ST", "STREET", "AVE", "AVENUE", "RD", "ROAD", "BLVD", "BOULEVARD", "DR", "DRIVE", "LN", "LANE", "WAY", "SUITE",
   "STE", "FLOOR", "FL", "HWY", "HIGHWAY", "PKWY", "PARKWAY", "CT", "COURT", "PL", "PLACE", "TER", "TERRACE", "CIR",
-  "CIRCLE", "TRL", "TRAIL", "SQ", "SQUARE",
+  "CIRCLE", "TRL", "TRAIL", "SQ", "SQUARE", "PLAZA", "ROUTE", "RTE",
 ]);
 /**
  * Words that make a house-number name a company: corporate words that are never a US state or a compass point (so
@@ -180,8 +185,9 @@ const ADDRESS_CORPORATE_WORDS = new Set([
   "ASSOCIATES", "PARTNERS", "PROPERTIES", "REALTY", "HOLDINGS", "GROUP", "VENTURES", "RESTAURANT", "HOTEL",
   "PHARMACY", "DELI", "CAFE", "GRILL", "CONSULTING", "STORE",
 ]);
-/** A floor, suite or unit on its own: "9th Floor", "21st FL", "Suite 200", "STE 4B". */
-const UNIT_FRAGMENT = /^(?:\d+(?:ST|ND|RD|TH)\s+(?:FLOOR|FL)|(?:SUITE|STE|UNIT|FLOOR|FL)\.?\s*#?\s*\d+[A-Z]?)\.?$/;
+/** A floor, suite, unit or mailbox on its own: "9th Floor", "21st FL", "Suite 200", "STE-4B", "PO Box 12", "PMB 9". */
+const UNIT_FRAGMENT =
+  /^(?:\d+(?:ST|ND|RD|TH)\s+(?:FLOOR|FL)|(?:SUITE|STE|UNIT|FLOOR|FL)[.\s#-]*\d+[A-Z]?|(?:P\.?\s*O\.?\s*)?BOX\s+\d+|PMB\s+\d+)\.?$/;
 /** A US state or territory code followed by a ZIP or ZIP+4, as in "TX 75001" or "MA, 01034-1234". */
 const STATE_ZIP = new RegExp(
   "(?<![\\p{L}\\p{N}])(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|" +
@@ -214,26 +220,35 @@ const partsOf = (raw: string) => raw.normalize("NFKC").split(",").map((p) => p.t
  * blanked whole; one in `also` or an owner name fails the writer's gate.
  */
 export function addressIn(raw: string): boolean {
-  return STATE_ZIP.test(raw) || POSTAL.test(raw) || partsOf(raw).some(looksLikeStreetAddress);
+  return STATE_ZIP.test(raw) || POSTAL.test(raw) || looksLikeStreetAddress(raw) || partsOf(raw).some(looksLikeStreetAddress);
+}
+
+/** True when a state and ZIP starts in `part`, possibly running on into the next part ("GRANVILLE MA, 01034"). */
+function stateZipStartsIn(part: string, next: string | undefined): boolean {
+  const m = STATE_ZIP.exec(next === undefined ? part : `${part}, ${next}`);
+  return m !== null && m.index < part.length;
 }
 
 /**
  * An employer name without an appended address (R46): from the first comma-separated part that is a street address,
- * a floor, or holds a state and ZIP (or, after the first part, a Canadian postal code) on, every part is removed. ""
- * means the name was only an address. A Canadian numbered-company name (R37) keeps its first part, number included.
- * A postal-code look-alike in the first part ("A1B2C3 HOLDINGS INC") is a name, left to R33.
+ * a floor, or starts a state and ZIP (or, after the first part, holds a Canadian postal code) on, every part is
+ * removed. "" means the name was only an address, as is a name that still reads as one ("1234, 100th Avenue NE").
+ * A Canadian numbered-company name (R37) keeps its first part, number included. A postal-code look-alike in the
+ * first part ("A1B2C3 HOLDINGS INC") is a name, left to R33.
  */
 export function stripTrailingAddress(name: string): string {
   if (isNumberedCompanyName(name)) return name;
   const raw = name.split(",");
   const parts = partsOf(name);
+  let kept = name;
   for (let i = isNumberedCompanyName(parts[0]) ? 1 : 0; i < parts.length; i++) {
     const p = parts[i];
-    if (looksLikeStreetAddress(p) || STATE_ZIP.test(p) || (i > 0 && POSTAL.test(p))) {
-      return raw.slice(0, i).join(",").trim().replace(/[\s,;:/#|_\-\u2013\u2014]+$/, "");
+    if (looksLikeStreetAddress(p) || stateZipStartsIn(p, parts[i + 1]) || (i > 0 && POSTAL.test(p))) {
+      kept = raw.slice(0, i).join(",").trim().replace(/[\s,;:/#|_\-\u2013\u2014]+$/, "");
+      break;
     }
   }
-  return name;
+  return looksLikeStreetAddress(kept) ? "" : kept;
 }
 
 export function looksLikePersonName(raw: string): boolean {
