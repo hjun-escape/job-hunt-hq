@@ -4,11 +4,11 @@ Everything here is plain GitHub Actions plus a few local commands. Any workflow 
 
 ## The workflows
 
-**dataset-build** (`.github/workflows/dataset-build.yml`). Runs every Monday at 09:00 UTC, and on demand. It downloads the government files (DOL LCA and PERM, ESDC LMIA), builds the static JSON, and runs every check. If all pass, it deploys `site/` to GitHub Pages at https://hjun-escape.github.io/job-hunt-hq/ and commits any change to `data/summary/*.csv` as `data: refresh sponsorship summaries`. If any check fails, nothing is deployed, the live data stays as it was, and a single open issue labelled `dataset-build` is created or updated with the contents of `build-problems.md`. The issue means this week's build was refused; read it, fix the cause, and re-run the workflow. A run started from a branch other than master builds and checks but never deploys or commits.
+**dataset-build** (`.github/workflows/dataset-build.yml`). Runs every Monday at 09:00 UTC, and on demand. It downloads the government files (DOL LCA and PERM, ESDC LMIA), builds the static JSON, and runs every check. If all pass, it deploys `site/` to GitHub Pages at https://hjun-escape.github.io/job-hunt-hq/. It is split into four jobs: `build` (read-only, runs the checks), `deploy` (publishes the site), `summaries` (runs only after a successful deploy, pulls the latest master and commits any change to `data/summary/*.csv` as `data: refresh sponsorship summaries`, retrying the push up to 3 times), and `report` (files the issue when any job fails). If any check fails, nothing is deployed and the live data stays as it was. A failure in `summaries` never touches the live site. The single open issue labelled `dataset-build` is created, or commented on and updated if one is already open; it holds `build-problems.md` when the build wrote one, otherwise it names the job that failed. The issue means this week's run needs a look; read it, fix the cause, and re-run the workflow. Close the issue once a build succeeds. A run started from a branch other than master builds and checks but never deploys or commits.
 
 **ci** (`.github/workflows/ci.yml`). Runs on every pull request and every push to master: typecheck, tests, and `npm run dataset:validate` (checks the hand-written company profiles). A red run means a profile or a code change is invalid; the log names the file. Re-run it from the Actions tab or by pushing a fix.
 
-**dataset-recheck** (`.github/workflows/dataset-recheck.yml`, added in Task 17). The weekly re-check of live links and profile data. Its issue lists profiles that need a human look. Re-run it from the Actions tab once you have fixed what it lists.
+**dataset-recheck** (`.github/workflows/dataset-recheck.yml`). The weekly source re-check of live links and profile data. Its issue lists profiles that need a human look. Re-run it from the Actions tab once you have fixed what it lists.
 
 ## Totals changes (`accept_totals_change`)
 
@@ -22,17 +22,18 @@ Never tick it to make a red build go away without step 2.
 
 ## If the build issue says "could not read the live meta.json"
 
-The build could not fetch https://hjun-escape.github.io/job-hunt-hq/data/v1/meta.json to compare totals. Check the URL in a browser.
+The build could not read the live file to compare totals. The causes are a non-404 HTTP error, a network error, invalid JSON, or a schema mismatch. Open https://hjun-escape.github.io/job-hunt-hq/data/v1/meta.json in a browser.
 
-- Pages down for a moment: re-run the workflow.
-- Pages never deployed or the site was disabled: check Settings, Pages, and confirm the source is "GitHub Actions".
-- The file moved after a schema change: update the `--live` URL in the workflow.
+- Pages down for a moment, or a network error: re-run the workflow.
+- Invalid JSON or a schema mismatch: the live file is damaged or from an older format. Compare it with a local build's `site/data/v1/meta.json` and fix the cause.
+
+A plain 404 (for example Pages is disabled or nothing was ever deployed) is different: it is treated as a first build and only warns. If that is not expected, check Settings, Pages, and confirm the source is "GitHub Actions".
 
 The build refuses to continue without the comparison on purpose, so a bad week cannot silently replace good data.
 
 ## Release fallback (if DOL refuses GitHub's runners)
 
-Today the DOL accepts GitHub's runners directly (tested), so downloads are direct. If DOL ever starts refusing them, the fallback is: download the files on your own machine with `npm run dataset:download`, attach the files in `.cache/dataset` (with `manifest.json`) to a GitHub release, and change the workflow's download step to fetch that release into `.cache/dataset` instead. The download CLI has no release option yet; add one at that point. This costs about 10 minutes a quarter.
+Today the DOL accepts GitHub's runners directly (tested), so downloads are direct. If DOL ever starts refusing them, the fallback is: download the files on your own machine with `npm run dataset:download`, attach the files in `.cache/dataset` (with `manifest.json`) to a GitHub release, and change the workflow's download step to fetch that release into `.cache/dataset` instead. The download CLI has no release option yet; add one at that point. The effort is not measured; the spec estimated about 10 minutes a quarter.
 
 ## Adding a new source year
 

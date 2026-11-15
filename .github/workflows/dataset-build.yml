@@ -24,26 +24,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      contents: write
-      issues: write
+      contents: read
     env:
       NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .cache/dataset
-          key: dataset-${{ hashFiles('pipeline/sources.ts') }}-${{ github.run_id }}
+          key: dataset-${{ hashFiles('pipeline/sources.ts') }}
           restore-keys: |
-            dataset-${{ hashFiles('pipeline/sources.ts') }}-
             dataset-
       - name: Download government files
         run: npm run dataset:download
+      - name: Save download cache
+        if: always() && hashFiles('.cache/dataset/manifest.json') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/dataset
+          key: dataset-${{ hashFiles('.cache/dataset/manifest.json') }}
       - name: Build dataset
         env:
           ACCEPT_TOTALS_CHANGE: ${{ inputs.accept_totals_change }}
@@ -56,40 +62,18 @@ jobs:
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: site
-      - name: Commit sponsorship summaries
-        if: github.ref == 'refs/heads/master'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add data/summary
-          if git diff --cached --quiet; then
-            echo "data/summary unchanged"
-          else
-            git commit -m "data: refresh sponsorship summaries"
-            git push
-          fi
-      - name: Open or update the build issue
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: summaries
+          path: data/summary
+          if-no-files-found: error
+      - name: Keep the problems report
         if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          gh label create dataset-build --color B60205 --description "Weekly dataset build failed" 2>/dev/null || true
-          {
-            if [ -f build-problems.md ]; then
-              cat build-problems.md
-            else
-              echo "The dataset build job failed before the build step wrote build-problems.md."
-            fi
-            echo
-            echo "Run: $RUN_URL"
-          } > issue-body.md
-          number=$(gh issue list --label dataset-build --state open --json number --jq '.[0].number // empty')
-          if [ -n "$number" ]; then
-            gh issue edit "$number" --body-file issue-body.md
-          else
-            gh issue create --title "Dataset build failed" --label dataset-build --body-file issue-body.md
-          fi
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: build-problems
+          path: build-problems.md
+          if-no-files-found: ignore
 
   deploy:
     needs: build
@@ -104,3 +88,85 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+
+  summaries:
+    needs: [build, deploy]
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: summaries
+          path: data/summary
+      - name: Commit sponsorship summaries
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/summary
+          if git diff --cached --quiet; then
+            echo "data/summary unchanged"
+            exit 0
+          fi
+          git commit -m "data: refresh sponsorship summaries"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:master; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt), rebasing"
+            git pull --rebase origin master
+          done
+          echo "could not push after 3 attempts"
+          exit 1
+
+  report:
+    needs: [build, deploy, summaries]
+    if: always() && contains(needs.*.result, 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Fetch the problems report
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: build-problems
+          path: report
+      - name: Open or update the build issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          SUMMARIES_RESULT: ${{ needs.summaries.result }}
+        run: |
+          gh label create dataset-build --color B60205 --description "Weekly dataset build failed" 2>/dev/null || true
+          {
+            if [ -f report/build-problems.md ]; then
+              cat report/build-problems.md
+            else
+              echo "No problems report was written. Job results: build $BUILD_RESULT, deploy $DEPLOY_RESULT, summaries $SUMMARIES_RESULT."
+              if [ "$BUILD_RESULT" = "failure" ]; then
+                echo "The build job failed before the build step wrote build-problems.md (for example a download, install or timeout failure)."
+              elif [ "$DEPLOY_RESULT" = "failure" ]; then
+                echo "The build passed but the Pages deploy failed. The live site is unchanged."
+              elif [ "$SUMMARIES_RESULT" = "failure" ]; then
+                echo "The site was deployed but committing data/summary to master failed. The live site is fine."
+              fi
+            fi
+            echo
+            echo "Run: $RUN_URL"
+          } > issue-body.md
+          number=$(gh issue list --label dataset-build --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file issue-body.md
+            gh issue comment "$number" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --title "Dataset build failed" --label dataset-build --body-file issue-body.md
+          fi
