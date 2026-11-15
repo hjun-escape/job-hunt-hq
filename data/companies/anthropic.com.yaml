@@ -148,16 +148,20 @@ reapplyWait:
       after: phone
       wait:
         en: >-
-          After a phone-screen rejection, one candidate read the recruiter's email as limiting the cooldown to
-          that one role, but could not tell whether other roles were open sooner; a second commenter got a
-          similar email. How it applies is unclear, so ask your recruiter.
+          Two candidates, in separate 2026 threads, say their recruiter told them a phone or recruiter-screen
+          rejection covered only that role, not others. Another commenter says any rejection starts a
+          company-wide cooldown. It is unclear, so ask your recruiter.
         ko: >-
-          전화 면접에서 떨어진 한 지원자는 리크루터의 불합격 메일을 대기 기간이 해당 직무에만 적용된다는 뜻으로
-          읽었지만, 다른 직무에 더 일찍 지원해도 되는지는 확신하지 못했다. 비슷한 메일을 받은 사람도 있다.
-          어떻게 적용되는지 불분명하니 리크루터에게 확인하는 것이 좋다.
+          두 지원자가 2026년의 서로 다른 스레드에서, 전화 또는 리크루터 스크리닝 불합격이 다른 직무가 아닌 해당
+          직무에만 해당한다는 말을 리크루터에게 들었다고 전한다. 반면 불합격 한 번이면 회사 전체에 대기 기간이
+          걸린다는 댓글도 있다. 분명하지 않으니 리크루터에게 확인하는 것이 좋다.
     kind: reported
     sources:
       - url: https://www.teamblind.com/post/anthropic-cooldown-per-role-ambiguous-recruiter-language-nasf0o13
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/anthropic-interview-process-ev780yr4
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/is-the-anthropic-hiring-process-team-specific-77akk4iw
         seen: "2026-11-15"
     checked: "2026-11-15"
 links:

@@ -104,16 +104,6 @@
     "hash": "2fcc299d8df9bd954c02ca574a2c4695df75970682dfe353beeadf4b175f7c41",
     "status": 200
   },
-  "https://stripe.com/jobs/culture": {
-    "checked": "2026-11-15",
-    "hash": "95d0f4aca9a21ae018015aacf8c5eebb657a01b13ca2b84e743129eb1fca9eb1",
-    "status": 200
-  },
-  "https://stripe.com/jobs/search": {
-    "checked": "2026-11-15",
-    "hash": "2fcc299d8df9bd954c02ca574a2c4695df75970682dfe353beeadf4b175f7c41",
-    "status": 200
-  },
   "https://support.google.com/googlecareers/answer/6095391": {
     "checked": "2026-11-15",
     "hash": "27e32ab3dc1d6c23fb2131b620958b33449deeb448e7a1d31f7f5f7389328e68",
@@ -170,11 +160,6 @@
     "status": 200
   },
   "https://www.amazon.jobs/content/en/how-we-hire": {
-    "checked": "2026-11-15",
-    "hash": "48beb75463443c19ecce0d7dc353df1686e33c18b11f827758a0a889c7554db2",
-    "status": 200
-  },
-  "https://www.amazon.jobs/content/en/how-we-hire/interviewing-at-amazon": {
     "checked": "2026-11-15",
     "hash": "48beb75463443c19ecce0d7dc353df1686e33c18b11f827758a0a889c7554db2",
     "status": 200

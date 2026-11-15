@@ -31,13 +31,13 @@ basics:
 mission:
   value:
     en: >-
-      To make sure that AGI, meaning AI systems that are generally smarter than humans, ends up benefiting
-      everyone. OpenAI aims to build safe AGI itself, but says it would count the mission met if its work
-      helps others get there.
+      OpenAI wants AGI, which it frames as AI broadly more capable than people, to benefit everyone. It is
+      developing its own AGI, aiming for it to be safe and to do good, though it would also call the mission a
+      success if its work helped another group reach that result.
     ko: >-
-      인간보다 전반적으로 더 똑똑한 AI 시스템, 즉 AGI가 모든 사람에게 이롭게 쓰이도록 하는 것. OpenAI는
-      안전한 AGI를 직접 만들려 하지만, 다른 이들이 그 목표에 이르도록 도운 것만으로도 미션을 이룬 것으로
-      보겠다고 밝힌다.
+      OpenAI는 사람보다 전반적으로 뛰어난 AI, 즉 AGI가 모두에게 이익이 되기를 목표로 한다. AGI를 직접
+      개발하며 안전하고 이롭게 만들려 하지만, 자사의 작업이 다른 곳이 그 결과에 이르도록 도운
+      경우에도 미션을 이룬 것으로 보겠다고 한다.
   kind: official
   sources:
     - url: https://openai.com/about/
