@@ -1,0 +1,57 @@
+id: apple.com
+name: Apple
+countries: [US, CA, KR]
+wikidata: Q312
+entities:
+  usFeins: ["942404110"]
+basics:
+  industry:
+    value: Consumer electronics, software and digital distribution
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q312
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 164,000 employees (2022)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q312
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Cupertino, California
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q312
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Accessibility
+      - Education
+      - Environment
+      - Inclusion and Diversity
+      - Privacy
+      - Racial Equity and Justice
+      - Supply Chain Innovation
+    summary:
+      en: >-
+        Apple groups the causes it publicly commits to under seven headings, from accessibility, education
+        and privacy to the environment, racial equity and its supply chain.
+      ko: >-
+        Apple은 공개적으로 내세우는 가치를 접근성, 교육, 환경, 포용과 다양성, 개인정보 보호, 인종 평등과 정의,
+        공급망 혁신의 일곱 가지로 정리한다.
+  kind: official
+  sources:
+    - url: https://www.apple.com/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+links:
+  - label: Jobs at Apple
+    url: https://jobs.apple.com/
+  - label: Apple reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Apple-Reviews-E1138.htm
+  - label: Apple on Blind
+    url: https://www.teamblind.com/company/Apple

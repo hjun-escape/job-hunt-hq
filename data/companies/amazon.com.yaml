@@ -1,0 +1,156 @@
+id: amazon.com
+name: Amazon
+countries: [US, CA, KR]
+officialHosts: [amazon.jobs, aboutamazon.com]
+wikidata: Q3884
+entities:
+  usFeins: ["820544687", "204938068", "208424306", "911986543", "421749823", "202936165"]
+  usNames:
+    - Amazon.com Services LLC
+    - Amazon Web Services, Inc.
+    - Amazon Development Center U.S., Inc.
+    - Amazon Dev Center U.S., Inc.
+    - Amazon Data Services, Inc.
+    - Amazon Advertising LLC
+    - Amazon Payments, Inc.
+  caNames:
+    - name: Amazon Development Centre Canada ULC
+      province: BC
+    - name: Amazon Web Services Canada, Inc.
+      province: BC
+    - name: Amazon Canada Fulfillment Services, ULC
+      province: "ON"
+basics:
+  industry:
+    value: E-commerce, retail and cloud web services
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q3884
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: More than 1.5 million employees
+    kind: official
+    sources:
+      - url: https://www.aboutamazon.com/about-us
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Seattle, Washington
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q3884
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: To make life better and easier for customers every day by constantly inventing for them.
+    ko: 끊임없는 발명으로 고객의 일상을 매일 더 낫고 편리하게 만드는 것.
+  kind: official
+  sources:
+    - url: https://www.aboutamazon.com/about-us
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Customer Obsession
+      - Ownership
+      - Invent and Simplify
+      - Are Right, A Lot
+      - Learn and Be Curious
+      - Hire and Develop the Best
+      - Insist on the Highest Standards
+      - Think Big
+      - Bias for Action
+      - Frugality
+      - Earn Trust
+      - Dive Deep
+      - Have Backbone; Disagree and Commit
+      - Deliver Results
+      - Strive to be Earth's Best Employer
+      - Success and Scale Bring Broad Responsibility
+    summary:
+      en: >-
+        Amazon's 16 Leadership Principles, starting with "Customer Obsession", describe how staff are
+        expected to work and decide. Interviewers test them with behavioral questions about past work.
+      ko: >-
+        "Customer Obsession"으로 시작하는 Amazon의 16가지 리더십 원칙은 직원이 일하고 결정하는 방식을 정한다.
+        면접에서는 과거 경험을 묻는 행동 질문으로 이 원칙을 평가한다.
+  kind: official
+  sources:
+    - url: https://www.amazon.jobs/content/en/our-workplace/leadership-principles
+      seen: "2026-11-15"
+    - url: https://amazon.jobs/content/en/how-we-hire/interview-loop
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        You can apply and interview for at most 10 roles at a time. Each role may have its own interview
+        process and recruiting contact.
+      ko: 동시에 최대 10개 직무까지 지원하고 면접을 볼 수 있다. 직무마다 면접 절차와 채용 담당자가 따로일 수 있다.
+    kind: official
+    sources:
+      - url: https://www.amazon.jobs/content/en/faq/application
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: Use a single email address, and the amazon.jobs profile tied to it, for your whole job search.
+      ko: 구직 활동 전체에 하나의 이메일 주소와 그에 연결된 amazon.jobs 프로필만 사용해야 한다.
+    kind: official
+    sources:
+      - url: https://www.amazon.jobs/content/en/faq/application
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: Before an offer, your recruiter is the contact for questions about visa sponsorship and immigration.
+      ko: 오퍼 전에는 비자 스폰서십과 이민 관련 질문을 담당 리크루터에게 해야 한다.
+    kind: official
+    sources:
+      - url: https://www.amazon.jobs/content/en/faq/application
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Steps differ by role: an online application, often an online assessment, a phone screen, then an
+      interview loop of one-on-one meetings with employees. Questions are behavioral and tied to the
+      Leadership Principles, and Amazon suggests answering in the STAR format.
+    ko: >-
+      직무마다 다르지만 보통 온라인 지원, 온라인 평가, 전화 면접을 거쳐 직원들과 일대일로 만나는 인터뷰
+      루프로 이어진다. 질문은 리더십 원칙에 맞춘 행동 질문이며, Amazon은 STAR 방식으로 답할 것을 권한다.
+  kind: official
+  sources:
+    - url: https://www.amazon.jobs/content/en/how-we-hire/interviewing-at-amazon
+      seen: "2026-11-15"
+    - url: https://amazon.jobs/content/en/how-we-hire/interview-loop
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: onsite
+      wait:
+        en: >-
+          Reports range from 6 months to 2 years after a failed interview loop. Candidates say a "no recycle"
+          result, often linked to weak Leadership Principle answers, means a longer wait, while some were
+          able to interview with a different team sooner.
+        ko: >-
+          인터뷰 루프에서 떨어진 뒤 6개월에서 2년까지 보고가 다양하다. 리더십 원칙 답변이 약해 "no recycle"
+          판정을 받으면 더 오래 기다린다는 말이 많고, 다른 팀과는 더 일찍 면접을 봤다는 사례도 있다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/GmthgKwA
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/amazon-recruiter-said-18-24-months-cool-off-period-is-that-right-h5wp4guk
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: Amazon Jobs
+    url: https://www.amazon.jobs/
+  - label: Amazon Jobs application FAQ
+    url: https://www.amazon.jobs/content/en/faq/application
+  - label: Amazon reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Amazon-Reviews-E6036.htm
+  - label: Amazon on Blind
+    url: https://www.teamblind.com/company/Amazon

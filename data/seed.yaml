@@ -1,0 +1,17 @@
+# Seed companies for the dataset, in order. Each entry is a profile id in data/companies.
+seed:
+  - google.com
+  - amazon.com
+  - microsoft.com
+  - meta.com
+  - apple.com
+  - nvidia.com
+  - stripe.com
+  - databricks.com
+  - openai.com
+  - anthropic.com
+  - shopify.com
+  - cohere.com
+  - hootsuite.com
+  - toss.im
+  - daangn.com
