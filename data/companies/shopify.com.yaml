@@ -89,9 +89,9 @@ applicationRules:
 hiringProcess:
   value:
     en: >-
-      A 2022 Shopify Engineering guide for individual contributors lists four interviews: the Life Story, an
-      hour-long talk with a recruiter about your past; a 40-minute coding exercise; 75 to 90 minutes of pair
-      programming; and a 60-minute technical deep dive. Steps vary by role.
+      A 2022 Shopify Engineering guide lists four interviews for individual contributors, varying by role: the
+      Life Story (an hour with a recruiter), 40 minutes of coding, 75 to 90 minutes of pair programming and a
+      60-minute deep dive. Today's candidate guide names only the Life Story.
   kind: official
   sources:
     - url: https://shopify.engineering/nail-your-technical-shopify-interview

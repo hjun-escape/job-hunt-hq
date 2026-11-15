@@ -3,7 +3,9 @@ name: Apple
 countries: [US, CA, KR]
 wikidata: Q312
 entities:
-  usFeins: ["942404110"]
+  usFeins: ["942404110", "991893861"]
+  usNames:
+    - Apple Payments Services LLC
 basics:
   industry:
     value: Consumer electronics, software and digital distribution

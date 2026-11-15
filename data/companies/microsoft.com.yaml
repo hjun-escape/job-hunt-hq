@@ -3,9 +3,10 @@ name: Microsoft
 countries: [US, CA, KR]
 wikidata: Q2283
 entities:
-  usFeins: ["911144442"]
+  usFeins: ["911144442", "911590503"]
   usNames:
     - Microsoft Corporation
+    - Microsoft Caribbean, Inc.
 basics:
   industry:
     value: Software, technology and consumer electronics
@@ -30,8 +31,12 @@ basics:
     checked: "2026-11-15"
 mission:
   value:
-    en: To help every person and every organization in the world achieve more.
-    ko: 전 세계의 모든 개인과 조직이 더 많은 것을 이룰 수 있도록 돕는 것.
+    en: >-
+      To give people and organisations everywhere the means to achieve more. Microsoft adds that, with
+      technology this powerful, the future it builds has to benefit everyone.
+    ko: >-
+      전 세계 사람과 조직이 더 많은 것을 이룰 수 있는 힘을 주는 것. Microsoft는 기술의 힘이 커진 만큼
+      모두에게 이로운 미래를 만들어야 한다고 덧붙인다.
   kind: official
   sources:
     - url: https://www.microsoft.com/en-us/about

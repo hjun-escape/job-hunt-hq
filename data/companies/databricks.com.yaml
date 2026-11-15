@@ -33,8 +33,12 @@ basics:
     checked: "2026-11-15"
 mission:
   value:
-    en: To simplify and democratize data and AI, helping data and AI teams solve the hardest problems.
-    ko: 데이터와 AI를 더 쉽고 누구나 쓸 수 있게 만들어, 데이터와 AI 팀이 가장 어려운 문제를 풀도록 돕는 것.
+    en: >-
+      Databricks says it wants to make data and AI simpler and open to far more people, so that the teams
+      who work with them can take on very hard problems.
+    ko: >-
+      Databricks는 데이터와 AI를 더 단순하게, 더 많은 사람이 쓸 수 있게 만들어 이를 다루는 팀이 아주 어려운
+      문제에 도전할 수 있게 하겠다고 밝힌다.
   kind: official
   sources:
     - url: https://www.databricks.com/company/about-us
@@ -66,7 +70,7 @@ applicationRules:
   - value:
       en: >-
         You can apply, or reapply, to more than one role. Databricks asks you to tailor your resume to each
-        role and states no waiting period.
+        role and does not state a waiting period.
       ko: 여러 직무에 지원하거나 다시 지원할 수 있다. Databricks는 직무마다 이력서를 맞춰 쓰라고 권하며, 별도의 대기 기간은 밝히지 않는다.
     kind: official
     sources:

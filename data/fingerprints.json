@@ -41,13 +41,13 @@
   },
   "https://careers.hootsuite.com/": {
     "checked": "2026-11-15",
-    "hash": "manual",
-    "status": 202
+    "hash": "7de47e98adcdcdaed8fc0de2b1528fdfc3168f7f2c4d30b33d3e735e2668d4af",
+    "status": 200
   },
   "https://careers.hootsuite.com/privacy-policy": {
     "checked": "2026-11-15",
-    "hash": "manual",
-    "status": 202
+    "hash": "169704ef3f54a33257d76254a0cd69fea68970636410561c172f9e6e18eef1ba",
+    "status": 200
   },
   "https://careers.microsoft.com/v2/global/en/hiring-tips.html": {
     "checked": "2026-11-15",
@@ -92,6 +92,16 @@
   "https://stripe.com/careers": {
     "checked": "2026-11-15",
     "hash": "6eaec92392913545fe3ba898cbb34f726c27ba1eb1eedb3bc10d2697953d04f3",
+    "status": 200
+  },
+  "https://stripe.com/careers/compatibility": {
+    "checked": "2026-11-15",
+    "hash": "95d0f4aca9a21ae018015aacf8c5eebb657a01b13ca2b84e743129eb1fca9eb1",
+    "status": 200
+  },
+  "https://stripe.com/careers/search": {
+    "checked": "2026-11-15",
+    "hash": "2fcc299d8df9bd954c02ca574a2c4695df75970682dfe353beeadf4b175f7c41",
     "status": 200
   },
   "https://stripe.com/jobs/culture": {
@@ -157,6 +167,11 @@
   "https://www.amazon.jobs/content/en/faq/application": {
     "checked": "2026-11-15",
     "hash": "3ac102ca7efaa917465fa3ed24c03bf1f1c41b415a1471f511024397f4a60cc0",
+    "status": 200
+  },
+  "https://www.amazon.jobs/content/en/how-we-hire": {
+    "checked": "2026-11-15",
+    "hash": "48beb75463443c19ecce0d7dc353df1686e33c18b11f827758a0a889c7554db2",
     "status": 200
   },
   "https://www.amazon.jobs/content/en/how-we-hire/interviewing-at-amazon": {
@@ -251,7 +266,7 @@
   },
   "https://www.shopify.com/careers/candidate-guide/are-you-ready": {
     "checked": "2026-11-15",
-    "hash": "2528240bbb64424ebbc9b2014a3be8b0faaa28710cf281861f661498f770b228",
+    "hash": "e546630cbad9802ed246774c8cc9c26ad75c79542f5ce112da09752839313c1e",
     "status": 200
   },
   "https://www.shopify.com/careers/candidate-guide/world-view": {

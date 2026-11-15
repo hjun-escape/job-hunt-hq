@@ -32,7 +32,7 @@ basics:
     checked: "2026-11-15"
 mission:
   value:
-    en: To organize the information of the world so that anyone can reach it and put it to good use.
+    en: To organise the information of the world so that anyone can reach it and put it to good use.
     ko: 전 세계의 정보를 정리해 누구나 쉽게 찾고 유용하게 쓸 수 있도록 하는 것.
   kind: official
   sources:
@@ -67,8 +67,8 @@ values:
   checked: "2026-11-15"
 applicationRules:
   - value:
-      en: You can apply to up to three jobs within any rolling 30-day window.
-      ko: 연속된 30일 동안 최대 세 개의 직무에 지원할 수 있다.
+      en: Google caps applications at three in any 30-day period, counted on a rolling basis.
+      ko: 어느 시점이든 직전 30일 동안 지원할 수 있는 직무는 최대 세 개다.
     kind: official
     sources:
       - url: https://support.google.com/googlecareers/answer/6095391

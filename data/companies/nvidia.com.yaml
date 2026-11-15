@@ -62,16 +62,18 @@ applicationRules:
         seen: "2026-11-15"
     checked: "2026-11-15"
   - value:
-      en: Using unapproved outside tools such as ChatGPT during an interview disqualifies you.
-      ko: 면접 중 ChatGPT 같은 승인되지 않은 외부 도구를 쓰면 실격 처리된다.
+      en: >-
+        Bringing in an outside tool NVIDIA has not approved, ChatGPT for example, during an interview ends
+        your candidacy.
+      ko: 면접 중에 NVIDIA가 허용하지 않은 ChatGPT 같은 외부 도구를 쓰면 지원 자격을 잃는다.
     kind: official
     sources:
       - url: https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/
         seen: "2026-11-15"
     checked: "2026-11-15"
   - value:
-      en: You must complete an in-person interview at an NVIDIA office before you can be considered for an offer.
-      ko: 오퍼 대상이 되려면 NVIDIA 사무실에서 대면 면접을 반드시 거쳐야 한다.
+      en: To be considered for an offer, you first need an onsite interview in person at an NVIDIA office.
+      ko: 오퍼를 검토받으려면 먼저 NVIDIA 사무실에서 대면 면접을 봐야 한다.
     kind: official
     sources:
       - url: https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/
@@ -97,13 +99,13 @@ reapplyWait:
       after: any
       wait:
         en: >-
-          Most candidates report no company-wide cooldown after a phone or onsite rejection, and some were
-          interviewed by other teams soon after. You cannot reapply to the same requisition, and one reply
-          mentions 12 months. A team that remembers you may want to see new experience.
+          Most report no company-wide cooldown after a phone or onsite rejection, and some were interviewed
+          by other teams soon after. One commenter says the system blocks reapplying to the same requisition;
+          another mentions 12 months. A team that remembers you may want new experience.
         ko: >-
           전화 면접이나 최종 면접에서 떨어져도 회사 전체에 걸친 대기 기간은 없다는 보고가 대부분이며, 곧바로
-          다른 팀과 면접을 본 사례도 있다. 같은 공고에는 다시 지원할 수 없고, 12개월이라는 답도 하나 있다. 같은
-          팀에 다시 지원한다면 그동안 쌓은 새 경력을 보여 주는 것이 좋다.
+          다른 팀과 면접을 본 사례도 있다. 같은 공고 번호에는 시스템상 다시 지원할 수 없다는 댓글이 하나 있고,
+          12개월이라는 답도 하나 있다. 같은 팀에 다시 지원한다면 그동안 쌓은 새 경력을 보여 주는 것이 좋다.
     kind: reported
     sources:
       - url: https://www.teamblind.com/post/nvidia-cool-down-period-xmvywc6r

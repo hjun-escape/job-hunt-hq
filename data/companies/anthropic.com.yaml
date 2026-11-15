@@ -4,8 +4,6 @@ countries: [US, CA, KR]
 wikidata: Q116758847
 entities:
   usFeins: ["861696045"]
-  usNames:
-    - Anthropic, PBC
 basics:
   industry:
     value: Artificial intelligence
@@ -30,8 +28,12 @@ basics:
     checked: "2026-11-15"
 mission:
   value:
-    en: The responsible development and maintenance of advanced AI for the long-term benefit of humanity.
-    ko: 인류의 장기적인 이익을 위해 첨단 AI를 책임 있게 개발하고 유지하는 것.
+    en: >-
+      Anthropic, a public benefit corporation, gives the same aim as both its mission and its legal purpose:
+      building and maintaining advanced AI responsibly, so that it serves humanity's long-term good.
+    ko: >-
+      공익 기업(PBC)인 Anthropic은 미션이자 법적 목적으로 같은 목표를 내세운다. 첨단 AI를 책임 있게 만들고
+      관리해 인류의 장기적 이익에 도움이 되게 하는 것이다.
   kind: official
   sources:
     - url: https://www.anthropic.com/company
@@ -50,7 +52,7 @@ values:
     summary:
       en: >-
         Anthropic's seven values ask staff to act for humanity's long-term good, weigh AI's risks and benefits
-        together, treat users and everyone affected with care, push the industry toward safer AI, prefer simple
+        together, treat users and everyone affected with care, push the industry towards safer AI, prefer simple
         empirical fixes, be honest and kind, and put the mission first.
       ko: >-
         Anthropic의 일곱 가지 가치는 인류의 장기적 이익을 위한 행동, AI의 위험과 이점을 함께 따지기, 사용자와
@@ -95,9 +97,12 @@ applicationRules:
     checked: "2026-11-15"
   - value:
       en: >-
-        Recruiters contact you only from anthropic.com email addresses and never ask for money, fees or
-        banking details before your first day.
-      ko: 리크루터는 anthropic.com 이메일 주소로만 연락하며, 입사 전에는 돈, 수수료, 은행 정보를 절대 요구하지 않는다.
+        Genuine Anthropic recruiters write only from @anthropic.com addresses, and none will ask you to pay
+        anything or share bank details before you start. If in doubt, check openings on anthropic.com/careers
+        rather than clicking links.
+      ko: >-
+        진짜 Anthropic 리크루터는 @anthropic.com 주소만 쓰며, 입사 전에 돈을 내거나 은행 정보를 알려 달라고 하지
+        않는다. 의심스러우면 링크를 누르지 말고 anthropic.com/careers에서 공고를 직접 확인하면 된다.
     kind: official
     sources:
       - url: https://www.anthropic.com/careers
@@ -123,13 +128,13 @@ reapplyWait:
       after: onsite
       wait:
         en: >-
-          Candidates report the 12-month wait holding in practice after a failed interview loop, and some say
-          early reapplications got no reply. Candidates rejected at the phone screen say their email limited
-          the wait to that one role, so ask your recruiter how it applies to you.
+          Most report about 12 months after a failed loop, as the official rule says; one candidate's two
+          earlier attempts got no reply. Reports vary, though: another, who reapplied to a different part of
+          the company 7 months after an onsite, was contacted and sent a coding test.
         ko: >-
-          최종 면접 탈락 후에는 실제로 12개월 대기가 적용된다는 보고가 많고, 그 전에 다시 지원했다가 답을 받지
-          못했다는 사례도 있다. 전화 면접에서 떨어진 지원자들은 불합격 메일에 해당 직무에만 제한이 걸린다고
-          적혀 있었다고 하니, 본인에게 어떻게 적용되는지 리크루터에게 확인하는 것이 좋다.
+          최종 면접 탈락 후에는 공식 규칙대로 약 12개월이라는 보고가 많고, 1년이 되기 전에 두 번 지원했지만 답을
+          받지 못했다는 지원자도 있다. 다만 보고는 엇갈린다. 최종 면접 탈락 7개월 뒤 다른 조직에 지원해 리크루터
+          연락과 코딩 테스트를 받은 사례도 있다.
     kind: reported
     sources:
       - url: https://www.teamblind.com/post/anthropic-cooldown-period-reduction-possible-k7hswy4m
@@ -138,6 +143,20 @@ reapplyWait:
         seen: "2026-11-15"
       - url: https://www.teamblind.com/post/openaianthropic-axe05hi0
         seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      after: phone
+      wait:
+        en: >-
+          After a phone-screen rejection, one candidate read the recruiter's email as limiting the cooldown to
+          that one role, but could not tell whether other roles were open sooner; a second commenter got a
+          similar email. How it applies is unclear, so ask your recruiter.
+        ko: >-
+          전화 면접에서 떨어진 한 지원자는 리크루터의 불합격 메일을 대기 기간이 해당 직무에만 적용된다는 뜻으로
+          읽었지만, 다른 직무에 더 일찍 지원해도 되는지는 확신하지 못했다. 비슷한 메일을 받은 사람도 있다.
+          어떻게 적용되는지 불분명하니 리크루터에게 확인하는 것이 좋다.
+    kind: reported
+    sources:
       - url: https://www.teamblind.com/post/anthropic-cooldown-per-role-ambiguous-recruiter-language-nasf0o13
         seen: "2026-11-15"
     checked: "2026-11-15"

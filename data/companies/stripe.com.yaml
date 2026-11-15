@@ -3,7 +3,12 @@ name: Stripe
 countries: [US, CA]
 wikidata: Q7624104
 entities:
-  usFeins: ["270465600"]
+  usFeins: ["270465600", "800948598"]
+  usNames:
+    - Stripe Payments Company
+  caNames:
+    - name: Stripe Payments, Canada Ltd.
+      province: "ON"
 basics:
   industry:
     value: Financial services and payments
@@ -23,14 +28,15 @@ basics:
     value: South San Francisco, California, with a second HQ in Dublin, Ireland
     kind: official
     sources:
-      - url: https://stripe.com/jobs/search
+      - url: https://stripe.com/careers/search
         seen: "2026-11-15"
     checked: "2026-11-15"
 mission:
   value:
     en: >-
-      To increase economic growth, which Stripe pursues by building tools that lower the cost of starting and
-      growing a business, publishing ideas, and building economic infrastructure for AI.
+      Stripe states its mission as increasing economic growth, which it pursues on three fronts: software that
+      makes it cheaper and easier for businesses to start and expand, published ideas, and infrastructure for
+      AI-driven commerce.
   kind: official
   sources:
     - url: https://stripe.com/careers
@@ -52,14 +58,14 @@ values:
         people.
   kind: official
   sources:
-    - url: https://stripe.com/jobs/culture
+    - url: https://stripe.com/careers/compatibility
       seen: "2026-11-15"
   checked: "2026-11-15"
 applicationRules:
   - value:
       en: >-
-        Stripe recruiters contact candidates only through LinkedIn or a stripe.com email address, and never
-        ask for payment, personal financial details or login credentials.
+        Real contact from a Stripe recruiter comes through LinkedIn or an @stripe.com address. At no stage will
+        they ask you to pay, or to share financial details or account logins.
     kind: official
     sources:
       - url: https://stripe.com/careers
@@ -68,9 +74,9 @@ applicationRules:
 hiringProcess:
   value:
     en: >-
-      Most processes include a recruiter screen, a technical or skills-based assessment, and a series of
-      interviews with the team you would join. Timelines vary by role, level and location, from a few weeks
-      to longer. Stripe aims to move quickly and give clear feedback at each stage.
+      Three parts in most cases: a recruiter screen, a technical or skills test, and interviews with your
+      future team. Stripe aims for speed and clear feedback at every step, but timing depends on role, level
+      and location; some processes finish in weeks.
   kind: official
   sources:
     - url: https://stripe.com/careers
@@ -78,24 +84,32 @@ hiringProcess:
   checked: "2026-11-15"
 reapplyWait:
   - value:
-      after: phone
+      after: any
       wait:
         en: >-
-          Candidates report waiting about 6 to 9 months after failing a phone screen or first coding round.
-          One says the figure came in their rejection email. Other threads asking the question got no firm
-          answer, so confirm with your recruiter.
+          No rule is published. Three separate threads give about 12 months, two of them from Stripe-badged
+          accounts, one adding that it depends on country, level and the reason. Others, among them two
+          Stripe-badged replies from 2021, say 6 months, and one says 9. Ask your recruiter.
     kind: reported
     sources:
+      - url: https://www.teamblind.com/post/stripe-interview-cool-off-period-yipklxys
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/confusing-stripe-interview-uthjyyvg
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/stripe-phone-screen-zfbdnkpx
+        seen: "2026-11-15"
       - url: https://www.teamblind.com/post/cool-off-period-to-reapply-at-stripe-c7vzbrvh
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/re-applying-to-stripe-referrals-oevw1pdf
         seen: "2026-11-15"
       - url: https://www.teamblind.com/post/really-stripe-mdq5afbd
         seen: "2026-11-15"
     checked: "2026-11-15"
 links:
   - label: Stripe Careers
-    url: https://stripe.com/jobs
+    url: https://stripe.com/careers
   - label: Stripe operating principles
-    url: https://stripe.com/jobs/culture
+    url: https://stripe.com/careers/compatibility
   - label: Stripe reviews on Glassdoor
     url: https://www.glassdoor.com/Reviews/Stripe-Reviews-E671932.htm
   - label: Stripe on Blind

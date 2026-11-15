@@ -27,11 +27,12 @@ basics:
 mission:
   value:
     en: >-
-      Cohere holds that AI's highest purpose is to improve human wellbeing, and it works toward that by
-      helping businesses scale innovation, raise productivity and spread progress widely.
+      Cohere says AI matters most when it improves people's lives, and it pursues that through business
+      customers, giving companies AI that lifts innovation and productivity so that the benefits spread
+      broadly.
     ko: >-
-      Cohere는 AI가 가장 크게 기여할 수 있는 일이 사람들의 삶을 더 낫게 만드는 것이라고 본다. 이를 위해
-      기업이 혁신의 규모를 키우고 생산성을 높이며, 그 성과가 널리 퍼지도록 돕는다.
+      Cohere는 AI의 가장 큰 가치가 사람들의 삶을 낫게 하는 데 있다고 보고, 기업 고객을 통해 이를 추구한다.
+      기업이 더 많이 혁신하고 더 생산적으로 일하도록 도와 그 이익이 널리 돌아가게 하겠다는 것이다.
   kind: official
   sources:
     - url: https://cohere.com/about
@@ -60,12 +61,13 @@ values:
 applicationRules:
   - value:
       en: >-
-        Cohere never asks candidates to pay or to buy outside services such as CV writing. Real roles are
-        posted only on its careers page and LinkedIn, and its staff write only from cohere.com or cw.cohere
-        addresses.
+        Cohere warns of hiring scams. Its real openings are listed only on its careers site and LinkedIn, and
+        real messages come from @cohere.com or @cw.cohere addresses. A request to pay, or to buy a service
+        such as CV writing, does not come from Cohere.
       ko: >-
-        Cohere는 채용 과정에서 돈이나 이력서 대필 같은 외부 서비스를 요구하지 않는다. 실제 공고는 Cohere
-        채용 페이지와 LinkedIn에만 올라오며, 직원은 cohere.com 또는 cw.cohere 주소로만 연락한다.
+        Cohere는 채용 사기를 주의하라고 안내한다. 실제 공고는 Cohere 채용 사이트와 LinkedIn에만 있고, 실제
+        연락은 @cohere.com 또는 @cw.cohere 주소에서 온다. 돈을 내라거나 이력서 대필 같은 서비스를 사라는
+        요구는 Cohere가 보낸 것이 아니다.
     kind: official
     sources:
       - url: https://cohere.com/careers
@@ -74,12 +76,12 @@ applicationRules:
 hiringProcess:
   value:
     en: >-
-      After an application review and a recruiter conversation, you may get a take-home assignment and a
-      meeting with the hiring manager, then a final round with a few team members. Interviews can be held by
-      video and scheduled around you where possible.
+      Every process opens with an application review and a recruiter chat. A take-home task and a talk
+      with the hiring manager may come next, before a final round with a few teammates. Video interviews are
+      offered, and Cohere tries to fit your schedule.
     ko: >-
-      서류 검토와 리크루터 대화 뒤, 경우에 따라 과제와 채용 매니저 면접을 거치고 마지막으로 팀원 몇 명과
-      최종 면접을 본다. 면접은 화상으로 진행할 수 있고, 가능하면 지원자 일정에 맞춰 잡는다.
+      모든 절차는 서류 검토와 리크루터 대화로 시작한다. 이어서 과제와 채용 매니저 면담이 있을 수 있고,
+      마지막으로 팀원 몇 명과 최종 면접을 본다. 화상 면접이 가능하며, Cohere는 되도록 지원자 일정에 맞춘다.
   kind: official
   sources:
     - url: https://cohere.com/careers

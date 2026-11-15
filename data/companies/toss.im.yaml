@@ -64,11 +64,11 @@ values:
 applicationRules:
   - value:
       en: >-
-        After a rejection you can apply to the same position again six months after the result notice. The
-        same position at another Toss affiliate, or any other position, has no waiting period.
+        The only waiting period is for the same position: six months from the rejection notice. Other
+        positions, and the same position at another Toss affiliate, are open to you straight away.
       ko: >-
-        불합격한 경우 같은 포지션은 결과 안내일로부터 6개월이 지나야 다시 지원할 수 있다. 다른 계열사의 같은
-        포지션이나 다른 포지션은 기간 제한 없이 지원할 수 있다.
+        재지원 대기 기간은 같은 포지션에만 있다. 불합격 통보 후 6개월이 지나면 다시 지원할 수 있고, 다른
+        포지션이나 다른 계열사의 같은 포지션에는 바로 지원해도 된다.
     kind: official
     sources:
       - url: https://toss.im/career/faq/305

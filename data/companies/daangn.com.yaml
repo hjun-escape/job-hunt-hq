@@ -86,9 +86,11 @@ applicationRules:
     checked: "2026-11-15"
   - value:
       en: >-
-        Foreign nationals can apply to any role if they hold a work visa or can get one without trouble, but
-        the hiring process is run in Korean.
-      ko: 취업 가능한 비자가 있거나 발급에 문제가 없는 외국인은 모든 포지션에 지원할 수 있다. 다만 전형은 한국어로 진행된다.
+        Foreign nationals may apply for any role, provided they already hold a work visa or can readily
+        obtain one. The process itself is conducted in Korean.
+      ko: >-
+        외국인도 모든 포지션에 지원할 수 있지만, 일할 수 있는 비자를 이미 갖고 있거나 무리 없이 받을 수 있어야
+        한다. 채용 과정은 한국어로 이루어진다.
     kind: official
     sources:
       - url: https://careers.daangn.com/faq/%EC%A7%80%EC%9B%90-%EA%B4%80%EB%A0%A8/

@@ -54,8 +54,9 @@ applicationRules:
     checked: "2026-11-15"
   - value:
       en: >-
-        For technical roles, multiple-choice assessments are scored automatically and you may ask for a human
-        review. Coding assignments and whiteboarding sessions are run and reviewed by people.
+        Technical roles may include automated tests. Machine-scored multiple-choice results can be checked by
+        a person if you ask, and coding tasks and whiteboard sessions are always run and assessed by people
+        before anyone advances.
     kind: official
     sources:
       - url: https://careers.hootsuite.com/privacy-policy

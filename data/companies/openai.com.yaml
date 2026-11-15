@@ -3,7 +3,7 @@ name: OpenAI
 countries: [US, CA, KR]
 wikidata: Q21708200
 entities:
-  usFeins: ["831960637"]
+  usFeins: ["831960637", "853082781"]
   usNames:
     - OpenAI OpCo, LLC
 basics:
@@ -30,8 +30,14 @@ basics:
     checked: "2026-11-15"
 mission:
   value:
-    en: To ensure that artificial general intelligence benefits all of humanity.
-    ko: 범용 인공지능(AGI)이 인류 전체에 이로움을 주도록 하는 것.
+    en: >-
+      To make sure that AGI, meaning AI systems that are generally smarter than humans, ends up benefiting
+      everyone. OpenAI aims to build safe AGI itself, but says it would count the mission met if its work
+      helps others get there.
+    ko: >-
+      인간보다 전반적으로 더 똑똑한 AI 시스템, 즉 AGI가 모든 사람에게 이롭게 쓰이도록 하는 것. OpenAI는
+      안전한 AGI를 직접 만들려 하지만, 다른 이들이 그 목표에 이르도록 도운 것만으로도 미션을 이룬 것으로
+      보겠다고 밝힌다.
   kind: official
   sources:
     - url: https://openai.com/about/
@@ -47,7 +53,7 @@ values:
     summary:
       en: >-
         OpenAI's four values stress benefiting people, staying humble and open to being wrong, treating AGI
-        with rigor and responsibility, and shipping products with optimism. Four operating principles add
+        with rigour and responsibility, and shipping products with optimism. Four operating principles add
         finding a way, creativity over control, updating quickly and intense focus.
       ko: >-
         OpenAI의 네 가지 가치는 사람과 사회에 대한 기여, 틀릴 수 있음을 인정하는 겸손, AGI를 엄밀하고 책임 있게
@@ -61,11 +67,12 @@ values:
 applicationRules:
   - value:
       en: >-
-        Rules on AI and other tools differ by interview: some formats allow them, others test you without AI.
-        Your preparation materials say what is allowed, and if you are unsure, ask your recruiter beforehand.
+        Whether AI tools are permitted depends on the interview format, and some rounds test what you can do
+        unaided. Check the prep materials for each round, and if they leave you in doubt, clear it with your
+        recruiter in advance.
       ko: >-
-        AI 등 도구 사용 규칙은 면접마다 다르다. 일부 형식은 허용하고, 일부는 AI 없이 문제 해결 능력을 본다.
-        허용 범위는 면접 준비 자료에 나와 있으며, 확실하지 않으면 면접 전에 리크루터에게 물어야 한다.
+        AI 도구 허용 여부는 면접 형식에 따라 다르며, 도움 없이 혼자 푸는 능력을 보는 라운드도 있다. 라운드마다
+        준비 자료를 확인하고, 그래도 애매하면 미리 리크루터에게 물어보는 것이 좋다.
     kind: official
     sources:
       - url: https://openai.com/interview-guide/

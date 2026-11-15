@@ -4,7 +4,19 @@ countries: [US, CA, KR]
 officialHosts: [amazon.jobs, aboutamazon.com]
 wikidata: Q3884
 entities:
-  usFeins: ["820544687", "204938068", "208424306", "911986543", "421749823", "202936165"]
+  usFeins:
+    - "820544687"
+    - "204938068"
+    - "208424306"
+    - "911986543"
+    - "421749823"
+    - "202936165"
+    - "912172399"
+    - "872420773"
+    - "873314334"
+    - "660987601"
+    - "330778501"
+    - "462253889"
   usNames:
     - Amazon.com Services LLC
     - Amazon Web Services, Inc.
@@ -13,6 +25,12 @@ entities:
     - Amazon Data Services, Inc.
     - Amazon Advertising LLC
     - Amazon Payments, Inc.
+    - Amazon Retail LLC
+    - Amazon Kuiper Manufacturing Enterprises LLC
+    - Amazon Media Venture LLC
+    - Amazon Web Services Puerto Rico LLC
+    - Amazon Studios, LLC
+    - Amazon Logistics, Inc.
   caNames:
     - name: Amazon Development Centre Canada ULC
       province: BC
@@ -29,10 +47,10 @@ basics:
         seen: "2026-11-15"
     checked: "2026-11-15"
   size:
-    value: More than 1.5 million employees
-    kind: official
+    value: About 1.5 million employees (2023)
+    kind: reported
     sources:
-      - url: https://www.aboutamazon.com/about-us
+      - url: https://www.wikidata.org/wiki/Q3884
         seen: "2026-11-15"
     checked: "2026-11-15"
   hq:
@@ -44,8 +62,13 @@ basics:
     checked: "2026-11-15"
 mission:
   value:
-    en: To make life better and easier for customers every day by constantly inventing for them.
-    ko: 끊임없는 발명으로 고객의 일상을 매일 더 낫고 편리하게 만드는 것.
+    en: >-
+      Amazon frames its mission around customers: keep inventing to make their everyday lives better and
+      simpler, across businesses that run from online retail and cloud computing to devices, entertainment
+      and AI.
+    ko: >-
+      Amazon은 미션의 중심에 고객을 둔다. 온라인 쇼핑과 클라우드부터 기기, 엔터테인먼트, AI까지 여러 사업에서
+      끊임없이 새로운 것을 만들어 고객의 일상을 더 낫고 간편하게 하겠다는 것이다.
   kind: official
   sources:
     - url: https://www.aboutamazon.com/about-us
@@ -73,7 +96,7 @@ values:
     summary:
       en: >-
         Amazon's 16 Leadership Principles, starting with "Customer Obsession", describe how staff are
-        expected to work and decide. Interviewers test them with behavioral questions about past work.
+        expected to work and decide. Interviewers test them with behavioural questions about past work.
       ko: >-
         "Customer Obsession"으로 시작하는 Amazon의 16가지 리더십 원칙은 직원이 일하고 결정하는 방식을 정한다.
         면접에서는 과거 경험을 묻는 행동 질문으로 이 원칙을 평가한다.
@@ -89,7 +112,7 @@ applicationRules:
       en: >-
         You can apply and interview for at most 10 roles at a time. Each role may have its own interview
         process and recruiting contact.
-      ko: 동시에 최대 10개 직무까지 지원하고 면접을 볼 수 있다. 직무마다 면접 절차와 채용 담당자가 따로일 수 있다.
+      ko: 동시에 최대 10개 직무까지 지원하고 면접을 볼 수 있다. 직무마다 면접 절차와 채용 담당자가 다를 수 있다.
     kind: official
     sources:
       - url: https://www.amazon.jobs/content/en/faq/application
@@ -114,15 +137,16 @@ applicationRules:
 hiringProcess:
   value:
     en: >-
-      Steps differ by role: an online application, often an online assessment, a phone screen, then an
-      interview loop of one-on-one meetings with employees. Questions are behavioral and tied to the
-      Leadership Principles, and Amazon suggests answering in the STAR format.
+      Steps depend on the role: usually an online application, often assessments, a phone screen, then an
+      interview loop of individual meetings with employees. Questions are behavioural and guided by the
+      Leadership Principles; Amazon offers the STAR method as one way to answer.
     ko: >-
-      직무마다 다르지만 보통 온라인 지원, 온라인 평가, 전화 면접을 거쳐 직원들과 일대일로 만나는 인터뷰
-      루프로 이어진다. 질문은 리더십 원칙에 맞춘 행동 질문이며, Amazon은 STAR 방식으로 답할 것을 권한다.
+      직무마다 다르지만 보통 온라인 지원, 온라인 평가, 전화 면접을 거쳐 직원들과 한 명씩 만나는 인터뷰
+      루프로 이어진다. 질문은 리더십 원칙에 따른 행동 질문이며, Amazon은 답변을 구성하는 한 가지 방법으로
+      STAR 방식을 소개한다.
   kind: official
   sources:
-    - url: https://www.amazon.jobs/content/en/how-we-hire/interviewing-at-amazon
+    - url: https://www.amazon.jobs/content/en/how-we-hire
       seen: "2026-11-15"
     - url: https://amazon.jobs/content/en/how-we-hire/interview-loop
       seen: "2026-11-15"
@@ -132,12 +156,13 @@ reapplyWait:
       after: onsite
       wait:
         en: >-
-          Reports range from 6 months to 2 years after a failed interview loop. Candidates say a "no recycle"
-          result, often linked to weak Leadership Principle answers, means a longer wait, while some were
-          able to interview with a different team sooner.
+          Reports range from 6 months to 2 years after a failed interview loop. Two Amazon-badged commenters
+          put the wait after a "no recycle" verdict at 12 months or 2 years, and one ties that verdict to weak
+          Leadership Principle answers. One reply suggests trying a different team.
         ko: >-
-          인터뷰 루프에서 떨어진 뒤 6개월에서 2년까지 보고가 다양하다. 리더십 원칙 답변이 약해 "no recycle"
-          판정을 받으면 더 오래 기다린다는 말이 많고, 다른 팀과는 더 일찍 면접을 봤다는 사례도 있다.
+          인터뷰 루프에서 떨어진 뒤 6개월에서 2년까지 보고가 다양하다. Amazon 배지를 단 두 명은 "no recycle"
+          판정 뒤 대기 기간을 각각 12개월, 2년이라고 하며, 그중 한 명은 이 판정을 리더십 원칙 답변이 약했던 것과
+          연결한다. 다른 팀에 지원해 보라는 답도 하나 있다.
     kind: reported
     sources:
       - url: https://www.teamblind.com/post/GmthgKwA
