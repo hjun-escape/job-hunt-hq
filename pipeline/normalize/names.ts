@@ -12,12 +12,43 @@ const FEIN_TOKEN = /\b\d{2}-?\d{7}\b/g;
 /** Separators a removed number leaves at either end of a name. A trailing full stop ("INC.") is kept. */
 const EDGES = /^[\s,;:/#|\-\u2013\u2014.]+|[\s,;:/#|\-\u2013\u2014]+$/g;
 
+/** Province and territory names and abbreviations (English and French), "Canada" and "Canadian", folded. */
+const NUMBERED_PLACES = new Set([
+  "ONTARIO", "ONT", "ON", "QUEBEC", "QUE", "QC", "SASKATCHEWAN", "SASK", "SK", "ALBERTA", "ALTA", "AB",
+  "BRITISH COLUMBIA", "BC", "COLOMBIE BRITANNIQUE", "MANITOBA", "MAN", "MB", "NOVA SCOTIA", "NS", "NOUVELLE ECOSSE",
+  "NEW BRUNSWICK", "NB", "NOUVEAU BRUNSWICK", "NEWFOUNDLAND AND LABRADOR", "NEWFOUNDLAND", "NFLD", "NL",
+  "TERRE NEUVE ET LABRADOR", "PRINCE EDWARD ISLAND", "PEI", "PE", "ILE DU PRINCE EDOUARD", "YUKON", "YT",
+  "NORTHWEST TERRITORIES", "NWT", "NT", "TERRITOIRES DU NORD OUEST", "NUNAVUT", "NU", "CANADA", "CANADIAN",
+]);
+const NUMBERED_CORP_WORDS = new Set(["INC", "LTD", "LTEE", "LIMITED", "LIMITEE", "CORP", "CORPORATION", "ULC", "CO"]);
+
+/**
+ * True for a Canadian numbered company, named by its registry number (R37): a leading run of 6 to 10 digits,
+ * then only a province or territory (or "Canada", "Canadian"), then a corporate word, as in
+ * "101234567 Saskatchewan Ltd.". The number is the public legal name, not a tax id, so it is never stripped.
+ * Matching ignores case, accents and dots, and allows commas and hyphens between words.
+ */
+export function isNumberedCompanyName(raw: string): boolean {
+  const t = raw
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toUpperCase()
+    .replace(/\./g, "")
+    .replace(/&/g, " AND ")
+    .replace(/[,\-\u2010-\u2015]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const m = /^\d{6,10} (.+) (\S+)$/.exec(t);
+  return m !== null && NUMBERED_CORP_WORDS.has(m[2]) && NUMBERED_PLACES.has(m[1]);
+}
+
 /**
  * A filed name with every FEIN-shaped token removed (R35), then the empty brackets, doubled spaces and edge
- * separators the removal left. A name without such a token comes back unchanged; "" means it was only a number.
+ * separators the removal left. A name without such a token, or a Canadian numbered-company name (R37), comes
+ * back unchanged; "" means it was only a number.
  */
 export function stripFeinTokens(name: string): string {
-  if (name.match(FEIN_TOKEN) === null) return name;
+  if (name.match(FEIN_TOKEN) === null || isNumberedCompanyName(name)) return name;
   return name
     .replace(FEIN_TOKEN, " ")
     .replace(/\(\s*\)|\[\s*\]/g, " ")

@@ -145,6 +145,14 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
     expect(mapPermRow({ ...permRow, EMP_BUSINESS_NAME: "Acme Software Inc, 987654321" }, ctx)!.employer.name).toBe("Acme Software Inc");
   });
 
+  it("keeps a Canadian numbered-company name whole (R37)", () => {
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "123456789 Canada Inc." }, ctx)!.employer.name).toBe("123456789 Canada Inc.");
+    expect(mapLcaRow({ ...lcaRow, TRADE_NAME_DBA: "101234567 Saskatchewan Ltd." }, ctx)!.employer.tradeName).toBe(
+      "101234567 Saskatchewan Ltd.",
+    );
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME INC 12-3456789" }, ctx)!.employer.name).toBe("ACME INC");
+  });
+
   it("leaves names without a FEIN-shaped number alone, digits included", () => {
     for (const name of ["3M COMPANY", "ACME 12345678 LLC", "ACME 1234567890 LLC", "ACME INC.", "7-ELEVEN, INC."]) {
       expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: name }, ctx)!.employer.name, name).toBe(name);

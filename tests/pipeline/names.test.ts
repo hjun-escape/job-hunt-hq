@@ -3,11 +3,49 @@ import { describe, expect, it } from "vitest";
 import {
   caEmployerId,
   companyIdFromUrl,
+  isNumberedCompanyName,
   looksLikePersonName,
   personNameSignal,
   normalizeName,
+  stripFeinTokens,
   usEmployerId,
 } from "../../pipeline/normalize/names";
+
+describe("isNumberedCompanyName (R37)", () => {
+  it("is true for a 6 to 10 digit registry number, a province or Canada, then a corporate word", () => {
+    for (const name of [
+      "101234567 Saskatchewan Ltd.", "123456789 Canada Inc.", "1234567 Ontario Inc.", "123456 Alberta Ltd",
+      "1234567890 B.C. Ltd.", "123456789 BC LTD", "987654321 Québec inc.", "987654321 QUEBEC INC", "123456789 Sask. Ltd.",
+      "123456789 Ont. Limited", "123456789 Alta Corp.", "123456789 Man. Ltd", "123456789 Nova Scotia Limited",
+      "123456789 N.S. Ltd.", "123456789 New Brunswick Inc.", "123456789 N.B. Ltée", "123456789 Newfoundland and Labrador Inc.",
+      "123456789 Prince Edward Island Inc.", "123456789 P.E.I. Inc.", "123456789 Yukon Inc.", "123456789 Northwest Territories Ltd.",
+      "123456789 Nunavut Ltd.", "123456789 Canadian Corporation", "123456789 Canada ULC", "123456789 Canada Co.",
+      "123456789 Québec Limitée", "123456789 Colombie-Britannique Ltée", "101234567 Saskatchewan, Ltd.", "101234567 saskatchewan ltd",
+    ]) {
+      expect(isNumberedCompanyName(name), name).toBe(true);
+    }
+  });
+
+  it("is false for anything else", () => {
+    for (const name of [
+      "12345 Ontario Inc.", "12345678901 Ontario Inc.", "ACME 123456789 Ontario Inc.", "123456789 Ontario", "123456789 Inc.",
+      "123456789 Ontario Holdings Inc.", "12-3456789 Ontario Inc.", "ACME INC 12-3456789", "123456789", "Saskatchewan Ltd.",
+      "9123-4567 Québec inc.",
+    ]) {
+      expect(isNumberedCompanyName(name), name).toBe(false);
+    }
+  });
+});
+
+describe("stripFeinTokens", () => {
+  it("strips FEIN-shaped tokens but keeps a numbered-company name whole", () => {
+    expect(stripFeinTokens("ACME INC 12-3456789")).toBe("ACME INC");
+    expect(stripFeinTokens("101234567 Saskatchewan Ltd.")).toBe("101234567 Saskatchewan Ltd.");
+    expect(stripFeinTokens("123456789 Canada Inc.")).toBe("123456789 Canada Inc.");
+    expect(stripFeinTokens("123456789 Ontario Holdings Inc.")).toBe("Ontario Holdings Inc.");
+    expect(stripFeinTokens("1234567 Ontario Inc.")).toBe("1234567 Ontario Inc.");
+  });
+});
 
 describe("normalizeName", () => {
   it("drops corporate suffixes and a leading THE", () => {

@@ -1,7 +1,8 @@
 // Maps rows of the positive LMIA employers list into CaApproval records. The Address column is read only to
 // find the city and province; the street line and postal code never leave mapLmiaRow. Employer names are
 // cleaned as in the US loader: an email skips the row (R34) and FEIN-shaped numbers, which include 9-digit
-// business numbers, are removed (R35). The list has no trade name column.
+// business numbers, are removed (R35). A numbered-company name such as "101234567 Saskatchewan Ltd." keeps its
+// number (R37): it is the registered name. The list has no trade name column.
 import path from "node:path";
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type CaApproval, type LoadStats } from "../types";

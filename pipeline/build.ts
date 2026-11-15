@@ -16,7 +16,7 @@ import { HeaderMismatchError } from "./load/rows";
 import { loadUs, type LoadContext } from "./load/us";
 import { buildEntityMap, ownerForCa, ownerForUs } from "./match/entities";
 import { buildReport } from "./match/report";
-import { usEmployerId } from "./normalize/names";
+import { isNumberedCompanyName, usEmployerId } from "./normalize/names";
 import { loadPlaceIndex, type PlaceIndex } from "./normalize/places";
 import { loadRoles, type RoleSet } from "./normalize/roles";
 import { loadProfiles } from "./profiles/load";
@@ -121,11 +121,11 @@ const FEIN_SHAPED = /(?<![\w.-])\d{2}-\d{7}(?![\w-])|(?<![\w.])\d{9}(?![\w.])/g;
 /**
  * For an unprofiled US owner, how a filed name holds a FEIN, or null: its own (a FEIN-shaped number whose
  * generated id is the owner's), or any other FEIN-shaped number. Unprofiled FEINs are never published, and a
- * trade name that is a FEIN would publish one. Canadian owners have no FEIN (numbered companies such as
- * "101234567 SASKATCHEWAN LTD" are names), so they are not checked.
+ * trade name that is a FEIN would publish one. Canadian owners have no FEIN, so they are not checked, and a
+ * Canadian numbered-company name such as "101234567 SASKATCHEWAN LTD" is a name, not a FEIN (R37).
  */
 function feinIn(id: string, text: string): string | null {
-  if (!id.startsWith("us-")) return null;
+  if (!id.startsWith("us-") || isNumberedCompanyName(text)) return null;
   const found = [...text.matchAll(FEIN_SHAPED)].map((m) => m[0].replace("-", ""));
   if (found.length === 0) return null;
   return found.some((digits) => usEmployerId(digits, "", null) === id) ? "its own FEIN" : "a FEIN-shaped number";

@@ -1,7 +1,7 @@
 // Maps LCA and PERM spreadsheet rows into UsFiling records. Only allowed columns reach this module (readRows
 // filters them), and postal codes are used to place the worksite and never stored. Filed names are cleaned
 // first: an email in a name skips the row or blanks the trade name (R34), and FEIN-shaped numbers are removed
-// from names (R35), so neither can reach a published name.
+// from names (R35, except a Canadian numbered-company name, R37), so neither can reach a published name.
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type LoadStats, type UsFiling } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";

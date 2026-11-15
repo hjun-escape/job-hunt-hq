@@ -7,6 +7,7 @@ import JSZip from "jszip";
 import { afterAll, describe, expect, it } from "vitest";
 import { loadCa, lmiaPeriodFromName, mapLmiaRow } from "../../pipeline/load/ca";
 import type { LoadContext } from "../../pipeline/load/us";
+import { buildEntityMap, ownerForCa } from "../../pipeline/match/entities";
 import { EXPECTED_COLUMNS } from "../../pipeline/sources";
 import type { CaApproval } from "../../pipeline/types";
 
@@ -108,7 +109,17 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
   it("removes FEIN-shaped numbers, Canadian 9-digit business numbers included, and trims what is left", () => {
     expect(mapLmiaRow({ ...lmiaRow, Employer: "ACME INC 12-3456789" }, ctx, p)!.employer.name).toBe("ACME INC");
     expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd - 123456789" }, ctx, p)!.employer.name).toBe("Acme Ltd");
-    expect(mapLmiaRow({ ...lmiaRow, Employer: "101234567 Saskatchewan Ltd." }, ctx, p)!.employer.name).toBe("Saskatchewan Ltd.");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789 Ontario Holdings Inc." }, ctx, p)!.employer.name).toBe("Ontario Holdings Inc.");
+  });
+
+  it("keeps a numbered-company name whole, so distinct numbered companies stay distinct owners (R37)", () => {
+    const a = mapLmiaRow({ ...lmiaRow, Employer: "101234567 Saskatchewan Ltd.", Address: "", "Province/Territory": "Saskatchewan" }, ctx, p)!;
+    const b = mapLmiaRow({ ...lmiaRow, Employer: "101765432 Saskatchewan Ltd.", Address: "", "Province/Territory": "Saskatchewan" }, ctx, p)!;
+    expect(a.employer.name).toBe("101234567 Saskatchewan Ltd.");
+    expect(b.employer.name).toBe("101765432 Saskatchewan Ltd.");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789 Canada Inc." }, ctx, p)!.employer.name).toBe("123456789 Canada Inc.");
+    const none = buildEntityMap([]);
+    expect(ownerForCa(a.employer, none)).not.toBe(ownerForCa(b.employer, none));
   });
 
   it("leaves other numbered names alone", () => {

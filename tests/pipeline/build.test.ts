@@ -518,6 +518,7 @@ describe("screenNames (R33)", () => {
       ["us-0000000007", owner("GAMMA 555444333 LLC")], // nine digits in the display name
       ["us-0000000008", owner("DELTA 12345678 LLC", ["DELTA 1234567890"])], // 8 and 10 digits: not FEIN-shaped
       ["ca-0000000009", owner("101234567 SASKATCHEWAN LTD")], // a Canadian numbered company
+      ["us-0000000010", owner("123456789 Canada Inc.")], // a numbered-company name is a name, not a FEIN (R37)
       ["google.com", owner("GOOGLE LLC", ["77-0493581"])], // profiled: guarded by its profile
     ]);
     const s = screenNames(owners);
@@ -529,7 +530,7 @@ describe("screenNames (R33)", () => {
     expect(s.problems[2]).toContain("its own FEIN");
     expect(s.problems[3]).toContain("us-0000000007");
     expect(s.problems.join("\n")).not.toMatch(/123456789|7654321|1234567|555444333/);
-    expect([...s.kept.keys()]).toEqual(["us-0000000008", "ca-0000000009", "google.com"]);
+    expect([...s.kept.keys()]).toEqual(["us-0000000008", "ca-0000000009", "us-0000000010", "google.com"]);
   });
 });
 
