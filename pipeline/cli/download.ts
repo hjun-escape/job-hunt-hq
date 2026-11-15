@@ -12,10 +12,14 @@ import {
   LMIA_PACKAGE_API,
   STATCAN_GAF_URL,
   currentFiscalYear,
-  latestQuarterFiles,
+  CUMULATIVE,
+  FIRST_YEAR,
+  contiguousQuarters,
+  filesToRead,
   lcaUrlCandidates,
   permUrlCandidates,
   selectYears,
+  type YearSelection,
   type SourceFile,
 } from "../sources";
 
@@ -57,8 +61,11 @@ export function selectLmiaResources(resources: CkanResource[]): LmiaResource[] {
   const kept: LmiaResource[] = [];
   for (const r of resources) {
     if (!r.url) continue;
-    const format = (r.format ?? path.extname(r.url).slice(1)).toLowerCase();
-    if (format !== "xlsx" && format !== "csv") continue;
+    const ext = path.extname(new URL(r.url).pathname).slice(1).toLowerCase();
+    // CKAN labels some real .xlsx files "XLS", so the file extension counts too.
+    const format = (r.format ?? ext).toLowerCase();
+    const tabular = format === "xlsx" || format === "csv" || (format === "xls" && ext === "xlsx");
+    if (!tabular) continue;
     const langs = Array.isArray(r.language) ? r.language : r.language ? [r.language] : [];
     const label = `${r.name ?? ""} ${r.url}`;
     if (langs.length > 0 ? !langs.includes("en") : /(^|[\s_./-])fr([\s_./-]|$)/i.test(label)) continue;
@@ -69,13 +76,22 @@ export function selectLmiaResources(resources: CkanResource[]): LmiaResource[] {
   return kept;
 }
 
-/** LMIA quarterly files are per quarter, so every quarter of the selected calendar years is downloaded. */
+/** Year selection for a source: contiguous quarters per year for per-quarter files, the highest quarter for cumulative ones. */
+export function selectionFor(
+  source: "lca" | "perm" | "lmia",
+  found: { year: number; quarter: number }[],
+): YearSelection {
+  if (CUMULATIVE[source]) return selectYears(maxQuarterMap(found), FIRST_YEAR[source]);
+  const byYear = new Map<number, number[]>();
+  for (const f of found) byYear.set(f.year, [...(byYear.get(f.year) ?? []), f.quarter]);
+  const map: Record<number, 0 | 1 | 2 | 3 | 4> = {};
+  for (const [y, qs] of byYear) map[y] = contiguousQuarters(qs);
+  return selectYears(map, FIRST_YEAR[source]);
+}
+
+/** LMIA files hold one quarter each, so every quarter of the selected calendar years is downloaded. */
 export function planLmiaDownloads<T extends { year: number; quarter: number }>(kept: T[]): T[] {
-  const sel = selectYears(maxQuarterMap(kept));
-  const years = new Set([...sel.complete, ...(sel.partial ? [sel.partial.year] : [])]);
-  return kept
-    .filter((r) => years.has(r.year) && (r.year !== sel.partial?.year || r.quarter <= sel.partial.through))
-    .sort((a, b) => a.year - b.year || a.quarter - b.quarter);
+  return filesToRead("lmia", kept, selectionFor("lmia", kept));
 }
 
 export function isManifestFresh(entry: Pick<SourceFile, "sha256"> | undefined, diskSha256: string): boolean {
@@ -93,9 +109,10 @@ async function probeFiscalFiles(
 ): Promise<Target[]> {
   const found: { year: number; quarter: number; url: string }[] = [];
   const have = new Set<number>();
-  // Quarters run 4 down to 1 per year, so the first hit in a year is its latest quarter.
   for (const { year, quarter } of probePlan(today)) {
-    if (have.has(year)) continue;
+    if (year < FIRST_YEAR[kind]) continue;
+    // Cumulative files: quarters run 4 down to 1, so the first hit in a year is the latest. Per-quarter files need every quarter.
+    if (CUMULATIVE[kind] && have.has(year)) continue;
     for (const url of build(year, quarter)) {
       const res = await politeFetch(url, { method: "HEAD" });
       if (res.ok) {
@@ -105,17 +122,13 @@ async function probeFiscalFiles(
       }
     }
   }
-  const sel = selectYears(maxQuarterMap(found));
-  const years = new Set([...sel.complete, ...(sel.partial ? [sel.partial.year] : [])]);
-  return latestQuarterFiles(found)
-    .filter((f) => years.has(f.year))
-    .map((f) => ({
-      source: kind,
-      year: f.year,
-      quarter: f.quarter,
-      url: f.url,
-      path: `${kind}/${kind}_fy${f.year}_q${f.quarter}.xlsx`,
-    }));
+  return filesToRead(kind, found, selectionFor(kind, found)).map((f) => ({
+    source: kind,
+    year: f.year,
+    quarter: f.quarter,
+    url: f.url,
+    path: `${kind}/${kind}_fy${f.year}_q${f.quarter}.xlsx`,
+  }));
 }
 
 async function lmiaTargets(): Promise<Target[]> {

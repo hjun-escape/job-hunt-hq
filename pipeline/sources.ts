@@ -78,16 +78,37 @@ export function currentFiscalYear(date: Date): number {
   return date.getUTCFullYear() + (date.getUTCMonth() >= 9 ? 1 : 0);
 }
 
+/** Whether a source's quarterly file is cumulative within its year. LCA and LMIA files hold one quarter each. */
+export const CUMULATIVE: { lca: boolean; perm: boolean; lmia: boolean } = { lca: false, perm: true, lmia: false };
+
+/**
+ * First year ever selected per source. PERM FY2024 and older use a legacy layout, and LCA FY2023 lacks the
+ * employer FEIN column. (Fiscal years for lca and perm, calendar years for lmia.)
+ */
+export const FIRST_YEAR: { lca: number; perm: number; lmia: number } = { lca: 2024, perm: 2025, lmia: 2020 };
+
 export type YearSelection = { complete: number[]; partial?: { year: number; through: 1 | 2 | 3 } };
+
+/** The highest q such that quarters 1..q are all present. A year missing Q1 gives 0. */
+export function contiguousQuarters(quarters: number[]): 0 | 1 | 2 | 3 | 4 {
+  const have = new Set(quarters);
+  let q = 0;
+  while (q < 4 && have.has(q + 1)) q++;
+  return q as 0 | 1 | 2 | 3 | 4;
+}
 
 /**
  * Pick at most 3 complete years (the most recent ones). The latest year, when it
- * has only quarters 1 to 3, is returned as partial. Years with no quarters are ignored.
+ * has only quarters 1 to 3, is returned as partial. Years with no quarters, or before
+ * `firstYear`, are ignored.
  */
-export function selectYears(maxQuarterByYear: Record<number, 0 | 1 | 2 | 3 | 4>): YearSelection {
+export function selectYears(
+  maxQuarterByYear: Record<number, 0 | 1 | 2 | 3 | 4>,
+  firstYear = 0,
+): YearSelection {
   const years = Object.keys(maxQuarterByYear)
     .map(Number)
-    .filter((y) => maxQuarterByYear[y] > 0)
+    .filter((y) => maxQuarterByYear[y] > 0 && y >= firstYear)
     .sort((a, b) => a - b);
   if (years.length === 0) return { complete: [] };
   const latest = years[years.length - 1];
@@ -97,7 +118,29 @@ export function selectYears(maxQuarterByYear: Record<number, 0 | 1 | 2 | 3 | 4>)
   return { complete };
 }
 
-/** One entry per year, the highest quarter, sorted by year. For cumulative quarterly files (LCA, PERM). */
+/**
+ * Files to read for a selection, sorted by year then quarter. Per-quarter sources (CUMULATIVE false) read
+ * every quarter of each selected year up to `through` for the partial year; cumulative sources read only the
+ * latest quarter of each selected year.
+ */
+export function filesToRead<T extends { year?: number; quarter?: number }>(
+  source: "lca" | "perm" | "lmia",
+  entries: T[],
+  selection: YearSelection,
+): T[] {
+  const limit = new Map<number, number>();
+  for (const y of selection.complete) limit.set(y, 4);
+  if (selection.partial) limit.set(selection.partial.year, selection.partial.through);
+  const inScope = entries.filter(
+    (e) => e.year !== undefined && e.quarter !== undefined && (limit.get(e.year) ?? 0) >= e.quarter,
+  );
+  const chosen = CUMULATIVE[source]
+    ? latestQuarterFiles(inScope as (T & { year: number; quarter: number })[])
+    : inScope;
+  return [...chosen].sort((a, b) => a.year! - b.year! || a.quarter! - b.quarter!);
+}
+
+/** One entry per year, the highest quarter, sorted by year. For cumulative quarterly files (PERM). */
 export function latestQuarterFiles<T extends { year: number; quarter: number }>(found: T[]): T[] {
   const best = new Map<number, T>();
   for (const f of found) {

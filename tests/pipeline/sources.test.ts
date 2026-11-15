@@ -12,6 +12,10 @@ import {
   permUrl,
   lcaUrlCandidates,
   permUrlCandidates,
+  contiguousQuarters,
+  filesToRead,
+  CUMULATIVE,
+  FIRST_YEAR,
   EXPECTED_COLUMNS,
 } from "../../pipeline/sources";
 import {
@@ -21,6 +25,7 @@ import {
   isManifestFresh,
   probePlan,
   fetchToFile,
+  selectionFor,
 } from "../../pipeline/cli/download";
 
 describe("currentFiscalYear", () => {
@@ -105,23 +110,28 @@ describe("download planning", () => {
       { name: "Positive LMIA 2026Q1 (FR)", language: ["fr"], format: "XLSX", url: "https://x/a_2026q1_fr.xlsx" },
       { name: "Positive LMIA 2026Q1 notes", language: ["en"], format: "PDF", url: "https://x/a_2026q1.pdf" },
       { name: "Positive LMIA 2025Q4 (EN)", language: ["en"], format: "CSV", url: "https://x/a_2025q4_en.csv" },
+      { name: "Positive LMIA 2023Q2 (EN)", language: ["en"], format: "XLS", url: "https://x/tfwp_2023q2_pos_en.xlsx" },
+      { name: "Positive LMIA 2020Q2 (EN)", language: ["en"], format: "XLS", url: "https://x/old_2020q2.xls" },
     ];
     const kept = selectLmiaResources(resources);
-    expect(kept.map((r) => `${r.year}Q${r.quarter}`)).toEqual(["2026Q1", "2025Q4"]);
+    expect(kept.map((r) => `${r.year}Q${r.quarter}`)).toEqual(["2026Q1", "2025Q4", "2023Q2"]);
   });
 
   it("downloads every quarter of the selected calendar years for LMIA", () => {
-    const kept = [
-      { year: 2022, quarter: 4, url: "u22" },
-      { year: 2023, quarter: 4, url: "u23" },
-      { year: 2024, quarter: 1, url: "u24a" },
-      { year: 2024, quarter: 4, url: "u24" },
-      { year: 2025, quarter: 4, url: "u25" },
-      { year: 2026, quarter: 1, url: "u26a" },
-      { year: 2026, quarter: 2, url: "u26b" },
-    ];
+    const q = (year: number, quarters: number[]) => quarters.map((quarter) => ({ year, quarter, url: `u${year}${quarter}` }));
+    const kept = [...q(2022, [1, 2, 3, 4]), ...q(2023, [4]), ...q(2024, [1, 2, 3, 4]), ...q(2025, [1, 2, 3, 4]), ...q(2026, [1, 2])];
     const plan = planLmiaDownloads(kept);
-    expect(plan.map((r) => r.url)).toEqual(["u23", "u24a", "u24", "u25", "u26a", "u26b"]);
+    // 2023 has no Q1 to Q3, so it is not complete; 2022 is older than the 3 most recent complete years
+    expect(plan.map((r) => `${r.year}q${r.quarter}`)).toEqual([
+      "2022q1", "2022q2", "2022q3", "2022q4", "2024q1", "2024q2", "2024q3", "2024q4",
+      "2025q1", "2025q2", "2025q3", "2025q4", "2026q1", "2026q2",
+    ]);
+  });
+
+  it("never selects years before the source's first year", () => {
+    expect(selectYears({ 2023: 4, 2024: 4, 2025: 4 }, FIRST_YEAR.lca)).toEqual({ complete: [2024, 2025] });
+    const found = [4, 3, 2, 1].flatMap((quarter) => [2024, 2025].map((year) => ({ year, quarter })));
+    expect(selectionFor("perm", found)).toEqual({ complete: [2025] });
   });
 
   it("skips a manifest entry only when the file hash matches", () => {
@@ -158,5 +168,34 @@ describe("fetchToFile", () => {
     await expect(fetchToFile("https://x.test/a", dest, async () => body(200))).rejects.toThrow(/200 bytes/);
     expect(existsSync(dest)).toBe(false);
     expect(existsSync(dest + ".part")).toBe(false);
+  });
+});
+
+describe("per-quarter sources", () => {
+  it("contiguousQuarters finds the highest q with Q1..q all present", () => {
+    expect(contiguousQuarters([1, 2, 3, 4])).toBe(4);
+    expect(contiguousQuarters([1, 2])).toBe(2);
+    expect(contiguousQuarters([4])).toBe(0);
+    expect(contiguousQuarters([1, 3, 4])).toBe(1);
+    expect(contiguousQuarters([])).toBe(0);
+  });
+
+  const entries = [2024, 2025, 2026].flatMap((year) =>
+    [1, 2, 3, 4].filter((q) => year < 2026 || q <= 3).map((quarter) => ({ year, quarter })),
+  );
+  const sel = { complete: [2024, 2025], partial: { year: 2026, through: 2 as const } };
+
+  it("declares which sources are cumulative", () => {
+    expect(CUMULATIVE).toEqual({ lca: false, perm: true, lmia: false });
+  });
+
+  it("filesToRead reads every quarter up to through for per-quarter sources", () => {
+    const got = filesToRead("lca", entries, sel).map((e) => `${e.year}q${e.quarter}`);
+    expect(got).toEqual(["2024q1", "2024q2", "2024q3", "2024q4", "2025q1", "2025q2", "2025q3", "2025q4", "2026q1", "2026q2"]);
+  });
+
+  it("filesToRead reads only the latest quarter per selected year for cumulative sources", () => {
+    const got = filesToRead("perm", entries, sel).map((e) => `${e.year}q${e.quarter}`);
+    expect(got).toEqual(["2024q4", "2025q4", "2026q2"]);
   });
 });
