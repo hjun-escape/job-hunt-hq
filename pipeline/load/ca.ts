@@ -1,8 +1,12 @@
 // Maps rows of the positive LMIA employers list into CaApproval records. The Address column is read only to
-// find the city and province; the street line and postal code never leave mapLmiaRow.
+// find the city and province; the street line and postal code never leave mapLmiaRow. Employer names are
+// cleaned as in the US loader: an email skips the row (R34) and FEIN-shaped numbers, which include 9-digit
+// business numbers, are removed (R35). The list has no trade name column.
 import path from "node:path";
-import type { CaApproval, LoadStats } from "../types";
+import { EMAIL } from "../check/text-scan";
+import { emptyLoadStats, type CaApproval, type LoadStats } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
+import { stripFeinTokens } from "../normalize/names";
 import { caProvinceCode, parseCaAddress } from "../normalize/places";
 import { readRows } from "./rows";
 import type { LoadContext } from "./us";
@@ -30,7 +34,8 @@ function parseCount(s: string | undefined): number | null {
   return Math.floor(Number(t));
 }
 
-type Outcome = { approval: CaApproval } | { skip: "footnote" | "invalid" };
+export type CaInvalidReason = "counts" | "email in name" | "name was only a number";
+type Outcome = { approval: CaApproval } | { skip: "footnote" } | { skip: "invalid"; reason: CaInvalidReason };
 
 function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Period): Outcome {
   const name = (row.Employer ?? "").trim();
@@ -38,7 +43,10 @@ function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Peri
   const lmias = parseCount(row["Approved LMIAs"]);
   const positions = parseCount(row["Approved Positions"]);
   if (lmias === 0 && positions === 0) return { skip: "footnote" };
-  if (lmias === null || positions === null) return { skip: "invalid" };
+  if (lmias === null || positions === null) return { skip: "invalid", reason: "counts" };
+  if (EMAIL.test(name)) return { skip: "invalid", reason: "email in name" };
+  const employer = stripFeinTokens(name);
+  if (employer === "") return { skip: "invalid", reason: "name was only a number" };
 
   const parsed = parseCaAddress(row.Address ?? "");
   const province = parsed.province ?? caProvinceCode((row["Province/Territory"] ?? "").trim() || null);
@@ -47,7 +55,7 @@ function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Peri
     approval: {
       year: period.year,
       quarter: period.quarter,
-      employer: { name, province: province ?? "" },
+      employer: { name: employer, province: province ?? "" },
       stream: (row["Program Stream"] ?? "").trim(),
       role: ctx.roles.ca(noc),
       place: province ? ctx.places.ca(parsed.city, province) : { metro: null, region: "CA" },
@@ -68,7 +76,7 @@ export function loadCa(
   period: Period,
   ctx: LoadContext,
 ): { rows: AsyncIterable<CaApproval>; stats: LoadStats } {
-  const stats: LoadStats = { read: 0, kept: 0, skippedPerson: 0, skippedInvalid: 0 };
+  const stats: LoadStats = emptyLoadStats();
   async function* rows(): AsyncGenerator<CaApproval> {
     for await (const row of readRows(file, EXPECTED_COLUMNS.lmia)) {
       stats.read++;
@@ -76,7 +84,10 @@ export function loadCa(
       if ("approval" in o) {
         stats.kept++;
         yield o.approval;
-      } else if (o.skip === "invalid") stats.skippedInvalid++;
+      } else if (o.skip === "invalid") {
+        stats.skippedInvalid++;
+        stats.invalid[o.reason] = (stats.invalid[o.reason] ?? 0) + 1;
+      }
     }
   }
   return { rows: rows(), stats };

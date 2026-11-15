@@ -39,4 +39,22 @@ export type CaApproval = {
   positions: number;
 };
 
-export type LoadStats = { read: number; kept: number; skippedPerson: number; skippedInvalid: number };
+export type LoadStats = {
+  read: number;
+  kept: number;
+  skippedPerson: number;
+  skippedInvalid: number;
+  /** skippedInvalid by reason, such as "status", "email in name" or "name was only a number". */
+  invalid: Record<string, number>;
+  /** Kept rows whose trade name was blanked: it held an email or was only a FEIN-shaped number. */
+  tradeNamesBlanked: number;
+};
+
+export const emptyLoadStats = (): LoadStats => ({
+  read: 0,
+  kept: 0,
+  skippedPerson: 0,
+  skippedInvalid: 0,
+  invalid: {},
+  tradeNamesBlanked: 0,
+});

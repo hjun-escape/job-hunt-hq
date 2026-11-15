@@ -7,6 +7,24 @@ const CORPORATE_TOKENS = new Set([
   "AB", "OY", "SRL", "LTDA", "LLLP", "LC",
 ]);
 
+/** FEIN-shaped tokens: NN-NNNNNNN or nine digits, which also covers 9-digit Canadian business numbers. */
+const FEIN_TOKEN = /\b\d{2}-?\d{7}\b/g;
+/** Separators a removed number leaves at either end of a name. A trailing full stop ("INC.") is kept. */
+const EDGES = /^[\s,;:/#|\-\u2013\u2014.]+|[\s,;:/#|\-\u2013\u2014]+$/g;
+
+/**
+ * A filed name with every FEIN-shaped token removed (R35), then the empty brackets, doubled spaces and edge
+ * separators the removal left. A name without such a token comes back unchanged; "" means it was only a number.
+ */
+export function stripFeinTokens(name: string): string {
+  if (name.match(FEIN_TOKEN) === null) return name;
+  return name
+    .replace(FEIN_TOKEN, " ")
+    .replace(/\(\s*\)|\[\s*\]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(EDGES, "");
+}
+
 export function normalizeName(raw: string): string {
   const text = raw
     .normalize("NFKD")

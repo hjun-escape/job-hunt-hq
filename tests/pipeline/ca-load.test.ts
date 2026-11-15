@@ -100,6 +100,29 @@ describe("mapLmiaRow", () => {
   });
 });
 
+describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
+  it("skips an employer name holding an email", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd hr@acme.example" }, ctx, p)).toBeNull();
+  });
+
+  it("removes FEIN-shaped numbers, Canadian 9-digit business numbers included, and trims what is left", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "ACME INC 12-3456789" }, ctx, p)!.employer.name).toBe("ACME INC");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd - 123456789" }, ctx, p)!.employer.name).toBe("Acme Ltd");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "101234567 Saskatchewan Ltd." }, ctx, p)!.employer.name).toBe("Saskatchewan Ltd.");
+  });
+
+  it("leaves other numbered names alone", () => {
+    for (const name of ["1234567 Ontario Inc.", "9123-4567 Québec inc.", "12345678 Canada Inc."]) {
+      expect(mapLmiaRow({ ...lmiaRow, Employer: name }, ctx, p)!.employer.name, name).toBe(name);
+    }
+  });
+
+  it("skips an employer name that was only a number", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789" }, ctx, p)).toBeNull();
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "12-3456789" }, ctx, p)).toBeNull();
+  });
+});
+
 describe("lmiaPeriodFromName", () => {
   it("parses year-then-quarter and quarter-then-year forms", () => {
     const q2 = { year: 2026, quarter: 2 };
@@ -144,12 +167,18 @@ describe("loadCa", () => {
       cells({ ...lmiaRow, Employer: "Bad Counts Ltd", "Approved LMIAs": "n/a" }),
       cells({ ...lmiaRow, Employer: "Acme Ltd", Address: "", "Province/Territory": "Alberta", "Program Stream": "High-wage" }),
       cells({ "Province/Territory": "Note: positions include cancelled" }),
+      cells({ ...lmiaRow, Employer: "jobs@acme.example" }),
+      cells({ ...lmiaRow, Employer: "123456789" }),
+      cells({ Employer: "Questions: lmia@example.gc.ca" }),
     ]);
     const { rows, stats } = loadCa(file, p, ctx);
     const got: CaApproval[] = [];
     for await (const r of rows) got.push(r);
     expect(got.map((r) => r.employer.name)).toEqual(["Shopify Inc.", "Acme Ltd"]);
     expect(got[1].employer.province).toBe("AB");
-    expect(stats).toEqual({ read: 4, kept: 2, skippedPerson: 0, skippedInvalid: 1 });
+    expect(stats).toEqual({
+      read: 7, kept: 2, skippedPerson: 0, skippedInvalid: 3,
+      invalid: { counts: 1, "email in name": 1, "name was only a number": 1 }, tradeNamesBlanked: 0,
+    });
   });
 });

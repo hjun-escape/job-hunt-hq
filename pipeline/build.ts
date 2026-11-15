@@ -36,6 +36,12 @@ export type BuildOptions = {
   /** The live site's meta.json, to compare totals with. Without it the build counts as a first build. */
   liveMetaUrl?: string;
   today: Date;
+  /**
+   * R36: a legitimate government revision moved a total. Totals-check problems become warnings prefixed
+   * "accepted totals change: " (meta.json lists them too) and the build can pass. An unreadable live meta.json
+   * is still a problem.
+   */
+  acceptTotalsChange?: boolean;
   /** Fetches liveMetaUrl. Default politeFetch. */
   fetchFn?: (url: string) => Promise<Response>;
   /** Progress lines: one per file read and one per phase, counts and seconds only. Default none. */
@@ -78,6 +84,8 @@ export type BuildResult = {
 export type LiveMeta = { ok: true; meta: Meta | null } | { ok: false; problem: string };
 
 const REFUSE = "could not read the live meta.json; refusing to compare";
+/** Prefix of a totals-check problem accepted with acceptTotalsChange (R36). */
+export const ACCEPTED = "accepted totals change: ";
 
 /** The live meta.json: null on a 404 (nothing deployed yet, a first build). Anything else unreadable is a problem. */
 export async function readLiveMeta(
@@ -353,7 +361,19 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     warnings.push(`owner ${id} is not published: a name it filed under looks like a postal code`);
   }
 
-  // 5. The site. writeSite is staged: on a throw the previous site is left as it was.
+  // 5. Totals against the live build, before the site so an accepted change is recorded in meta.json.
+  if (opts.liveMetaUrl) {
+    const live = await readLiveMeta(opts.liveMetaUrl, opts.fetchFn);
+    if (!live.ok) problems.push(live.problem);
+    else if (live.meta) {
+      const moved = compareTotals(live.meta.totals, totals, years, live.meta.years);
+      if (opts.acceptTotalsChange) warnings.push(...moved.map((p) => `${ACCEPTED}${p}`));
+      else problems.push(...moved);
+    }
+  }
+
+  // 6. The site, even when a check above failed, so one report lists every problem (sizes included); the CLI
+  // then exits 1 and nothing is deployed. writeSite is staged: on a throw the previous site is left as it was.
   const model: SiteModel = {
     owners,
     profiles: new Map(profiles.map((p) => [p.id, p])),
@@ -373,13 +393,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   }
   lap(`wrote the site (${files.length} files)`);
 
-  // 6. Sizes, then totals against the live build. Both run so one report lists every problem.
   problems.push(...checkSizes(files));
-  if (opts.liveMetaUrl) {
-    const live = await readLiveMeta(opts.liveMetaUrl, opts.fetchFn);
-    if (!live.ok) problems.push(live.problem);
-    else if (live.meta) problems.push(...compareTotals(live.meta.totals, totals, years, live.meta.years));
-  }
   if (problems.length) return done();
 
   // 7. Only a build that passed everything writes the committed summaries.

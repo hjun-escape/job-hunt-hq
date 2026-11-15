@@ -1,8 +1,11 @@
 // Maps LCA and PERM spreadsheet rows into UsFiling records. Only allowed columns reach this module (readRows
-// filters them), and postal codes are used to place the worksite and never stored.
-import type { LoadStats, UsFiling } from "../types";
+// filters them), and postal codes are used to place the worksite and never stored. Filed names are cleaned
+// first: an email in a name skips the row or blanks the trade name (R34), and FEIN-shaped numbers are removed
+// from names (R35), so neither can reach a published name.
+import { EMAIL } from "../check/text-scan";
+import { emptyLoadStats, type LoadStats, type UsFiling } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
-import { personNameSignal } from "../normalize/names";
+import { personNameSignal, stripFeinTokens } from "../normalize/names";
 import type { PlaceIndex } from "../normalize/places";
 import type { RoleSet } from "../normalize/roles";
 import { annualize, fiscalYearMonth, lcaStatus, parseAmount, permStatus, wageLevel } from "../normalize/us";
@@ -15,9 +18,9 @@ export type LoadContext = {
   profiled?: (employer: UsFiling["employer"]) => boolean;
 };
 
-export type InvalidReason = "employer" | "status" | "date" | "visa";
+export type InvalidReason = "employer" | "email in name" | "name was only a number" | "status" | "date" | "visa";
 export type RowOutcome =
-  | { filing: UsFiling }
+  | { filing: UsFiling; tradeBlanked?: true }
   | { skip: "invalid"; reason: InvalidReason }
   | { skip: "person"; name: string };
 
@@ -65,14 +68,35 @@ type Common = {
   date: string;
 };
 
-/** Checks shared by both programs, in a fixed order so skip reasons are stable. */
+/** A trade name without an email (R34) and without FEIN-shaped numbers (R35); null when nothing usable is left. */
+function cleanTradeName(trade: string | null): { tradeName: string | null; blanked: boolean } {
+  if (trade === null) return { tradeName: null, blanked: false };
+  const clean = EMAIL.test(trade) ? "" : stripFeinTokens(trade);
+  return clean === "" ? { tradeName: null, blanked: true } : { tradeName: clean, blanked: false };
+}
+
+type Gated = {
+  status: UsFiling["status"];
+  employer: UsFiling["employer"];
+  ym: { year: number; month: number };
+  tradeBlanked: boolean;
+};
+
+/**
+ * Checks shared by both programs, in a fixed order so skip reasons are stable. The names are cleaned before
+ * the person-name check, and the cleaned employer is what matching sees. The FEIN field is never changed.
+ */
 function gate(
   c: Common,
   statusOf: (s: string) => UsFiling["status"] | null,
   ctx: LoadContext,
   visaOk: boolean,
-): { status: UsFiling["status"]; employer: UsFiling["employer"]; ym: { year: number; month: number } } | RowOutcome {
+): Gated | RowOutcome {
   if (c.name === "") return { skip: "invalid", reason: "employer" };
+  if (EMAIL.test(c.name)) return { skip: "invalid", reason: "email in name" };
+  const name = stripFeinTokens(c.name);
+  if (name === "") return { skip: "invalid", reason: "name was only a number" };
+  const { tradeName, blanked } = cleanTradeName(c.tradeName);
   const status = statusOf(c.statusText);
   if (status === null) return { skip: "invalid", reason: "status" };
   if (!ISO_DATE.test(c.date)) return { skip: "invalid", reason: "date" };
@@ -83,12 +107,14 @@ function gate(
     return { skip: "invalid", reason: "date" };
   }
   if (!visaOk) return { skip: "invalid", reason: "visa" };
-  const employer: UsFiling["employer"] = { fein: c.fein, name: c.name, tradeName: c.tradeName, state: c.state };
-  const signal = personNameSignal(c.name);
-  if (signal === "strong" && !ctx.profiled?.(employer)) return { skip: "person", name: c.name };
+  const employer: UsFiling["employer"] = { fein: c.fein, name, tradeName, state: c.state };
+  const signal = personNameSignal(name);
+  if (signal === "strong" && !ctx.profiled?.(employer)) return { skip: "person", name };
   if (signal === "weak") employer.personLike = true;
-  return { status, employer, ym };
+  return { status, employer, ym, tradeBlanked: blanked };
 }
+
+const blankedFlag = (g: Gated) => (g.tradeBlanked ? { tradeBlanked: true as const } : {});
 
 function isOutcome(g: unknown): g is RowOutcome {
   return typeof g === "object" && g !== null && ("skip" in g || "filing" in g);
@@ -128,6 +154,7 @@ export function lcaOutcome(row: Record<string, string>, ctx: LoadContext): RowOu
         level: wageLevel(row.PW_WAGE_LEVEL ?? ""),
       },
     },
+    ...blankedFlag(g),
   };
 }
 
@@ -160,6 +187,7 @@ export function permOutcome(row: Record<string, string>, ctx: LoadContext): RowO
       ),
       annualPay: pay(row.JOB_OPP_WAGE_FROM, row.JOB_OPP_WAGE_PER),
     },
+    ...blankedFlag(g),
   };
 }
 
@@ -179,7 +207,7 @@ export function loadUs(
   path: string,
   ctx: LoadContext,
 ): { rows: AsyncIterable<UsFiling>; stats: LoadStats } {
-  const stats: LoadStats = { read: 0, kept: 0, skippedPerson: 0, skippedInvalid: 0 };
+  const stats = emptyLoadStats();
   const outcome = source === "lca" ? lcaOutcome : permOutcome;
   async function* rows(): AsyncGenerator<UsFiling> {
     for await (const row of readRows(path, EXPECTED_COLUMNS[source])) {
@@ -187,9 +215,13 @@ export function loadUs(
       const o = outcome(row, ctx);
       if ("filing" in o) {
         stats.kept++;
+        if (o.tradeBlanked) stats.tradeNamesBlanked++;
         yield o.filing;
       } else if (o.skip === "person") stats.skippedPerson++;
-      else stats.skippedInvalid++;
+      else {
+        stats.skippedInvalid++;
+        stats.invalid[o.reason] = (stats.invalid[o.reason] ?? 0) + 1;
+      }
     }
   }
   return { rows: rows(), stats };

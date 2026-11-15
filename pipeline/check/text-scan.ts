@@ -2,7 +2,8 @@
 // personal source columns must never reach a published string. A hit is reported by kind and place only,
 // never echoed, because validation problems and build errors end up in public pull requests and issues.
 
-const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+/** Email-shaped text. The loaders use it too, to keep addresses typed into name fields out (R34). */
+export const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 const POSTAL = /\b[A-Z]\d[A-Z] ?\d[A-Z]\d\b/i;
 const COLUMNS = /EMPLOYER_POC|EMP_POC|PREPARER_|DECL_PREP_|ATTY_AG_|LAWFIRM_/;
 

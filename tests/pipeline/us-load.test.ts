@@ -5,7 +5,7 @@ import path from "node:path";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { afterAll, describe, expect, it } from "vitest";
-import { type LoadContext, loadUs, mapLcaRow, mapPermRow } from "../../pipeline/load/us";
+import { type LoadContext, lcaOutcome, loadUs, mapLcaRow, mapPermRow, permOutcome } from "../../pipeline/load/us";
 import { EXPECTED_COLUMNS } from "../../pipeline/sources";
 import type { UsFiling } from "../../pipeline/types";
 
@@ -124,6 +124,54 @@ describe("mapLcaRow", () => {
   });
 });
 
+describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
+  it("blanks a trade name holding an email", () => {
+    expect(mapLcaRow({ ...lcaRow, TRADE_NAME_DBA: "hr@acme.example" }, ctx)!.employer.tradeName).toBeNull();
+    expect(mapPermRow({ ...permRow, EMP_TRADE_NAME: "Acme (hr@acme.example)" }, ctx)!.employer.tradeName).toBeNull();
+  });
+
+  it("skips a row whose employer name holds an email, with its own reason", () => {
+    expect(lcaOutcome({ ...lcaRow, EMPLOYER_NAME: "ACME INC hr@acme.example" }, ctx)).toEqual({ skip: "invalid", reason: "email in name" });
+    expect(permOutcome({ ...permRow, EMP_BUSINESS_NAME: "hr@acme.example" }, ctx)).toEqual({ skip: "invalid", reason: "email in name" });
+  });
+
+  it("removes FEIN-shaped numbers from the employer name and trims what is left, keeping the FEIN field", () => {
+    const f = mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME INC 12-3456789" }, ctx)!;
+    expect(f.employer.name).toBe("ACME INC");
+    expect(f.employer.fein).toBe("987654321");
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME INC - 12-3456789" }, ctx)!.employer.name).toBe("ACME INC");
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "123456789 ACME INC" }, ctx)!.employer.name).toBe("ACME INC");
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "ACME (12-3456789) INC" }, ctx)!.employer.name).toBe("ACME INC");
+    expect(mapPermRow({ ...permRow, EMP_BUSINESS_NAME: "Acme Software Inc, 987654321" }, ctx)!.employer.name).toBe("Acme Software Inc");
+  });
+
+  it("leaves names without a FEIN-shaped number alone, digits included", () => {
+    for (const name of ["3M COMPANY", "ACME 12345678 LLC", "ACME 1234567890 LLC", "ACME INC.", "7-ELEVEN, INC."]) {
+      expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: name }, ctx)!.employer.name, name).toBe(name);
+    }
+  });
+
+  it("blanks a trade name that was only a FEIN-shaped number", () => {
+    expect(mapLcaRow({ ...lcaRow, TRADE_NAME_DBA: "123456789" }, ctx)!.employer.tradeName).toBeNull();
+    expect(mapPermRow({ ...permRow, EMP_TRADE_NAME: "98-7654321" }, ctx)!.employer.tradeName).toBeNull();
+    expect(mapLcaRow({ ...lcaRow, TRADE_NAME_DBA: "ACME DBA 123456789" }, ctx)!.employer.tradeName).toBe("ACME DBA");
+  });
+
+  it("skips a row whose employer name was only a number", () => {
+    expect(lcaOutcome({ ...lcaRow, EMPLOYER_NAME: "12-3456789" }, ctx)).toEqual({ skip: "invalid", reason: "name was only a number" });
+    expect(permOutcome({ ...permRow, EMP_BUSINESS_NAME: " 123456789 " }, ctx)).toEqual({ skip: "invalid", reason: "name was only a number" });
+  });
+
+  it("cleans the name before the person-name check and before matching", () => {
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "John Smith 123456789" }, ctx)!.employer.personLike).toBe(true);
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "JANE DOE MD PC 12-3456789" }, ctx)).toBeNull();
+    const seen: string[] = [];
+    const profiled = (e: UsFiling["employer"]) => (seen.push(e.name), e.name === "LEE DDS PC");
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "LEE DDS PC 12-3456789" }, { ...ctx, profiled })).not.toBeNull();
+    expect(seen).toEqual(["LEE DDS PC"]);
+  });
+});
+
 describe("mapPermRow", () => {
   it("maps a PERM row without an lca block", () => {
     const f = mapPermRow(permRow, ctx)!;
@@ -178,7 +226,29 @@ describe("loadUs", () => {
     const { rows, stats } = loadUs("lca", file, ctx);
     const filings = await collect(rows);
     expect(filings).toHaveLength(2);
-    expect(stats).toEqual({ read: 6, kept: 2, skippedPerson: 1, skippedInvalid: 3 });
+    expect(stats).toEqual({
+      read: 6, kept: 2, skippedPerson: 1, skippedInvalid: 3, invalid: { status: 1, visa: 1, employer: 1 }, tradeNamesBlanked: 0,
+    });
+  });
+
+  it("counts skips by reason and trade names blanked", async () => {
+    const header = EXPECTED_COLUMNS.lca;
+    const file = await xlsx("lca-names.xlsx", header, [
+      row(header, { ...lcaRow, TRADE_NAME_DBA: "hr@acme.example" }),
+      row(header, { ...lcaRow, TRADE_NAME_DBA: "12-3456789" }),
+      row(header, { ...lcaRow, EMPLOYER_NAME: "info@acme.example" }),
+      row(header, { ...lcaRow, EMPLOYER_NAME: "123456789" }),
+      row(header, { ...lcaRow, EMPLOYER_NAME: "ACME INC 123456789" }),
+    ]);
+    const { rows, stats } = loadUs("lca", file, ctx);
+    const filings = await collect(rows);
+    expect(filings.map((f) => [f.employer.name, f.employer.tradeName])).toEqual([
+      ["Acme Software Inc", null], ["Acme Software Inc", null], ["ACME INC", null],
+    ]);
+    expect(stats).toEqual({
+      read: 5, kept: 3, skippedPerson: 0, skippedInvalid: 2,
+      invalid: { "email in name": 1, "name was only a number": 1 }, tradeNamesBlanked: 2,
+    });
   });
 
   it("loads a PERM file", async () => {

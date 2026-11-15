@@ -1,23 +1,30 @@
-// Usage: npm run dataset:build -- --out site [--live <meta.json url>] [--cache .cache/dataset] [--data data]
+// Usage: npm run dataset:build -- --out site [--live <meta.json url>] [--accept-totals-change]
+//   [--cache .cache/dataset] [--data data]
 // Builds the site from the cached government files. When any check fails it writes build-problems.md (the
 // body of the CI failure issue) and exits 1, so the deploy step never runs and the live data stays.
-// Without --live, totals are not compared with a previous build (a first build). Prints counts only.
+// Without --live, totals are not compared with a previous build (a first build). --accept-totals-change turns
+// a totals move against the live build into a warning, for a legitimate government revision (R36; off by
+// default, run by hand). Prints counts only.
 import { rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { runBuild, type BuildResult } from "../build";
 
 export const PROBLEMS_FILE = "build-problems.md";
 
-export type BuildArgs = { out: string; live?: string; cache: string; data: string };
+export type BuildArgs = { out: string; live?: string; cache: string; data: string; acceptTotalsChange: boolean };
 
 export function parseArgs(argv: string[]): BuildArgs {
-  const args: BuildArgs = { out: "site", cache: ".cache/dataset", data: "data" };
+  const args: BuildArgs = { out: "site", cache: ".cache/dataset", data: "data", acceptTotalsChange: false };
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
+    if (flag === "--accept-totals-change") {
+      args.acceptTotalsChange = true;
+      continue;
+    }
     const value = argv[i + 1];
     if (!["--out", "--live", "--cache", "--data"].includes(flag)) throw new Error(`unknown argument: ${flag}`);
     if (value === undefined || value.startsWith("--")) throw new Error(`${flag} needs a value`);
-    args[flag.slice(2) as keyof BuildArgs] = value;
+    args[flag.slice(2) as "out" | "live" | "cache" | "data"] = value;
     i++;
   }
   return args;
@@ -65,10 +72,15 @@ export function summaryLines(r: BuildResult): string[] {
   for (const src of ["lca", "perm", "lmia"]) {
     const fs = bySource(src);
     if (!fs.length) continue;
-    const sum = (k: "read" | "kept" | "skippedPerson" | "skippedInvalid") => fs.reduce((n, f) => n + f[k], 0);
+    const sum = (k: "read" | "kept" | "skippedPerson" | "skippedInvalid" | "tradeNamesBlanked" | "seconds") =>
+      fs.reduce((n, f) => n + f[k], 0);
+    const reasons = new Map<string, number>();
+    for (const f of fs) for (const [k, n] of Object.entries(f.invalid)) reasons.set(k, (reasons.get(k) ?? 0) + n);
+    const why = [...reasons].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([k, n]) => `${k} ${n}`).join(", ");
     lines.push(
-      `${src}: ${fs.length} files, read ${sum("read")}, kept ${sum("kept")}, person-named ${sum("skippedPerson")}, ` +
-        `invalid ${sum("skippedInvalid")}`,
+      `${src}: ${fs.length} files in ${sum("seconds").toFixed(1)} s, read ${sum("read")}, kept ${sum("kept")}, ` +
+        `person-named ${sum("skippedPerson")}, invalid ${sum("skippedInvalid")}${why ? ` (${why})` : ""}, ` +
+        `trade names blanked ${sum("tradeNamesBlanked")}`,
     );
   }
   const o = s.owners;
@@ -103,6 +115,7 @@ async function main(): Promise<void> {
       outDir: args.out,
       dataDir: args.data,
       liveMetaUrl: args.live,
+      acceptTotalsChange: args.acceptTotalsChange,
       today: started,
       log: (line) => console.log(line),
     });

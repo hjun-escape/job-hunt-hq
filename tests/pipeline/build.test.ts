@@ -7,7 +7,7 @@ import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { OwnerResult } from "../../pipeline/aggregate/accumulate";
 import { readLiveMeta, runBuild, screenNames } from "../../pipeline/build";
-import { parseArgs, problemsReport } from "../../pipeline/cli/build";
+import { parseArgs, problemsReport, summaryLines } from "../../pipeline/cli/build";
 import { normalizeName, usEmployerId } from "../../pipeline/normalize/names";
 import type { IndexEntry, Meta } from "../../pipeline/schema/published";
 import { EXPECTED_COLUMNS, lcaUrl, permUrl, type SourceFile } from "../../pipeline/sources";
@@ -357,6 +357,34 @@ describe("runBuild end to end", () => {
     expect(existsSync(path.join(data2, "summary"))).toBe(false);
   }, 60_000);
 
+  it("passes a totals jump with acceptTotalsChange, recording it as a warning in meta.json (R36)", async () => {
+    const live = readJson(outDir, "data/v1/meta.json");
+    live.totals.lca["2025"] = 1000;
+    const data2 = makeDataDir(fresh("data"));
+    const out2 = fresh("out");
+    const r = await runBuild({
+      cacheDir, outDir: out2, dataDir: data2, today: TODAY, acceptTotalsChange: true,
+      liveMetaUrl: "https://pages.invalid/data/v1/meta.json", fetchFn: metaResponse(live),
+    });
+    expect(r.problems).toEqual([]);
+    expect(r.ok).toBe(true);
+    const accepted = r.warnings.filter((w) => w.startsWith("accepted totals change: "));
+    expect(accepted).toEqual([expect.stringContaining("lca 2025")]);
+    expect((readJson(out2, "data/v1/meta.json") as Meta).warnings).toEqual(expect.arrayContaining(accepted));
+    expect(existsSync(path.join(data2, "summary", "lca-2025.csv"))).toBe(true);
+  }, 60_000);
+
+  it("still refuses an unreadable live meta.json with acceptTotalsChange", async () => {
+    const data2 = makeDataDir(fresh("data"));
+    const r = await runBuild({
+      cacheDir, outDir: fresh("out"), dataDir: data2, today: TODAY, acceptTotalsChange: true,
+      liveMetaUrl: "https://pages.invalid/data/v1/meta.json", fetchFn: async () => new Response("", { status: 503 }),
+    });
+    expect(r.ok).toBe(false);
+    expect(r.problems.join("\n")).toContain("refusing to compare");
+    expect(existsSync(path.join(data2, "summary"))).toBe(false);
+  }, 60_000);
+
   it("fails without writing summaries when a column is renamed", async () => {
     const cache2 = fresh("cache");
     cpSync(cacheDir, cache2, { recursive: true });
@@ -409,18 +437,35 @@ describe("runBuild end to end", () => {
     expect(existsSync(out2)).toBe(false);
   });
 
-  it("fails on an email in an unprofiled owner's filed names, naming only its id, and still counts owners", async () => {
+  it("blanks an email or a FEIN typed as a trade name and publishes the owner without it (R34, R35)", async () => {
     const cache2 = fresh("cache");
     cpSync(cacheDir, cache2, { recursive: true });
-    const rows = [1, 2, 3, 4].map((d) => lca(ACME, day(2025, 8, d), { state: "WA", zip: "98101", trade: "hire@acme-robots.invalid" }));
+    const trades = ["hire@acme-robots.invalid", "77-7777777", "777777777", "hire@acme-robots.invalid"];
+    const rows = trades.map((trade, i) => lca(ACME, day(2025, 8, i + 1), { state: "WA", zip: "98101", trade }));
     await xlsx(path.join(cache2, "lca/lca_fy2025_q4.xlsx"), [LCA_HEADER, ...LCA_FILES["2025-4"].slice(0, 5), ...rows]);
     const data2 = makeDataDir(fresh("data"));
     const out2 = fresh("out");
     const r9 = await runBuild({ cacheDir: cache2, outDir: out2, dataDir: data2, today: TODAY });
-    const id = usEmployerId(ACME.fein.replace("-", ""), normalizeName(ACME.name), "WA");
+    expect(r9.problems).toEqual([]);
+    expect(r9.ok).toBe(true);
+    expect(idByName(out2, ACME.name)).toBeDefined();
+    expect(`${allText(out2)}\n${allText(path.join(data2, "summary"))}`).not.toMatch(/hire@|777777777|77-7777777/);
+    expect(r9.stats.files.reduce((n, f) => n + f.tradeNamesBlanked, 0)).toBe(4);
+  }, 60_000);
+
+  it("fails on a personal column name in an unprofiled owner's filed names, naming only its id, and still counts owners", async () => {
+    const cache2 = fresh("cache");
+    cpSync(cacheDir, cache2, { recursive: true });
+    const leaky = { name: "EMPLOYER_POC CONSULTING LLC", fein: "88-8888888" };
+    const rows = [1, 2, 3].map((d) => lca(leaky, day(2025, 8, d)));
+    await xlsx(path.join(cache2, "lca/lca_fy2025_q4.xlsx"), [LCA_HEADER, ...LCA_FILES["2025-4"], ...rows]);
+    const data2 = makeDataDir(fresh("data"));
+    const out2 = fresh("out");
+    const r9 = await runBuild({ cacheDir: cache2, outDir: out2, dataDir: data2, today: TODAY });
+    const id = usEmployerId("888888888", normalizeName(leaky.name), "CA");
     expect(r9.ok).toBe(false);
     expect(r9.problems).toEqual([expect.stringContaining(`owner ${id}`)]);
-    expect(r9.problems.join()).not.toMatch(/acme|hire@/i);
+    expect(r9.problems.join()).not.toMatch(/EMPLOYER_POC|CONSULTING/);
     expect(r9.stats.owners.total).toBeGreaterThan(0);
     expect(existsSync(out2)).toBe(false);
     expect(existsSync(path.join(data2, "summary"))).toBe(false);
@@ -516,11 +561,13 @@ describe("readLiveMeta", () => {
 });
 
 describe("dataset:build CLI", () => {
-  it("parses --out, --live, --cache and --data, and refuses anything else", () => {
-    expect(parseArgs(["--out", "site"])).toEqual({ out: "site", cache: ".cache/dataset", data: "data" });
+  it("parses --out, --live, --cache, --data and --accept-totals-change, and refuses anything else", () => {
+    expect(parseArgs(["--out", "site"])).toEqual({ out: "site", cache: ".cache/dataset", data: "data", acceptTotalsChange: false });
     expect(parseArgs(["--out", "o", "--live", "https://x.invalid/meta.json", "--cache", "c", "--data", "d"])).toEqual({
-      out: "o", live: "https://x.invalid/meta.json", cache: "c", data: "d",
+      out: "o", live: "https://x.invalid/meta.json", cache: "c", data: "d", acceptTotalsChange: false,
     });
+    expect(parseArgs(["--accept-totals-change", "--out", "o"])).toMatchObject({ out: "o", acceptTotalsChange: true });
+    expect(() => parseArgs(["--accept-totals-change", "yes"])).toThrow("unknown argument");
     expect(() => parseArgs(["--liv", "x"])).toThrow("unknown argument");
     expect(() => parseArgs(["--out"])).toThrow("needs a value");
   });
@@ -530,5 +577,26 @@ describe("dataset:build CLI", () => {
     expect(body).toContain("## Problems\n\n- lca 2025: moved");
     expect(body).toContain("## Warnings\n\nNone.");
     expect(body).toContain("Nothing was deployed");
+  });
+});
+
+describe("dataset:build CLI summary", () => {
+  it("prints per-source reasons, blanked trade names and seconds, and no names", () => {
+    const file = (source: "lca" | "lmia", invalid: Record<string, number>, blanked: number) => ({
+      source, path: `${source}/x.xlsx`, year: 2025, quarter: 1, seconds: 1.5, read: 10, kept: 8, skippedPerson: 0,
+      skippedInvalid: 2, invalid, tradeNamesBlanked: blanked,
+    });
+    const lines = summaryLines({
+      ok: true, problems: [], warnings: [], files: [],
+      stats: {
+        years: null, droppedPersonLike: 0, droppedPostal: 0, totals: null,
+        owners: { total: 1, us: 1, ca: 0, both: 0, profiled: 0 },
+        files: [file("lca", { "email in name": 1, status: 1 }, 3), file("lca", { status: 1 }, 0), file("lmia", {}, 0)],
+      },
+    });
+    expect(lines).toContain(
+      "lca: 2 files in 3.0 s, read 20, kept 16, person-named 0, invalid 4 (email in name 1, status 2), trade names blanked 3",
+    );
+    expect(lines).toContain("lmia: 1 files in 1.5 s, read 10, kept 8, person-named 0, invalid 2, trade names blanked 0");
   });
 });
