@@ -1,5 +1,5 @@
 // Reads data/companies/*.yaml and validates every profile. Any other entry (a .yml file, a note, a folder) is a
-// problem, so a contributor's file is never silently ignored; only .gitkeep may sit beside the profiles.
+// problem, so a contributor's file is never silently ignored. Dotfiles (.gitkeep, .DS_Store) are exempt.
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
@@ -22,7 +22,7 @@ export async function loadProfiles(
   const files = names.filter((n) => n.endsWith(".yaml")).sort();
   const entries: { file: string; profile: unknown }[] = [];
   const problems: Problem[] = names
-    .filter((n) => !n.endsWith(".yaml") && n !== ".gitkeep")
+    .filter((n) => !n.endsWith(".yaml") && !n.startsWith("."))
     .sort()
     .map((file) => ({
       file,

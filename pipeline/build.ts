@@ -5,7 +5,7 @@
 // stays. Problem and warning lines name files, ids, columns and years, never a value from a filing.
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { createAccumulator, isUnprofiledId, type OwnerResult, type YearPlans } from "./aggregate/accumulate";
+import { createAccumulator, IdCollisionError, isUnprofiledId, type OwnerResult, type YearPlans } from "./aggregate/accumulate";
 import { checkSizes } from "./check/sizes";
 import { personalText, POSTAL_CODE } from "./check/text-scan";
 import { compareTotals, compareWithPublished } from "./check/totals";
@@ -66,6 +66,8 @@ export type BuildStats = {
    */
   owners: { total: number; us: number; ca: number; both: number; profiled: number };
   droppedPersonLike: number;
+  /** LCA "Certified - Withdrawn" relistings left out (R43), summed over the files; a log count, never a warning. */
+  skippedRelisted: number;
   /** Unprofiled owners left out because a filed name looks like a postal code (R33). */
   droppedPostal: number;
   totals: Totals | null;
@@ -266,6 +268,22 @@ export async function writeSummaries(dataDir: string, csvs: Record<string, strin
 
 // ---- Helpers --------------------------------------------------------------------------------------------
 
+/**
+ * The problem line for a file that stopped the build: a missing column names the columns, an employer id
+ * collision is reported as itself (it is a bug, not a bad file), and anything else as unreadable, through
+ * safeMessage.
+ */
+export function fileProblem(label: string, e: unknown, cacheDir: string): string {
+  if (e instanceof HeaderMismatchError) {
+    return (
+      `${label}: the header row is missing ${e.missing.join(", ")}. The source layout may have changed; ` +
+      "compare the file with EXPECTED_COLUMNS in pipeline/sources.ts"
+    );
+  }
+  if (e instanceof IdCollisionError) return `${e.message} (read from ${label})`;
+  return `${label}: could not be read: ${safeMessage(e, cacheDir)}`;
+}
+
 function firstLine(e: unknown): string {
   return (e instanceof Error ? e.message : String(e)).split("\n")[0].slice(0, 300);
 }
@@ -358,6 +376,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     files: [],
     owners: { total: 0, us: 0, ca: 0, both: 0, profiled: 0 },
     droppedPersonLike: 0,
+    skippedRelisted: 0,
     droppedPostal: 0,
     totals: null,
   };
@@ -422,13 +441,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
           fileStats = st;
         }
       } catch (e) {
-        if (e instanceof HeaderMismatchError) {
-          return fail(
-            `${label}: the header row is missing ${e.missing.join(", ")}. The source layout may have changed; ` +
-              "compare the file with EXPECTED_COLUMNS in pipeline/sources.ts",
-          );
-        }
-        return fail(`${label}: could not be read: ${safeMessage(e, cacheDir)}`);
+        return fail(fileProblem(label, e, cacheDir));
       }
       const seconds = Math.round((Date.now() - started) / 100) / 10;
       stats.files.push({ source: s, path: f.path, year: f.year!, quarter: f.quarter!, seconds, ...fileStats });
@@ -443,10 +456,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   lcaCases.clear();
 
   lap(`read ${read.length} files`);
-  const relisted = stats.files.reduce((n, f) => n + (f.skippedRelisted ?? 0), 0);
-  if (relisted > 0) {
-    warnings.push(`lca: ${relisted} "Certified - Withdrawn" rows were left out as relistings of cases certified in an earlier quarter`);
-  }
+  // R46: a count for the log and stats only, so meta.json warnings (and the weekly issue) carry only real news.
+  stats.skippedRelisted = stats.files.reduce((n, f) => n + (f.skippedRelisted ?? 0), 0);
 
   // 4. Owners and totals, then R33.
   const { owners: all, totals, droppedPersonLike } = acc.finish(years);

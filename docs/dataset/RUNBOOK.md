@@ -41,6 +41,10 @@ The newest quarter the build found for that source ended more than 150 days ago 
 2. If a newer quarter is listed under a new address or file name, update `lcaUrlCandidates` / `permUrlCandidates` in `pipeline/sources.ts`, or the resource parsing in `pipeline/cli/download.ts` for LMIA, then run `npm run dataset:download` locally to confirm the new file is found, and re-run dataset-build.
 3. If no newer quarter has been posted, the source is late: there is nothing to fix. The warning repeats each week until the quarter appears.
 
+## If the build issue says "employer id collision"
+
+Two different employers (two FEINs, or two names without a FEIN) hashed to the same 10-character id, so their filings would have merged. Nothing is published until it is resolved. It is a bug, not bad data: open an issue naming the id from the message (never paste FEINs or names into it). The fix is a longer id in a `v2` of the published files, or a manual override that gives one of the two employers a different id; either needs a code change.
+
 ## Forcing a fresh download
 
 The build keeps the downloaded government files in the GitHub Actions cache (keys starting `dataset-`), and the download step skips any file it already has. If a source republished a file under the same name, or a cached file looks wrong, delete the cache and re-run the workflow: Actions tab, Management, Caches, delete every `dataset-` entry (or `gh cache list` then `gh cache delete <key>`). The next run downloads everything again, about 1.2 GB.

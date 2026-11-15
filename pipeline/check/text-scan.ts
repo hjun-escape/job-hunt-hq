@@ -4,7 +4,8 @@
 
 /** Email-shaped text. The loaders use it too, to keep addresses typed into name fields out (R34). */
 export const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/;
-const POSTAL = /\b[A-Z]\d[A-Z] ?\d[A-Z]\d\b/i;
+/** A Canadian postal code (A1A 1A1, the space optional), any case. Also used to spot addresses in filed names. */
+export const POSTAL = /\b[A-Z]\d[A-Z] ?\d[A-Z]\d\b/i;
 const COLUMNS = /EMPLOYER_POC|EMP_POC|PREPARER_|DECL_PREP_|ATTY_AG_|LAWFIRM_/;
 
 /** The value as an https URL when the whole value is one (no whitespace), else null. */

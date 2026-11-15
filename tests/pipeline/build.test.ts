@@ -6,7 +6,9 @@ import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { OwnerResult } from "../../pipeline/aggregate/accumulate";
-import { readLiveMeta, runBuild, screenNames, staleness, summaryEntries, writeSummaries } from "../../pipeline/build";
+import { fileProblem, readLiveMeta, runBuild, screenNames, staleness, summaryEntries, writeSummaries } from "../../pipeline/build";
+import { IdCollisionError } from "../../pipeline/aggregate/accumulate";
+import { HeaderMismatchError } from "../../pipeline/load/rows";
 import { checkSizes } from "../../pipeline/check/sizes";
 import { parseArgs, problemsReport, summaryLines, unexpectedProblem } from "../../pipeline/cli/build";
 import { normalizeName, usEmployerId } from "../../pipeline/normalize/names";
@@ -308,14 +310,12 @@ describe("runBuild end to end", () => {
     expect(ortho.sponsorship.lca[0]).toMatchObject({ year: 2025, total: { filings: 3 } });
   });
 
-  it("skips withdrawal relistings across files and by receipt date, and reports only the count (R43)", () => {
+  it("skips withdrawal relistings across files and by receipt date, counting them in stats and the log only (R43, R46)", () => {
     expect(r.stats.files.map((f) => f.skippedRelisted ?? null)).toEqual([0, 1, 1, 0, 0, null, null, null, null, null]);
-    const meta = readJson(outDir, "data/v1/meta.json") as Meta;
-    const line = meta.warnings.find((w) => w.includes("relist"));
-    expect(line).toBe(
-      'lca: 2 "Certified - Withdrawn" rows were left out as relistings of cases certified in an earlier quarter',
-    );
-    expect(r.warnings).toContain(line);
+    expect(r.stats.skippedRelisted).toBe(2);
+    // Not a warning: the weekly issue's Build warnings stay quiet for routine counts.
+    expect(r.warnings.filter((w) => w.includes("relist"))).toEqual([]);
+    expect((readJson(outDir, "data/v1/meta.json") as Meta).warnings.filter((w) => w.includes("relist"))).toEqual([]);
     expect(allText(outDir)).not.toMatch(/I-200-/);
   });
 
@@ -581,6 +581,20 @@ describe("runBuild end to end", () => {
   });
 });
 
+describe("fileProblem", () => {
+  const cache = "/tmp/some-cache";
+  it("names a renamed column, an id collision as itself, and anything else as unreadable", () => {
+    const label = "lca/x.xlsx (lca 2025 Q1)";
+    expect(fileProblem(label, new HeaderMismatchError("x.xlsx", ["CASE_STATUS"], []), cache)).toMatch(
+      /^lca\/x\.xlsx \(lca 2025 Q1\): the header row is missing CASE_STATUS/,
+    );
+    expect(fileProblem(label, new IdCollisionError("us-00000000ab"), cache)).toBe(
+      "employer id collision: two different employers hash to us-00000000ab; nothing is published (read from lca/x.xlsx (lca 2025 Q1))",
+    );
+    expect(fileProblem(label, new Error(`EIO at ${cache}/lca/x.xlsx`), cache)).toBe(`${label}: could not be read: EIO at <cache>/lca/x.xlsx`);
+  });
+});
+
 describe("staleness (R45)", () => {
   const years = {
     lca: { complete: [2024, 2025], partial: { year: 2026, through: 2 as const } },
@@ -782,7 +796,7 @@ describe("dataset:build CLI summary", () => {
     const lines = summaryLines({
       ok: true, problems: [], warnings: [], files: [],
       stats: {
-        years: null, droppedPersonLike: 0, droppedPostal: 0, totals: null,
+        years: null, droppedPersonLike: 0, skippedRelisted: 0, droppedPostal: 0, totals: null,
         owners: { total: 1, us: 1, ca: 0, both: 0, profiled: 0 },
         files: [file("lca", { "email in name": 1, status: 1 }, 3), file("lca", { status: 1 }, 0), file("lmia", {}, 0)],
       },
@@ -801,7 +815,7 @@ describe("dataset:build CLI summary", () => {
     const lines = summaryLines({
       ok: true, problems: [], warnings: [], files: [],
       stats: {
-        years: null, droppedPersonLike: 0, droppedPostal: 0, totals: null,
+        years: null, droppedPersonLike: 0, skippedRelisted: 0, droppedPostal: 0, totals: null,
         owners: { total: 0, us: 0, ca: 0, both: 0, profiled: 0 },
         files: [file(2), file(0)],
       },

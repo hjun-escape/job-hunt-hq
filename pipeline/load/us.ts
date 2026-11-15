@@ -2,12 +2,13 @@
 // filters them), and postal codes are used to place the worksite and never stored. Filed names are cleaned
 // first: an email in a name skips the row or blanks the trade name (R34), and FEIN-shaped numbers are removed
 // from names (R35, except a Canadian numbered-company name, R37), so neither can reach a published name.
-// A trade name that is filler ("N/A") or a street address is blanked too. LCA case numbers are read only to drop
+// A trade name that is filler ("N/A") or holds an address is blanked too, and an address appended to an employer
+// name is removed (R46). LCA case numbers are read only to drop
 // withdrawal relistings (R43) and never stored.
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type LoadStats, type UsFiling } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
-import { isPlaceholderName, looksLikeStreetAddress, personNameSignal, stripFeinTokens } from "../normalize/names";
+import { addressIn, isPlaceholderName, personNameSignal, stripFeinTokens, stripTrailingAddress } from "../normalize/names";
 import type { PlaceIndex } from "../normalize/places";
 import type { RoleSet } from "../normalize/roles";
 import {
@@ -30,7 +31,14 @@ export type LoadContext = {
   profiled?: (employer: UsFiling["employer"]) => boolean;
 };
 
-export type InvalidReason = "employer" | "email in name" | "name was only a number" | "status" | "date" | "visa";
+export type InvalidReason =
+  | "employer"
+  | "email in name"
+  | "name was only an address"
+  | "name was only a number"
+  | "status"
+  | "date"
+  | "visa";
 export type RowOutcome =
   | { filing: UsFiling; tradeBlanked?: true }
   | { skip: "invalid"; reason: InvalidReason }
@@ -87,7 +95,7 @@ type Common = {
 function cleanTradeName(trade: string | null): { tradeName: string | null; blanked: boolean } {
   if (trade === null) return { tradeName: null, blanked: false };
   const clean = EMAIL.test(trade) ? "" : stripFeinTokens(trade);
-  const usable = clean !== "" && !isPlaceholderName(clean) && !looksLikeStreetAddress(clean);
+  const usable = clean !== "" && !isPlaceholderName(clean) && !addressIn(clean);
   return usable ? { tradeName: clean, blanked: false } : { tradeName: null, blanked: true };
 }
 
@@ -110,7 +118,9 @@ function gate(
 ): Gated | RowOutcome {
   if (c.name === "") return { skip: "invalid", reason: "employer" };
   if (EMAIL.test(c.name)) return { skip: "invalid", reason: "email in name" };
-  const name = stripFeinTokens(c.name);
+  const unaddressed = stripTrailingAddress(c.name);
+  if (unaddressed === "") return { skip: "invalid", reason: "name was only an address" };
+  const name = stripFeinTokens(unaddressed);
   if (name === "") return { skip: "invalid", reason: "name was only a number" };
   const { tradeName, blanked } = cleanTradeName(c.tradeName);
   const status = statusOf(c.statusText);

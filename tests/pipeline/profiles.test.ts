@@ -155,13 +155,14 @@ describe("loadProfiles", () => {
     expect(files).toEqual([...files].sort());
     expect(r.profiles.map((p) => p.id)).toContain("example.com");
   });
-  it("reports every file that is not .yaml or .gitkeep, so a contributor's file is never silently ignored", async () => {
+  it("reports every file that is not .yaml or a dotfile, so a contributor's file is never silently ignored", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "profiles-load-"));
     try {
       writeFileSync(path.join(dir, "example.com.yaml"), readFileSync(path.join(DIR, "example.com.yaml")));
       writeFileSync(path.join(dir, "stripe.com.yml"), "id: stripe.com\n");
       writeFileSync(path.join(dir, "notes.md"), "x\n");
       writeFileSync(path.join(dir, ".gitkeep"), "");
+      writeFileSync(path.join(dir, ".DS_Store"), "x");
       mkdirSync(path.join(dir, "drafts"));
       const r = await loadProfiles(dir, TODAY);
       expect(r.profiles.map((p) => p.id)).toEqual(["example.com"]);

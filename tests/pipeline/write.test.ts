@@ -839,6 +839,10 @@ describe("fix round 1: text scan before writing", () => {
     ["a postal code without a space", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE M5V1J2"), /contains what looks like a postal code/],
     ["a street address in also", (m) => m.owners.get(ACME_ID)!.also.push("123 Main St Suite 4"), new RegExp(`owner ${ACME_ID} has a street address in also`)],
     ["a placeholder in also", (m) => m.owners.get(ACME_ID)!.also.push("N/A"), new RegExp(`owner ${ACME_ID} has a placeholder in also`)],
+    ["two people and an address in also", (m) => m.owners.get(ACME_ID)!.also.push("JOHN DOE AND JANE ROE, 12 MAIN STREET, SPRINGFIELD, IL 62701"), new RegExp(`owner ${ACME_ID} has a street address in also`)],
+    ["a floor fragment in also", (m) => m.owners.get(ACME_ID)!.also.push("9th Floor"), new RegExp(`owner ${ACME_ID} has a street address in also`)],
+    ["a state and ZIP in a name", (m) => (m.owners.get(ACME_ID)!.name = "ACME ROBOTICS INC, AUSTIN, TX 78701"), new RegExp(`owner ${ACME_ID} has a street address in its name`)],
+    ["a street part in a name", (m) => (m.owners.get(ACME_ID)!.name = "ACME ROBOTICS INC, 100 Main St"), new RegExp(`owner ${ACME_ID} has a street address in its name`)],
     ["a dash run in a profiled owner's also", (m) => m.owners.get("google.com")!.also.push("--"), /owner google\.com has a placeholder in also/],
     ["a lower-case postal code in an owner name", (m) => (m.owners.get(MAPLE_ID)!.name = "MAPLE SOFTWARE LTD m5v 1j2"), new RegExp(`owner ${MAPLE_ID} contains what looks like a postal code`)],
     [

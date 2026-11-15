@@ -9,7 +9,7 @@ import { isUnprofiledId, type OwnerResult, type YearPlans } from "../aggregate/a
 import { PAY_MIN, SUB_MIN } from "../aggregate/cells";
 import { personalText, textFields } from "../check/text-scan";
 import { headlineFor, publishedHeadline, type Program, type YearBlock } from "../aggregate/trend";
-import { isPlaceholderName, looksLikeStreetAddress, normalizeName } from "../normalize/names";
+import { addressIn, isPlaceholderName, normalizeName } from "../normalize/names";
 import { profileJsonSchema, type Profile } from "../schema/profile";
 import {
   CompanyFile,
@@ -152,15 +152,17 @@ function scanText(where: string, text: string): void {
 
 /**
  * Scans the strings the site publishes, with the same rules as profile validation: owner names, other names
- * and regions, every profile string (URLs included) and warnings. Other names must also never be filler such
- * as "N/A" or a street address: the loaders and the accumulator keep those out, so one here is a regression.
+ * and regions, every profile string (URLs included) and warnings. Names and other names must also never hold an
+ * address (addressIn), nor other names be filler such as "N/A": the loaders and the accumulator keep those out,
+ * so one here is a regression.
  */
 function checkText(model: SiteModel): void {
   for (const [id, o] of model.owners) {
     for (const text of [o.name, ...o.also, o.region ?? ""]) scanText(`owner ${id}`, text);
+    if (addressIn(o.name)) throw new Error(`owner ${id} has a street address in its name; not published`);
     for (const text of o.also) {
       if (isPlaceholderName(text)) throw new Error(`owner ${id} has a placeholder in also; not published`);
-      if (looksLikeStreetAddress(text)) throw new Error(`owner ${id} has a street address in also; not published`);
+      if (addressIn(text)) throw new Error(`owner ${id} has a street address in also; not published`);
     }
   }
   for (const p of model.profiles.values()) {

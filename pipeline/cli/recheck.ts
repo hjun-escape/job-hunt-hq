@@ -6,7 +6,15 @@ import { readFile, writeFile } from "node:fs/promises";
 import { loadProfiles } from "../profiles/load";
 import { politeFetch } from "../http";
 import { Report } from "../schema/published";
-import { issueBody, liveWarnings, recheck, serializeStore, type Fetcher, type FingerprintStore } from "../check/recheck";
+import {
+  issueBody,
+  liveWarnings,
+  recheck,
+  serializeStore,
+  type BuildWarnings,
+  type Fetcher,
+  type FingerprintStore,
+} from "../check/recheck";
 
 const STORE_PATH = "data/fingerprints.json";
 
@@ -48,7 +56,7 @@ async function main(): Promise<void> {
 
   let report: Report | null = null;
   let state: "unpublished" | "error" = "unpublished";
-  let buildWarnings: string[] | null = null;
+  let buildWarnings: BuildWarnings = "unpublished";
   const reportUrl = arg("--report");
   if (reportUrl) {
     buildWarnings = await liveWarnings(new URL("meta.json", reportUrl).href, (u) => politeFetch(u));

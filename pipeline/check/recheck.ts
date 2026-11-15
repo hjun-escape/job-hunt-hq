@@ -215,32 +215,33 @@ function groupSection(flags: Flag[], kinds: FlagKind[]): string[] {
   return out;
 }
 
+/** The live build's warnings, or why they are missing: "unpublished" (a 404) or "error" (anything else). */
+export type BuildWarnings = string[] | "unpublished" | "error";
+
 /**
- * The `warnings` of the live meta.json (R45: staleness warnings, accepted totals changes and the like), or null
- * when it cannot be read: a 404 (nothing published yet), any other status, a network error, or a file without a
- * list of strings there.
+ * The `warnings` of the live meta.json (R45: staleness warnings, accepted totals changes and the like).
+ * "unpublished" on a 404 (nothing published yet); "error" on any other status, a network error, or a file without
+ * a list of strings there.
  */
-export async function liveWarnings(url: string, fetchFn: (url: string) => Promise<Response>): Promise<string[] | null> {
+export async function liveWarnings(url: string, fetchFn: (url: string) => Promise<Response>): Promise<BuildWarnings> {
   try {
     const res = await fetchFn(url);
-    if (!res.ok) return null;
+    if (res.status === 404) return "unpublished";
+    if (!res.ok) return "error";
     const body = (await res.json()) as { warnings?: unknown };
     const w = body?.warnings;
-    return Array.isArray(w) && w.every((x) => typeof x === "string") ? w : null;
+    return Array.isArray(w) && w.every((x) => typeof x === "string") ? w : "error";
   } catch {
-    return null;
+    return "error";
   }
 }
 
-/**
- * The weekly issue. `buildWarnings` is the live meta.json's warnings, each shown as a code span; null when they
- * could not be read.
- */
+/** The weekly issue. `buildWarnings` is the live meta.json's warnings, each shown as a code span, or why they are missing. */
 export function issueBody(
   flags: Flag[],
   report: Report | null,
   reportState: "unpublished" | "error" = "unpublished",
-  buildWarnings: string[] | null = null,
+  buildWarnings: BuildWarnings = "unpublished",
 ): string {
   const lines: string[] = ["# Weekly source re-check", ""];
   for (const s of SECTIONS) {
@@ -262,7 +263,8 @@ export function issueBody(
     for (const r of props) lines.push(`- [${r.profile}](${REPO_BLOB}/${r.profile}.yaml): ${codeSpan(r.name)} (${r.id}): ${r.headline}`);
   }
   lines.push("", "## Build warnings", "");
-  if (buildWarnings === null) lines.push("Not available yet (the dataset has not been published).");
+  if (buildWarnings === "unpublished") lines.push("Not available yet (the dataset has not been published).");
+  else if (buildWarnings === "error") lines.push("Not available this week (could not read meta.json).");
   else if (buildWarnings.length === 0) lines.push("None this week.");
   else for (const w of buildWarnings) lines.push(`- ${codeSpan(w)}`);
   return lines.join("\n") + "\n";

@@ -183,6 +183,25 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
     }
   });
 
+  it("blanks a whole trade name holding an address, a floor fragment, a state and ZIP or a postal code (R46)", () => {
+    for (const t of ["JOHN DOE AND JANE ROE, 12 MAIN STREET, SPRINGFIELD, IL 62701", "ACME BOTS, 9th Floor", "ACME BOTS TX 75001", "ACME BOTS, TORONTO ON M5V 1J2", "Unknown", "NO"]) {
+      expect(lcaOutcome({ ...lcaRow, TRADE_NAME_DBA: t }, ctx), t).toMatchObject({ filing: { employer: { tradeName: null } }, tradeBlanked: true });
+      expect(mapPermRow({ ...permRow, EMP_TRADE_NAME: t }, ctx)!.employer.tradeName, t).toBeNull();
+    }
+  });
+
+  it("strips a trailing address from an employer name, and skips a name that was only an address (R46)", () => {
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "JOHN DOE AND JANE ROE, 12 MAIN STREET, SPRINGFIELD, IL 62701" }, ctx)!.employer.name).toBe("JOHN DOE AND JANE ROE");
+    expect(mapPermRow({ ...permRow, EMP_BUSINESS_NAME: "Acme Software Inc, 100 Main Street, Seattle, WA 98101" }, ctx)!.employer.name).toBe(
+      "Acme Software Inc",
+    );
+    expect(lcaOutcome({ ...lcaRow, EMPLOYER_NAME: "1600 Amphitheatre Parkway" }, ctx)).toEqual({ skip: "invalid", reason: "name was only an address" });
+    expect(permOutcome({ ...permRow, EMP_BUSINESS_NAME: "12 Main St, Springfield, IL 62701" }, ctx)).toEqual({
+      skip: "invalid", reason: "name was only an address",
+    });
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "24 East 12th Street Associates" }, ctx)!.employer.name).toBe("24 East 12th Street Associates");
+  });
+
   it("keeps real trade names, numbers and street words included", () => {
     for (const t of ["ACME BOTS", "3M", "1 WORLD TRADE CENTER LLC", "45TH STREET DELI", "Main Street Software", "NA Holdings"]) {
       expect(mapLcaRow({ ...lcaRow, TRADE_NAME_DBA: t }, ctx)!.employer.tradeName, t).toBe(t);

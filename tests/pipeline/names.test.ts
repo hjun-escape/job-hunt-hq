@@ -4,9 +4,11 @@ import {
   caEmployerId,
   companyIdFromUrl,
   isNumberedCompanyName,
+  addressIn,
   isPlaceholderName,
   looksLikePersonName,
   looksLikeStreetAddress,
+  stripTrailingAddress,
   personNameSignal,
   feinTokens,
   normalizeName,
@@ -145,9 +147,14 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
       expect(personNameSignal(n), n).toBe("weak");
     }
   });
-  it("gives null when what is left is one word, has an organisation word, or the suffix is a corporate one", () => {
+  it("gives null when what is left has an organisation word, or the suffix is a corporate one", () => {
     for (const n of ["Smith Dental Care PLLC", "Google LLC", "Smith PC", "Acme Software PA", "Jane Smith Holdings PC", "Lee Medical PLLC"]) {
       expect(personNameSignal(n), n).toBeNull();
+    }
+  });
+  it("tests the unstripped words when the suffix would leave one word, so such names stay weak as before", () => {
+    for (const n of ["Clotfelter-Samokar PSC", "Humayun's S.C.", "Smith APC"]) {
+      expect(personNameSignal(n), n).toBe("weak");
     }
   });
   it("keeps household and practice names that are only a person's name plus a plain word weak", () => {
@@ -165,12 +172,12 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
 
 describe("filler and street addresses typed as names", () => {
   it("recognises placeholders in any case, with edge punctuation, dots and spaced slashes", () => {
-    for (const n of ["N/A", "n/a", "NA", "N.A.", "N / A", "(none)", "None.", "SAME", "Same as above", "NOT APPLICABLE", "null", "NIL", "-", "---", "...", ". .", "", "  ", "*"]) {
+    for (const n of ["N/A", "n/a", "NA", "N.A.", "N / A", "(none)", "None.", "SAME", "Same as above", "NOT APPLICABLE", "null", "NIL", "UNKNOWN", "unknown", "NO", "No.", "-", "---", "...", ". .", "", "  ", "*"]) {
       expect(isPlaceholderName(n), JSON.stringify(n)).toBe(true);
     }
   });
   it("keeps names that only contain such a word", () => {
-    for (const n of ["NA Holdings", "Same Day Delivery LLC", "Nil Labs", "None Such Inc", "N/A Group", "ACME BOTS", "3M"]) {
+    for (const n of ["NA Holdings", "Same Day Delivery LLC", "Nil Labs", "None Such Inc", "N/A Group", "ACME BOTS", "3M", "Unknown Worlds Entertainment", "No Limit Ltd"]) {
       expect(isPlaceholderName(n), n).toBe(false);
     }
   });
@@ -178,6 +185,9 @@ describe("filler and street addresses typed as names", () => {
     for (const n of [
       "123 Main St", "1600 Amphitheatre Pkwy", "1 Infinite Loop Suite 200", "500 SE 1st Ave.", "99-15 Ulmer Street",
       "2000 Market Street, Philadelphia, PA 19103", "1 Main St Denver CO", "45 Fremont St. 9th Floor", "12A Elm Rd",
+      "100 Paseo Padre Parkway", "200 Reunion Place", "3 Laurelview Court", "4 East Broward Boulevard", "5 Pacific Coast Highway",
+      "6 Ocean Terrace", "7 Gaither Circle", "8 Pine Trail", "9 Union Square", "10 Elm Ter", "11 Oak Cir", "12 Pine Trl", "13 Park Sq",
+      "9th Floor", "21st Floor", "2nd FL", "3rd floor", "Suite 200", "STE 4B",
     ]) {
       expect(looksLikeStreetAddress(n), n).toBe(true);
     }
@@ -186,9 +196,39 @@ describe("filler and street addresses typed as names", () => {
     for (const n of [
       "3M COMPANY", "7-ELEVEN, INC.", "1 WORLD TRADE CENTER LLC", "21ST CENTURY FOX", "45TH STREET HOMES",
       "9TH AVENUE PHARMACY", "Main Street Bank", "600 Grant Street LLC", "123 DATA LLC", "2-Spirited People of the 1 st Nations",
-      "ACME WAY", "14 Street Medical PC", "",
+      "ACME WAY", "14 Street Medical PC", "", "24 East 12th Street Associates", "32 Mott St Vancouver Restaurant",
+      "99TH SQUARE INC", "9th Floor Studios", "Park Place Dental", "Circle K Stores", "Times Square Hotel",
     ]) {
       expect(looksLikeStreetAddress(n), n).toBe(false);
+    }
+  });
+});
+
+describe("addresses inside filed names (R46)", () => {
+  it("finds a street part, a floor fragment, a US state and ZIP, or a Canadian postal code anywhere", () => {
+    expect(addressIn("JOHN DOE AND JANE ROE, 12 MAIN STREET, SPRINGFIELD, IL 62701")).toBe(true);
+    expect(addressIn("ACME INC, 9th Floor")).toBe(true);
+    expect(addressIn("Acme DBA Sports Services, 9 Crest Lane Granville MA, 01034")).toBe(true);
+    expect(addressIn("ACME INC TX 75001")).toBe(true);
+    expect(addressIn("ACME INC Tx 75001-1234")).toBe(true);
+    expect(addressIn("ACME LTD TORONTO ON M5H 2G4")).toBe(true);
+    for (const n of ["ACME INC", "Smith, John", "ACME, INC.", "Park Place Dental", "Route 66 Diner", "TX 1000 Holdings", "INFO 12345 CORP"]) {
+      expect(addressIn(n), n).toBe(false);
+    }
+  });
+  it("strips a trailing address part and every part after it from an employer name", () => {
+    expect(stripTrailingAddress("JOHN DOE AND JANE ROE, 12 MAIN STREET, SPRINGFIELD, IL 62701")).toBe("JOHN DOE AND JANE ROE");
+    expect(stripTrailingAddress("ACME LTD, 100 KING ST W, TORONTO")).toBe("ACME LTD");
+    expect(stripTrailingAddress("ACME INC, AUSTIN, TX 78701")).toBe("ACME INC, AUSTIN");
+    expect(stripTrailingAddress("ACME LTD, TORONTO ON M5H 2G4")).toBe("ACME LTD");
+    expect(stripTrailingAddress("ACME INC, 9th Floor, 1 Main St")).toBe("ACME INC");
+    expect(stripTrailingAddress("1600 Amphitheatre Parkway, Mountain View")).toBe("");
+  });
+  it("never strips a numbered-company name, and leaves names without an address alone", () => {
+    expect(stripTrailingAddress("1234567 Ontario Limited, 99 Bunting Road, St. Catharines, On")).toBe("1234567 Ontario Limited");
+    expect(stripTrailingAddress("101234567 Saskatchewan Ltd.")).toBe("101234567 Saskatchewan Ltd.");
+    for (const n of ["ACME, INC.", "Smith, Jones & Co", "24 East 12th Street Associates", "A1B2C3 HOLDINGS INC"]) {
+      expect(stripTrailingAddress(n), n).toBe(n);
     }
   });
 });

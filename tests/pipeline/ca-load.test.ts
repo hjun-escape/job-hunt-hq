@@ -129,6 +129,14 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
     }
   });
 
+  it("strips an address appended to the employer name, never a numbered company's number (R46)", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "ACME LTD, 100 KING ST W, TORONTO" }, ctx, p)!.employer.name).toBe("ACME LTD");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "1234567 Ontario Limited, 99 Bunting Road, St. Catharines, On" }, ctx, p)!.employer.name).toBe(
+      "1234567 Ontario Limited",
+    );
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "100 King St W, Toronto" }, ctx, p)).toBeNull();
+  });
+
   it("skips an employer name that was only a number", () => {
     expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789" }, ctx, p)).toBeNull();
     expect(mapLmiaRow({ ...lmiaRow, Employer: "12-3456789" }, ctx, p)).toBeNull();
@@ -182,6 +190,7 @@ describe("loadCa", () => {
       cells({ ...lmiaRow, Employer: "jobs@acme.example" }),
       cells({ ...lmiaRow, Employer: "123456789" }),
       cells({ Employer: "Questions: lmia@example.gc.ca" }),
+      cells({ ...lmiaRow, Employer: "100 King St W, Toronto" }),
     ]);
     const { rows, stats } = loadCa(file, p, ctx);
     const got: CaApproval[] = [];
@@ -189,8 +198,8 @@ describe("loadCa", () => {
     expect(got.map((r) => r.employer.name)).toEqual(["Shopify Inc.", "Acme Ltd"]);
     expect(got[1].employer.province).toBe("AB");
     expect(stats).toEqual({
-      read: 7, kept: 2, skippedPerson: 0, skippedInvalid: 3,
-      invalid: { counts: 1, "email in name": 1, "name was only a number": 1 }, tradeNamesBlanked: 0,
+      read: 8, kept: 2, skippedPerson: 0, skippedInvalid: 4,
+      invalid: { counts: 1, "email in name": 1, "name was only a number": 1, "name was only an address": 1 }, tradeNamesBlanked: 0,
     });
   });
 });

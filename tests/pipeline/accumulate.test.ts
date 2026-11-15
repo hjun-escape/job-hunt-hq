@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createAccumulator,
+  IdCollisionError,
   isUnprofiledId,
   PERSON_LIKE_MIN_FILINGS,
   type YearPlans,
@@ -455,7 +456,8 @@ describe("year blocks", () => {
     } catch (e) {
       err = e as Error;
     }
-    expect(err?.message).toMatch(/us-00000000ab/);
+    expect(err).toBeInstanceOf(IdCollisionError);
+    expect(err?.message).toMatch(/^employer id collision: .*us-00000000ab/);
     expect(err?.message).not.toMatch(/123456789|987654321|ACME/);
     // Without a FEIN the key is the normalised name and state.
     const noFein = (name: string, state: string) => {
@@ -545,6 +547,9 @@ describe("owner identity", () => {
     times(3, () => acc.addUs("us-ggg", us({ name: "GOOGLE LLC", tradeName: "N/A" })));
     acc.addUs("us-ggg", us({ name: "1600 Amphitheatre Pkwy", tradeName: "100 Main St" }));
     acc.addUs("us-ggg", us({ name: "SAME", tradeName: "Google" }));
+    acc.addUs("us-ggg", us({ name: "GOOGLE LLC", tradeName: "Google Mountain View CA 94043" }));
+    acc.addUs("us-ggg", us({ name: "GOOGLE LLC", tradeName: "Google, 9th Floor" }));
+    acc.addUs("us-ggg", us({ name: "GOOGLE LLC", tradeName: "Google Toronto M5H 2G4" }));
     const o = acc.finish(plan).owners.get("us-ggg")!;
     expect(o.name).toBe("GOOGLE LLC");
     expect(o.also).toEqual(["Google"]);

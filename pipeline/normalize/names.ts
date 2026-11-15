@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { POSTAL } from "../check/text-scan";
 
 const CORPORATE_TOKENS = new Set([
   "INC", "INCORPORATED", "LLC", "LTD", "LIMITED", "LTEE", "CORP", "CORPORATION",
@@ -142,18 +143,20 @@ export function personNameSignal(raw: string): "strong" | "weak" | null {
   const n = tokens.length;
   if (n > 2 && tokens[n - 2] === "N" && tokens[n - 1] === "A") tokens.splice(n - 2, 2, "NA");
   if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return "strong";
-  const words = withoutProfessionalEntity(tokens);
+  // A suffix that would leave one word ("Surname PSC") is kept, so such a name is tested as before.
+  const stripped = withoutProfessionalEntity(tokens);
+  const words = stripped.length >= 2 ? stripped : tokens;
   if (words.length < 2 || words.length > 3) return null;
   if (words.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return null;
   return words.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t)) ? "weak" : null;
 }
 
 /** Filler typed into a trade-name field, compared upper-cased with edge punctuation trimmed. */
-const PLACEHOLDERS = new Set(["N/A", "NA", "NONE", "SAME", "SAME AS ABOVE", "NOT APPLICABLE", "NULL", "NIL", ""]);
+const PLACEHOLDERS = new Set(["N/A", "NA", "NONE", "SAME", "SAME AS ABOVE", "NOT APPLICABLE", "NULL", "NIL", "UNKNOWN", "NO", ""]);
 
 /**
- * True for a filed name that is filler, not a name: N/A, NA, NONE, SAME, SAME AS ABOVE, NOT APPLICABLE, NULL or
- * NIL (any case, edge punctuation trimmed, dots and spaces around a slash ignored, so "n.a." and "N / A" count),
+ * True for a filed name that is filler, not a name: N/A, NA, NONE, SAME, SAME AS ABOVE, NOT APPLICABLE, NULL,
+ * NIL, UNKNOWN or NO (any case, edge punctuation trimmed, dots and spaces around a slash ignored, so "n.a." and "N / A" count),
  * or nothing at all once the punctuation is trimmed (a run of dashes or dots).
  */
 export function isPlaceholderName(raw: string): boolean {
@@ -162,31 +165,75 @@ export function isPlaceholderName(raw: string): boolean {
 }
 
 const STREET_WORDS = new Set([
-  "ST", "STREET", "AVE", "AVENUE", "RD", "ROAD", "BLVD", "DR", "DRIVE", "LN", "LANE", "WAY", "SUITE", "STE",
-  "FLOOR", "FL", "HWY", "PKWY", "CT", "PL",
+  "ST", "STREET", "AVE", "AVENUE", "RD", "ROAD", "BLVD", "BOULEVARD", "DR", "DRIVE", "LN", "LANE", "WAY", "SUITE",
+  "STE", "FLOOR", "FL", "HWY", "HIGHWAY", "PKWY", "PARKWAY", "CT", "COURT", "PL", "PLACE", "TER", "TERRACE", "CIR",
+  "CIRCLE", "TRL", "TRAIL", "SQ", "SQUARE",
 ]);
 /**
- * Corporate words that end a company name and are never a US state or a compass point, so "123 MAIN ST DENVER CO"
- * or "500 SE 1ST AVE" still reads as an address. (CORPORATE_TOKENS also holds CO, PA, SE and the like.)
+ * Words that make a house-number name a company: corporate words that are never a US state or a compass point (so
+ * "123 MAIN ST DENVER CO" or "500 SE 1ST AVE" still reads as an address; CORPORATE_TOKENS also holds CO, PA, SE),
+ * and a few business words that are rarely part of a street name, as in "24 East 12th Street Associates".
  */
 const ADDRESS_CORPORATE_WORDS = new Set([
   "INC", "INCORPORATED", "LLC", "LTD", "LIMITED", "CORP", "CORPORATION", "COMPANY", "LP", "LLP", "PLLC", "LLLP",
   "PC", "GMBH", "ULC", "PLC", "PBC",
+  "ASSOCIATES", "PARTNERS", "PROPERTIES", "REALTY", "HOLDINGS", "GROUP", "VENTURES", "RESTAURANT", "HOTEL",
+  "PHARMACY", "DELI", "CAFE", "GRILL", "CONSULTING", "STORE",
 ]);
+/** A floor, suite or unit on its own: "9th Floor", "21st FL", "Suite 200", "STE 4B". */
+const UNIT_FRAGMENT = /^(?:\d+(?:ST|ND|RD|TH)\s+(?:FLOOR|FL)|(?:SUITE|STE|UNIT|FLOOR|FL)\.?\s*#?\s*\d+[A-Z]?)\.?$/;
+/** A US state or territory code followed by a ZIP or ZIP+4, as in "TX 75001" or "MA, 01034-1234". */
+const STATE_ZIP = new RegExp(
+  "(?<![\\p{L}\\p{N}])(?:AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|" +
+    "NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|PR|GU|VI|AS|MP)\\.?,?\\s+\\d{5}(?:-\\d{4})?(?!\\d)",
+  "iu",
+);
 
 /** A house number: digits, a Queens-style "99-15", or digits and one letter ("12A"); never an ordinal ("45TH"). */
 const HOUSE_NUMBER = /^\d+(?:-\d+)?[A-Z]?$/;
 
 /**
- * True for a filed name that reads as a street address: it starts with a house number, holds a street word (ST,
- * AVE, RD, SUITE, FL ...) and no corporate word (INC, LLC, CORP ...). Dots, commas and other punctuation split
- * words. A name that starts with an ordinal, such as "45TH STREET DELI", is a name.
+ * True for a filed name (or one comma-separated part of it) that reads as a street address: it starts with a house
+ * number, holds a street word (ST, AVE, PARKWAY, COURT, SUITE ...) and no corporate or company word (INC, LLC,
+ * ASSOCIATES ...); or it is a floor, suite or unit on its own ("9th Floor"). Punctuation splits words. A name that
+ * starts with an ordinal, such as "45TH STREET DELI", is a name.
  */
 export function looksLikeStreetAddress(raw: string): boolean {
   const text = raw.normalize("NFKC").trim().toUpperCase();
+  if (UNIT_FRAGMENT.test(text)) return true;
   if (!HOUSE_NUMBER.test(text.split(/[\s,]+/)[0])) return false;
   const words = text.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   return words.some((w) => STREET_WORDS.has(w)) && !words.some((w) => ADDRESS_CORPORATE_WORDS.has(w));
+}
+
+const partsOf = (raw: string) => raw.normalize("NFKC").split(",").map((p) => p.trim());
+
+/**
+ * True for a filed name that holds an address anywhere (R46): a comma-separated part that is a street address or a
+ * floor (see looksLikeStreetAddress), a US state and ZIP, or a Canadian postal code. A trade name like that is
+ * blanked whole; one in `also` or an owner name fails the writer's gate.
+ */
+export function addressIn(raw: string): boolean {
+  return STATE_ZIP.test(raw) || POSTAL.test(raw) || partsOf(raw).some(looksLikeStreetAddress);
+}
+
+/**
+ * An employer name without an appended address (R46): from the first comma-separated part that is a street address,
+ * a floor, or holds a state and ZIP (or, after the first part, a Canadian postal code) on, every part is removed. ""
+ * means the name was only an address. A Canadian numbered-company name (R37) keeps its first part, number included.
+ * A postal-code look-alike in the first part ("A1B2C3 HOLDINGS INC") is a name, left to R33.
+ */
+export function stripTrailingAddress(name: string): string {
+  if (isNumberedCompanyName(name)) return name;
+  const raw = name.split(",");
+  const parts = partsOf(name);
+  for (let i = isNumberedCompanyName(parts[0]) ? 1 : 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (looksLikeStreetAddress(p) || STATE_ZIP.test(p) || (i > 0 && POSTAL.test(p))) {
+      return raw.slice(0, i).join(",").trim().replace(/[\s,;:/#|_\-\u2013\u2014]+$/, "");
+    }
+  }
+  return name;
 }
 
 export function looksLikePersonName(raw: string): boolean {

@@ -2,12 +2,13 @@
 // find the city and province; the street line and postal code never leave mapLmiaRow. Employer names are
 // cleaned as in the US loader: an email skips the row (R34) and FEIN-shaped numbers, which include 9-digit
 // business numbers, are removed (R35). A numbered-company name such as "101234567 Saskatchewan Ltd." keeps its
-// number (R37): it is the registered name. The list has no trade name column.
+// number (R37): it is the registered name. An address appended to the name ("ACME LTD, 100 KING ST W, TORONTO")
+// is removed (R46). The list has no trade name column.
 import path from "node:path";
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type CaApproval, type LoadStats } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
-import { stripFeinTokens } from "../normalize/names";
+import { stripFeinTokens, stripTrailingAddress } from "../normalize/names";
 import { caProvinceCode, parseCaAddress } from "../normalize/places";
 import { readRows } from "./rows";
 import type { LoadContext } from "./us";
@@ -35,7 +36,7 @@ function parseCount(s: string | undefined): number | null {
   return Math.floor(Number(t));
 }
 
-export type CaInvalidReason = "counts" | "email in name" | "name was only a number";
+export type CaInvalidReason = "counts" | "email in name" | "name was only an address" | "name was only a number";
 type Outcome = { approval: CaApproval } | { skip: "footnote" } | { skip: "invalid"; reason: CaInvalidReason };
 
 function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Period): Outcome {
@@ -46,7 +47,9 @@ function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Peri
   if (lmias === 0 && positions === 0) return { skip: "footnote" };
   if (lmias === null || positions === null) return { skip: "invalid", reason: "counts" };
   if (EMAIL.test(name)) return { skip: "invalid", reason: "email in name" };
-  const employer = stripFeinTokens(name);
+  const unaddressed = stripTrailingAddress(name);
+  if (unaddressed === "") return { skip: "invalid", reason: "name was only an address" };
+  const employer = stripFeinTokens(unaddressed);
   if (employer === "") return { skip: "invalid", reason: "name was only a number" };
 
   const parsed = parseCaAddress(row.Address ?? "");

@@ -2,9 +2,9 @@
 // cell, never whole filings. Applies the small-cell rule and the person-name privacy gate; publish.ts decides
 // what each block shows.
 import {
+  addressIn,
   caEmployerKey,
   isPlaceholderName,
-  looksLikeStreetAddress,
   normalizeName,
   personNameSignal,
   usEmployerKey,
@@ -242,6 +242,14 @@ function usKey(e: UsFiling["employer"]): string {
   return e.fein?.trim() ? usEmployerKey(e.fein, "", null) : usEmployerKey(null, normalizeName(e.name), e.state);
 }
 
+/** Two different FEIN or name keys hashed to one generated id; the message names only the id. */
+export class IdCollisionError extends Error {
+  constructor(public id: string) {
+    super(`employer id collision: two different employers hash to ${id}; nothing is published`);
+    this.name = "IdCollisionError";
+  }
+}
+
 export function createAccumulator() {
   const owners = new Map<string, OwnerAcc>();
   /** Generated id to the FEIN or name key it was hashed from. Two keys under one id would merge two employers. */
@@ -251,7 +259,7 @@ export function createAccumulator() {
     const k = key();
     const had = keys.get(owner);
     if (had === undefined) keys.set(owner, k);
-    else if (had !== k) throw new Error(`employer id collision: two different employers hash to ${owner}; nothing is published`);
+    else if (had !== k) throw new IdCollisionError(owner);
   };
   const ownerAcc = (id: string): OwnerAcc => {
     let o = owners.get(id);
@@ -345,7 +353,7 @@ export function createAccumulator() {
       const trade = kind(all, "t");
       const others = tally([names, trade]);
       others.delete(name);
-      for (const n of others.keys()) if (isPlaceholderName(n) || looksLikeStreetAddress(n)) others.delete(n);
+      for (const n of others.keys()) if (isPlaceholderName(n) || addressIn(n)) others.delete(n);
       if (small) {
         for (const n of personLike.keys()) others.delete(n);
         for (const t of trade.keys()) if (personNameSignal(t) !== null) others.delete(t);
