@@ -68,6 +68,7 @@ describe("url builders and columns", () => {
     const banned = /^(EMPLOYER_POC_|EMP_POC_|AGENT_ATTORNEY_|ATTY_AG_|LAWFIRM_|PREPARER_)|PHONE/i;
     expect(all.filter((c) => banned.test(c))).toEqual([]);
     const usOnly = [...EXPECTED_COLUMNS.lca, ...EXPECTED_COLUMNS.perm];
+    expect(EXPECTED_COLUMNS.lmia).not.toContain("Address");
     expect(usOnly.filter((c) => /ADDRESS|_ADDR/i.test(c))).toEqual([]);
   });
 });
