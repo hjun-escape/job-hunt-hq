@@ -1,0 +1,133 @@
+id: databricks.com
+name: Databricks
+countries: [US, CA, KR]
+wikidata: Q18350420
+entities:
+  usFeins: ["462972184"]
+  usNames:
+    - Databricks, Inc.
+  caNames:
+    - name: Databricks Canada ULC
+      province: "ON"
+basics:
+  industry:
+    value: Software
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q18350420
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 4,000 employees (2022)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q18350420
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: San Francisco, California
+    kind: official
+    sources:
+      - url: https://www.databricks.com/company/about-us
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: To simplify and democratize data and AI, helping data and AI teams solve the hardest problems.
+    ko: 데이터와 AI를 더 쉽고 누구나 쓸 수 있게 만들어, 데이터와 AI 팀이 가장 어려운 문제를 풀도록 돕는 것.
+  kind: official
+  sources:
+    - url: https://www.databricks.com/company/about-us
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - We are customer obsessed
+      - We raise the bar
+      - We are truth seeking
+      - We operate from first principles
+      - We bias for action
+      - We put the company first
+    summary:
+      en: >-
+        Databricks' six culture principles ask staff to put customers first, keep improving, decide on
+        evidence, reason from fundamentals, act fast and refine later, and choose what is best for the whole
+        company.
+      ko: >-
+        Databricks의 여섯 가지 문화 원칙은 고객 최우선, 끊임없는 개선, 근거에 따른 결정, 기본 원리에서 출발하는
+        사고, 빠르게 실행한 뒤 다듬기, 회사 전체에 가장 좋은 선택을 강조한다.
+  kind: official
+  sources:
+    - url: https://www.databricks.com/company/careers/culture
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        You can apply, or reapply, to more than one role. Databricks asks you to tailor your resume to each
+        role and states no waiting period.
+      ko: 여러 직무에 지원하거나 다시 지원할 수 있다. Databricks는 직무마다 이력서를 맞춰 쓰라고 권하며, 별도의 대기 기간은 밝히지 않는다.
+    kind: official
+    sources:
+      - url: https://www.databricks.com/company/careers/interview-prep
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        Do not bring or share trade secrets or confidential material from a current or past employer, and do
+        not use your current work computer or employer materials for any Databricks assignment or
+        presentation.
+      ko: >-
+        현재나 이전 직장의 영업 비밀이나 기밀 자료를 가져오거나 공유하면 안 되며, Databricks 과제나 발표를 준비할
+        때 현재 회사의 업무용 컴퓨터나 자료를 써서는 안 된다.
+    kind: official
+    sources:
+      - url: https://www.databricks.com/company/careers/interview-prep
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Usually a recruiter call, then a pre-onsite screen such as a hiring manager chat or a technical or
+      skills test, then a virtual loop of four to six interviews on Google Meet, plus a presentation for some
+      roles. Reference checks follow. It typically takes two to three months.
+    ko: >-
+      보통 리크루터 통화 후 채용 매니저 면담이나 기술 또는 역량 평가 같은 사전 스크리닝을 거치고, Google Meet
+      화상으로 4~6회의 온사이트 루프 면접을 본다. 일부 직무는 발표가 추가되며, 이후 평판 조회를 한다. 전체 기간은
+      보통 2~3개월이다.
+  kind: official
+  sources:
+    - url: https://www.databricks.com/company/careers/interview-prep
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: any
+      wait:
+        en: >-
+          Candidates report waits of 6 months to a year after a failed interview, with about a year mentioned
+          most often, including after a phone screen. Others say there is no fixed rule and that some people
+          interviewed again within months. Ask your recruiter.
+        ko: >-
+          면접에서 떨어진 뒤 6개월에서 1년까지 기다렸다는 보고가 있으며, 전화 면접 탈락을 포함해 약 1년이라는
+          답이 가장 많다. 정해진 규칙은 없고 몇 달 만에 다시 면접을 본 사람도 있다는 의견도 있으니 리크루터에게
+          확인하는 것이 좋다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/databricks-cooldown-period-7vbxb4th
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/databricks-phone-screen-rejection-wait-time-ufgb3ps3
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/databricks-cool-down-period-7kbur3dz
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: Databricks Careers
+    url: https://www.databricks.com/company/careers
+  - label: Databricks interview prep
+    url: https://www.databricks.com/company/careers/interview-prep
+  - label: Databricks reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Databricks-Reviews-E954734.htm
+  - label: Databricks on Blind
+    url: https://www.teamblind.com/company/Databricks

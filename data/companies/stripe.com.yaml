@@ -1,0 +1,102 @@
+id: stripe.com
+name: Stripe
+countries: [US, CA]
+wikidata: Q7624104
+entities:
+  usFeins: ["270465600"]
+basics:
+  industry:
+    value: Financial services and payments
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q7624104
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 8,000 employees (2022)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q7624104
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: South San Francisco, California, with a second HQ in Dublin, Ireland
+    kind: official
+    sources:
+      - url: https://stripe.com/jobs/search
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      To increase economic growth, which Stripe pursues by building tools that lower the cost of starting and
+      growing a business, publishing ideas, and building economic infrastructure for AI.
+  kind: official
+  sources:
+    - url: https://stripe.com/careers
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Users first
+      - Create with craft and beauty
+      - Move with urgency and focus
+      - Collaborate egolessly
+      - Stay curious
+      - Obsess over talent
+    summary:
+      en: >-
+        Stripe's six operating principles put users first and ask staff to do careful, polished work, move
+        fast on what matters most, work as one team without ego, keep learning, and help hire and grow strong
+        people.
+  kind: official
+  sources:
+    - url: https://stripe.com/jobs/culture
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Stripe recruiters contact candidates only through LinkedIn or a stripe.com email address, and never
+        ask for payment, personal financial details or login credentials.
+    kind: official
+    sources:
+      - url: https://stripe.com/careers
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Most processes include a recruiter screen, a technical or skills-based assessment, and a series of
+      interviews with the team you would join. Timelines vary by role, level and location, from a few weeks
+      to longer. Stripe aims to move quickly and give clear feedback at each stage.
+  kind: official
+  sources:
+    - url: https://stripe.com/careers
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: phone
+      wait:
+        en: >-
+          Candidates report waiting about 6 to 9 months after failing a phone screen or first coding round.
+          One says the figure came in their rejection email. Other threads asking the question got no firm
+          answer, so confirm with your recruiter.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/cool-off-period-to-reapply-at-stripe-c7vzbrvh
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/really-stripe-mdq5afbd
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: Stripe Careers
+    url: https://stripe.com/jobs
+  - label: Stripe operating principles
+    url: https://stripe.com/jobs/culture
+  - label: Stripe reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Stripe-Reviews-E671932.htm
+  - label: Stripe on Blind
+    url: https://www.teamblind.com/company/Stripe
