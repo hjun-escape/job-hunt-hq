@@ -29,12 +29,12 @@ describe("normalizeName", () => {
 
 describe("looksLikePersonName", () => {
   it("flags people", () => {
-    for (const n of ["JANE DOE MD PC", "John A. Smith", "Dr. Jane Doe, DDS", "KIM & LEE CPA LLP"]) {
+    for (const n of ["JANE DOE MD PC", "John A. Smith", "Dr. Jane Doe, DDS", "KIM & LEE CPA LLP", "Maria O’Brien", "Maria O'Brien"]) {
       expect(looksLikePersonName(n), n).toBe(true);
     }
   });
   it("keeps companies", () => {
-    for (const n of ["Palo Alto Networks, Inc.", "Amazon.com Services LLC", "Smith Dental Care PLLC", "Google LLC", "Do It Best Corp"]) {
+    for (const n of ["Palo Alto Networks, Inc.", "Amazon.com Services LLC", "Smith Dental Care PLLC", "Google LLC", "Do It Best Corp", "AT&T SERVICES INC", "ERNST & YOUNG U.S. LLP"]) {
       expect(looksLikePersonName(n), n).toBe(false);
     }
   });
@@ -57,6 +57,18 @@ describe("employer ids", () => {
     expect(usEmployerId(null, "ACME", "CA")).not.toBe(usEmployerId(null, "ACME", "NY"));
     expect(usEmployerId(null, "ACME", "CA")).toBe(usEmployerId(null, "ACME", "CA"));
     expect(usEmployerId(null, "ACME", null)).toMatch(/^us-[0-9a-f]{10}$/);
+  });
+  it("treats a blank FEIN as absent", () => {
+    const base = usEmployerId(null, "ACME", "CA");
+    expect(usEmployerId("", "ACME", "CA")).toBe(base);
+    expect(usEmployerId("   ", "ACME", "CA")).toBe(base);
+    expect(usEmployerId(null, "ACME", "CA")).toBe(base);
+    expect(usEmployerId("123456789", "ACME", "CA")).not.toBe(base);
+  });
+  it("pins golden ids so the hashed strings never change unnoticed", () => {
+    expect(usEmployerId("123456789", "X", null)).toBe("us-9004d1148f");
+    expect(usEmployerId(null, "ACME", "CA")).toBe("us-0009722150");
+    expect(caEmployerId("SHOPIFY", "ON")).toBe("ca-d5bdabb1eb");
   });
   it("builds Canadian ids from name and province", () => {
     expect(caEmployerId("SHOPIFY", "ON")).toMatch(/^ca-[0-9a-f]{10}$/);

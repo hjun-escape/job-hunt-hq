@@ -55,7 +55,7 @@ export function looksLikePersonName(raw: string): boolean {
   if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return true;
   if (tokens.length < 2 || tokens.length > 3) return false;
   if (tokens.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return false;
-  return tokens.every((t) => /^\p{L}+(?:['-]\p{L}+)*$/u.test(t));
+  return tokens.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t));
 }
 
 function shortHash(input: string): string {
@@ -63,7 +63,8 @@ function shortHash(input: string): string {
 }
 
 export function usEmployerId(fein: string | null, normName: string, state: string | null): string {
-  return `us-${shortHash(fein ? `fein:${fein}` : `name:${normName}|${state}`)}`;
+  const cleanFein = fein?.trim();
+  return `us-${shortHash(cleanFein ? `fein:${cleanFein}` : `name:${normName}|${state}`)}`;
 }
 
 export function caEmployerId(normName: string, province: string): string {
