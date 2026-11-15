@@ -155,18 +155,27 @@ const JOINER = /\s+(?:AND|&)\s+/i;
  * "weak": two or three plain alphabetic words with no organisation or corporate word, which also fits many companies.
  * For the weak test a trailing professional-entity suffix (PC, PA, PLLC, PSC, APC, SC; dots and commas ignored)
  * is dropped first, so "Jane Smith, P.C." is weak (R42) while "Smith Dental Care PLLC" keeps its organisation word.
- * A name joined by AND or & (R47) is weak only when it has exactly two sides and each side passes the weak test on
- * its own ("John Doe and Jane Roe"); one word a side ("Johnson & Johnson") or any corporate or organisation word
- * gives null.
+ * A name of two people (isTwoPersonName, R47) is weak too. The two-person test only adds weak results (R48): it
+ * never turns a name the 2-3 word rule calls weak into null.
  */
 export function personNameSignal(raw: string): "strong" | "weak" | null {
   const tokens = wordsOf(raw);
   if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return "strong";
-  const sides = raw.split(JOINER);
-  if (sides.length > 1) return sides.length === 2 && sides.every((side) => plainPersonWords(wordsOf(side))) ? "weak" : null;
   // A suffix that would leave one word ("Surname PSC") is kept, so such a name is tested as before.
   const stripped = withoutProfessionalEntity(tokens);
-  return plainPersonWords(stripped.length >= 2 ? stripped : tokens) ? "weak" : null;
+  if (plainPersonWords(stripped.length >= 2 ? stripped : tokens)) return "weak";
+  return isTwoPersonName(raw) ? "weak" : null;
+}
+
+/**
+ * True for a name of two people joined by AND or & (R47): exactly two sides, each passing the weak test on its own
+ * (two or three alphabetic words or initials, no corporate token, no organisation word), as in "John Doe and Jane
+ * Roe". One word a side ("Johnson & Johnson") or any corporate or organisation word gives false. The Canadian
+ * loader uses this test alone (R48): the 2-3 word rule would flag thousands of small Canadian businesses.
+ */
+export function isTwoPersonName(raw: string): boolean {
+  const sides = raw.split(JOINER);
+  return sides.length === 2 && sides.every((side) => plainPersonWords(wordsOf(side)));
 }
 
 /** Filler typed into a trade-name field, compared upper-cased with edge punctuation trimmed. */

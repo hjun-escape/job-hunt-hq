@@ -31,7 +31,8 @@ export type UsFiling = {
 export type CaApproval = {
   year: number;
   quarter: 1 | 2 | 3 | 4;
-  employer: { name: string; province: string };
+  /** personLike: the name reads as two people joined by AND or & (R48); Canada needs no other person test. */
+  employer: { name: string; province: string; personLike?: true };
   stream: string;
   role: string;
   place: Place;

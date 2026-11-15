@@ -137,6 +137,15 @@ describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
     expect(mapLmiaRow({ ...lmiaRow, Employer: "100 King St W, Toronto" }, ctx, p)).toBeNull();
   });
 
+  it("flags only a two-person employer name as person-like, never the general 2-3 word rule (R48)", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "John Doe and Jane Roe" }, ctx, p)!.employer).toEqual({
+      name: "John Doe and Jane Roe", province: "ON", personLike: true,
+    });
+    for (const name of ["Jean Tremblay", "Maple Farms", "Johnson & Johnson Inc.", "Shopify Inc."]) {
+      expect(mapLmiaRow({ ...lmiaRow, Employer: name }, ctx, p)!.employer, name).not.toHaveProperty("personLike");
+    }
+  });
+
   it("skips an employer name that was only a number", () => {
     expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789" }, ctx, p)).toBeNull();
     expect(mapLmiaRow({ ...lmiaRow, Employer: "12-3456789" }, ctx, p)).toBeNull();

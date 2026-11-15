@@ -676,6 +676,44 @@ describe("person-like privacy gate (R23 d)", () => {
     expect(r.totals.perm["2025"]).toBe(5);
   });
 
+  it("drops an unprofiled person-like Canadian owner under 10 approved LMIAs, and keeps it at 10 (R48)", () => {
+    const pair = { name: "JOHN DOE AND JANE ROE", province: "ON", personLike: true as const };
+    const feed = (acc: ReturnType<typeof createAccumulator>, id: string, lmias: number) => {
+      for (let k = 0; k < lmias; k++) acc.addCa(id, { ...ca({ year: 2024 + (k % 2), quarter: ((k % 4) + 1) as 1 | 2 | 3 | 4 }), employer: pair });
+      acc.addCa(id, { ...ca({ year: 2021, lmias: 20 }), employer: pair }); // outside the plan: does not count
+    };
+    const small = createAccumulator();
+    feed(small, "ca-0e0e0e0e0e", 9);
+    acc9(small.finish(plan));
+    function acc9(r: ReturnType<ReturnType<typeof createAccumulator>["finish"]>) {
+      expect(r.owners.has("ca-0e0e0e0e0e")).toBe(false);
+      expect(r.droppedPersonLike).toBe(1);
+      expect(r.droppedPersonLikeBy).toEqual({ us: 0, ca: 1 });
+      expect(r.totals.lmia["2024"]).toBe(0);
+    }
+    const ten = createAccumulator();
+    feed(ten, "ca-0e0e0e0e0e", 10);
+    const r10 = ten.finish(plan);
+    expect(r10.owners.get("ca-0e0e0e0e0e")!.name).toBe("JOHN DOE AND JANE ROE");
+    expect(r10.droppedPersonLike).toBe(0);
+    // Not person-like, or profiled: kept whatever the count.
+    const other = createAccumulator();
+    other.addCa("ca-0f0f0f0f0f", ca({ name: "JEAN TREMBLAY" }));
+    times(3, () => other.addCa("johnandjane.ca", { ...ca(), employer: pair }));
+    const r = other.finish(plan);
+    expect([...r.owners.keys()]).toEqual(["ca-0f0f0f0f0f", "johnandjane.ca"]);
+    expect(r.droppedPersonLike).toBe(0);
+  });
+
+  it("splits the count of dropped person-like owners by country", () => {
+    const acc = createAccumulator();
+    feedJane(acc, JANE, 9);
+    acc.addCa("ca-0e0e0e0e0e", { ...ca(), employer: { name: "JOHN DOE AND JANE ROE", province: "ON", personLike: true } });
+    const r = acc.finish(plan);
+    expect(r.droppedPersonLike).toBe(2);
+    expect(r.droppedPersonLikeBy).toEqual({ us: 1, ca: 1 });
+  });
+
   it("keeps a profiled owner with a person-like name and 2 filings", () => {
     const acc = createAccumulator();
     times(2, () => acc.addUs("janedoe.com", us(jane)));

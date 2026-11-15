@@ -321,6 +321,7 @@ describe("runBuild end to end", () => {
 
   it("drops a weak person-named unprofiled owner with few filings and counts it", () => {
     expect(r.stats.droppedPersonLike).toBe(1);
+    expect(r.stats.droppedPersonLikeBy).toEqual({ us: 1, ca: 0 });
     expect(idByName(outDir, WEAK.name)).toBeUndefined();
   });
 

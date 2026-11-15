@@ -3,12 +3,13 @@
 // cleaned as in the US loader: an email skips the row (R34) and FEIN-shaped numbers, which include 9-digit
 // business numbers, are removed (R35). A numbered-company name such as "101234567 Saskatchewan Ltd." keeps its
 // number (R37): it is the registered name. An address appended to the name ("ACME LTD, 100 KING ST W, TORONTO")
-// is removed (R46). The list has no trade name column.
+// is removed (R46). ESDC leaves most person-named employers out at source, so only a name of two people joined by
+// AND or & is flagged person-like (R48). The list has no trade name column.
 import path from "node:path";
 import { EMAIL } from "../check/text-scan";
 import { emptyLoadStats, type CaApproval, type LoadStats } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
-import { stripFeinTokens, stripTrailingAddress } from "../normalize/names";
+import { isTwoPersonName, stripFeinTokens, stripTrailingAddress } from "../normalize/names";
 import { caProvinceCode, parseCaAddress } from "../normalize/places";
 import { readRows } from "./rows";
 import type { LoadContext } from "./us";
@@ -59,7 +60,7 @@ function lmiaOutcome(row: Record<string, string>, ctx: LoadContext, period: Peri
     approval: {
       year: period.year,
       quarter: period.quarter,
-      employer: { name: employer, province: province ?? "" },
+      employer: { name: employer, province: province ?? "", ...(isTwoPersonName(employer) ? { personLike: true as const } : {}) },
       stream: (row["Program Stream"] ?? "").trim(),
       role: ctx.roles.ca(noc),
       place: province ? ctx.places.ca(parsed.city, province) : { metro: null, region: "CA" },

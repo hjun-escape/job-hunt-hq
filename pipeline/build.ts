@@ -66,6 +66,8 @@ export type BuildStats = {
    */
   owners: { total: number; us: number; ca: number; both: number; profiled: number };
   droppedPersonLike: number;
+  /** droppedPersonLike by country of the owner (R48). */
+  droppedPersonLikeBy?: { us: number; ca: number };
   /** LCA "Certified - Withdrawn" relistings left out (R43), summed over the files; a log count, never a warning. */
   skippedRelisted: number;
   /** Unprofiled owners left out because a filed name looks like a postal code (R33). */
@@ -460,10 +462,11 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   stats.skippedRelisted = stats.files.reduce((n, f) => n + (f.skippedRelisted ?? 0), 0);
 
   // 4. Owners and totals, then R33.
-  const { owners: all, totals, droppedPersonLike } = acc.finish(years);
+  const { owners: all, totals, droppedPersonLike, droppedPersonLikeBy } = acc.finish(years);
   lap(`aggregated ${all.size} owners`);
   stats.totals = totals;
   stats.droppedPersonLike = droppedPersonLike;
+  stats.droppedPersonLikeBy = droppedPersonLikeBy;
   stats.owners = ownerCounts(all);
   const screened = screenNames(all);
   if (screened.problems.length) {

@@ -93,7 +93,9 @@ export function summaryLines(r: BuildResult): string[] {
   const o = s.owners;
   lines.push(`owners: ${o.total} (US ${o.us}, CA ${o.ca}, both ${o.both}, profiled ${o.profiled})`);
   lines.push(
-    `left out: ${s.droppedPersonLike} person-like owners under 10 filings, ` +
+    `left out: ${s.droppedPersonLike} person-like owners under 10 filings` +
+      (s.droppedPersonLikeBy ? ` (US ${s.droppedPersonLikeBy.us}, CA ${s.droppedPersonLikeBy.ca})` : "") +
+      ", " +
       `${s.droppedPostal} with postal-code-like names`,
   );
   if (s.totals) {

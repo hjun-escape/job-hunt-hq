@@ -6,6 +6,7 @@ import {
   isNumberedCompanyName,
   addressIn,
   isPlaceholderName,
+  isTwoPersonName,
   looksLikePersonName,
   looksLikeStreetAddress,
   stripTrailingAddress,
@@ -142,7 +143,7 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
   it("keeps the weak signal when a two- or three-word name ends in PC, PA, PLLC, PSC, APC or SC", () => {
     for (const n of [
       "Jane Smith, P.C.", "John A. Doe PLLC", "JANE SMITH PA", "Jane Smith, P. C.", "Mary Lee APC", "John Doe PSC",
-      "Jane Roe, S.C.", "Jane Smith,P.C.",
+      "Jane Roe, S.C.", "Jane Smith,P.C.", "Kim & Lee PA", "Donovan & Wagner, P.C.",
     ]) {
       expect(personNameSignal(n), n).toBe("weak");
     }
@@ -170,19 +171,31 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
   });
 });
 
-describe("two people named together (R47)", () => {
+describe("two people named together (R47, R48)", () => {
   it("is weak when each side of one AND or & is a two- or three-word person-like name", () => {
     for (const n of ["John Doe and Jane Roe", "JOHN A DOE & JANE ROE", "John A. Doe And Jane Roe", "Kim Lee & Ann Park"]) {
+      expect(isTwoPersonName(n), n).toBe(true);
       expect(personNameSignal(n), n).toBe("weak");
     }
   });
-  it("is null for company names joined the same way", () => {
+  it("finds no two people in company names joined the same way", () => {
     for (const n of [
       "Johnson & Johnson", "Procter & Gamble", "Ernst & Young LLP", "Smith and Jones Dental", "Bed Bath & Beyond",
-      "John Doe and Jane Roe LLC", "John Doe and Jane Roe and Sam Poe",
-      // Under R42 this two-surname firm was weak; R47 judges each side, and one word per side is a company name.
-      "Kim & Lee PA",
+      "John Doe and Jane Roe LLC", "John Doe and Jane Roe and Sam Poe", "Kim & Lee PA", "Jean Tremblay",
     ]) {
+      expect(isTwoPersonName(n), n).toBe(false);
+    }
+  });
+  it("only adds weak results (R48): a name weak under the 2-3 word rule stays weak", () => {
+    for (const n of ["Kim & Lee PA", "Donovan & Wagner, P.C.", "Lee & Xiao"]) {
+      expect(personNameSignal(n), n).toBe("weak");
+    }
+    // The 2-3 word rule drops "&", so these two read as two plain words and were weak before R47 too. Both file
+    // far more than 10 LCAs, so the under-10 drop never applies to them.
+    expect(personNameSignal("Johnson & Johnson")).toBe("weak");
+    expect(personNameSignal("Procter & Gamble")).toBe("weak");
+    // A corporate token, or AND (an organisation word), keeps these null through both tests.
+    for (const n of ["Ernst & Young LLP", "Smith and Jones Dental", "John Doe and Jane Roe LLC"]) {
       expect(personNameSignal(n), n).toBeNull();
     }
   });

@@ -18,7 +18,10 @@ import type { Program, YearBlock } from "./trend";
 
 /** Small-cell threshold: certified filings (US) or approved LMIAs (Canada). */
 const MIN = 3;
-/** An unprofiled owner named like a person is published only from this many certified US filings (R23 d). */
+/**
+ * An unprofiled owner named like a person is published only from this many certified US filings (R23 d), or for a
+ * Canadian owner this many approved LMIAs (R48), across the selected years.
+ */
 export const PERSON_LIKE_MIN_FILINGS = 10;
 
 /** True only for a generated employer id (`us-` or `ca-` plus 10 hex characters); a profile id is a domain. */
@@ -306,7 +309,7 @@ export function createAccumulator() {
     claim(owner, () => caEmployerKey(normalizeName(a.employer.name), a.employer.province));
     const q = a.quarter;
     const y = yearAcc(ownerAcc(owner).lmia, a.year, 4);
-    note(y, q, a.employer.name, null, a.employer.province ? `CA-${a.employer.province}` : null, false);
+    note(y, q, a.employer.name, null, a.employer.province ? `CA-${a.employer.province}` : null, a.employer.personLike === true);
     const c = cellOf(y, q, a.role, a.place, newCa);
     c.count += a.lmias;
     y.counts[q - 1] += a.lmias;
@@ -320,11 +323,17 @@ export function createAccumulator() {
    * PERM) and approved LMIAs per planned year over the kept owners, before roll-up. An unprofiled owner whose
    * display name is person-like and whose certified US filings total under PERSON_LIKE_MIN_FILINGS is dropped.
    */
-  function finish(plan: YearPlans): { owners: Map<string, OwnerResult>; totals: Totals; droppedPersonLike: number } {
+  function finish(plan: YearPlans): {
+    owners: Map<string, OwnerResult>;
+    totals: Totals;
+    droppedPersonLike: number;
+    droppedPersonLikeBy: { us: number; ca: number };
+  } {
     const totals: Totals = { lca: {}, perm: {}, lmia: {} };
     for (const p of PROGRAMS) for (const year of plannedYears(plan[p])) totals[p][String(year)] = 0;
     const result = new Map<string, OwnerResult>();
     let droppedPersonLike = 0;
+    const droppedPersonLikeBy = { us: 0, ca: 0 };
 
     for (const id of [...owners.keys()].sort(cmp)) {
       const o = owners.get(id)!;
@@ -337,10 +346,13 @@ export function createAccumulator() {
       const names = kind(all, "n");
       const name = ranked(names)[0];
       const personLike = kind(all, "p");
-      const usCertified = [...lca, ...perm].reduce((n, [, v]) => n + v.count, 0);
-      const small = isUnprofiledId(id) && usCertified < PERSON_LIKE_MIN_FILINGS;
+      // A Canadian owner counts approved LMIAs (R48); a US owner certified LCA and PERM filings.
+      const canadian = id.startsWith("ca-");
+      const count = (canadian ? lmia : [...lca, ...perm]).reduce((n, [, v]) => n + v.count, 0);
+      const small = isUnprofiledId(id) && count < PERSON_LIKE_MIN_FILINGS;
       if (small && personLike.has(name)) {
         droppedPersonLike++;
+        droppedPersonLikeBy[canadian ? "ca" : "us"]++;
         continue;
       }
 
@@ -389,7 +401,7 @@ export function createAccumulator() {
       });
     }
 
-    return { owners: result, totals, droppedPersonLike };
+    return { owners: result, totals, droppedPersonLike, droppedPersonLikeBy };
   }
 
   return { addUs, addCa, finish };
