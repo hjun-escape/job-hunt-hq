@@ -93,11 +93,17 @@ describe("mapLcaRow", () => {
     expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "   " }, ctx)).toBeNull();
   });
 
-  it("drops a person-named employer unless it has a profile", () => {
+  it("drops a strong person-named employer unless it has a profile", () => {
     const row = { ...lcaRow, EMPLOYER_NAME: "JANE DOE MD PC" };
     expect(mapLcaRow(row, ctx)).toBeNull();
     expect(mapLcaRow(row, { ...ctx, profiled: (e) => e.name === "JANE DOE MD PC" })).not.toBeNull();
     expect(mapLcaRow(row, { ...ctx, profiled: () => false })).toBeNull();
+  });
+
+  it("keeps a weak person-like employer and flags it personLike", () => {
+    expect(mapLcaRow({ ...lcaRow, EMPLOYER_NAME: "General Motors" }, ctx)!.employer.personLike).toBe(true);
+    expect(mapPermRow({ ...permRow, EMP_BUSINESS_NAME: "John A. Smith" }, ctx)!.employer.personLike).toBe(true);
+    expect("personLike" in mapLcaRow(lcaRow, ctx)!.employer).toBe(false);
   });
 
   it("places by ZIP first, padding a numeric ZIP that lost its leading zero", () => {

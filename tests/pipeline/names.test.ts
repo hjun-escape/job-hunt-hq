@@ -4,6 +4,7 @@ import {
   caEmployerId,
   companyIdFromUrl,
   looksLikePersonName,
+  personNameSignal,
   normalizeName,
   usEmployerId,
 } from "../../pipeline/normalize/names";
@@ -45,6 +46,27 @@ describe("looksLikePersonName", () => {
   });
   it("still flags a professional suffix on an institutional-looking name", () => {
     expect(looksLikePersonName("Jane Clinic MD")).toBe(true);
+  });
+});
+
+describe("corporate tokens and person signals", () => {
+  it("normalizes N.A. and the added suffixes away", () => {
+    expect(normalizeName("Citibank, N.A.")).toBe("CITIBANK");
+    expect(normalizeName("Citibank N. A.")).toBe("CITIBANK");
+    expect(normalizeName("Anthropic, PBC")).toBe("ANTHROPIC");
+    expect(normalizeName("Siemens AG")).toBe("SIEMENS");
+    expect(normalizeName("Acme Pty Ltd")).toBe("ACME");
+  });
+  it("does not treat institutions as people", () => {
+    for (const n of ["Citibank, N.A.", "Citibank N. A.", "Anthropic, PBC", "Brookhaven National Laboratory"]) {
+      expect(looksLikePersonName(n), n).toBe(false);
+    }
+  });
+  it("splits strong and weak signals", () => {
+    expect(personNameSignal("JANE DOE MD PC")).toBe("strong");
+    expect(personNameSignal("John A. Smith")).toBe("weak");
+    expect(personNameSignal("General Motors")).toBe("weak");
+    expect(personNameSignal("Google LLC")).toBeNull();
   });
 });
 

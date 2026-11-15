@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 const CORPORATE_TOKENS = new Set([
   "INC", "INCORPORATED", "LLC", "LTD", "LIMITED", "LTEE", "CORP", "CORPORATION",
   "CO", "COMPANY", "LP", "LLP", "PLLC", "PC", "PA", "GMBH", "SA", "ULC",
+  "NA", "PBC", "FSB", "PLC", "NV", "BV", "AG", "SE", "SPA", "SAS", "SARL", "KK", "PTY", "PTE",
+  "AB", "OY", "SRL", "LTDA", "LLLP", "LC",
 ]);
 
 export function normalizeName(raw: string): string {
@@ -19,6 +21,8 @@ export function normalizeName(raw: string): string {
     const n = tokens.length;
     if (n > 3 && tokens[n - 3] === "L" && tokens[n - 2] === "L" && tokens[n - 1] === "C") {
       tokens.length = n - 3;
+    } else if (n > 2 && tokens[n - 2] === "N" && tokens[n - 1] === "A") {
+      tokens.length = n - 2;
     } else if (CORPORATE_TOKENS.has(tokens[n - 1])) {
       tokens.pop();
     } else {
@@ -41,21 +45,31 @@ const ORGANISATION_WORDS = new Set([
   "BANK", "CAPITAL", "DISTRICT", "COUNTY", "CITY", "STATE", "DEPARTMENT", "BOARD",
   "AUTHORITY", "ACADEMY", "SOCIETY", "ASSOCIATION", "TRUST", "FUND", "NETWORK",
   "NETWORKS", "GLOBAL", "INTERNATIONAL", "INDUSTRIES", "ENTERPRISES", "HOLDINGS",
-  "AMERICA", "USA", "US", "OF", "AND",
+  "AMERICA", "USA", "US", "OF", "AND", "LABORATORY", "NATIONAL",
 ]);
 
 const PUNCT_EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
-export function looksLikePersonName(raw: string): boolean {
+/**
+ * "strong": a professional suffix (MD, DDS, CPA ...) in the last three words, almost always a person's practice.
+ * "weak": two or three plain alphabetic words with no organisation or corporate word, which also fits many companies.
+ */
+export function personNameSignal(raw: string): "strong" | "weak" | null {
   const tokens = raw
     .toUpperCase()
     .split(/\s+/)
     .map((t) => t.replace(PUNCT_EDGES, "").replace(/\./g, ""))
     .filter(Boolean);
-  if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return true;
-  if (tokens.length < 2 || tokens.length > 3) return false;
-  if (tokens.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return false;
-  return tokens.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t));
+  const n = tokens.length;
+  if (n > 2 && tokens[n - 2] === "N" && tokens[n - 1] === "A") tokens.splice(n - 2, 2, "NA");
+  if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return "strong";
+  if (tokens.length < 2 || tokens.length > 3) return null;
+  if (tokens.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return null;
+  return tokens.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t)) ? "weak" : null;
+}
+
+export function looksLikePersonName(raw: string): boolean {
+  return personNameSignal(raw) !== null;
 }
 
 function shortHash(input: string): string {

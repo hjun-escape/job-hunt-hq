@@ -14,7 +14,7 @@ export type UsFiling = {
   year: number;
   month: number;
   status: CaseStatus;
-  employer: { fein: string | null; name: string; tradeName: string | null; state: string | null };
+  employer: { fein: string | null; name: string; tradeName: string | null; state: string | null; personLike?: true };
   role: string;
   place: Place;
   annualPay: number | null;

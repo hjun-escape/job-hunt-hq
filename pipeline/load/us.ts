@@ -2,7 +2,7 @@
 // filters them), and postal codes are used to place the worksite and never stored.
 import type { LoadStats, UsFiling } from "../types";
 import { EXPECTED_COLUMNS } from "../sources";
-import { looksLikePersonName } from "../normalize/names";
+import { personNameSignal } from "../normalize/names";
 import type { PlaceIndex } from "../normalize/places";
 import type { RoleSet } from "../normalize/roles";
 import { annualize, fiscalYearMonth, lcaStatus, parseAmount, permStatus, wageLevel } from "../normalize/us";
@@ -83,8 +83,10 @@ function gate(
     return { skip: "invalid", reason: "date" };
   }
   if (!visaOk) return { skip: "invalid", reason: "visa" };
-  const employer = { fein: c.fein, name: c.name, tradeName: c.tradeName, state: c.state };
-  if (looksLikePersonName(c.name) && !ctx.profiled?.(employer)) return { skip: "person", name: c.name };
+  const employer: UsFiling["employer"] = { fein: c.fein, name: c.name, tradeName: c.tradeName, state: c.state };
+  const signal = personNameSignal(c.name);
+  if (signal === "strong" && !ctx.profiled?.(employer)) return { skip: "person", name: c.name };
+  if (signal === "weak") employer.personLike = true;
   return { status, employer, ym };
 }
 
