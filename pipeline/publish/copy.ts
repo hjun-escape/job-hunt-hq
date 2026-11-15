@@ -15,3 +15,11 @@ export const LICENCES = {
   us: "US government work, public domain",
   ca: "Contains information licensed under the Open Government Licence – Canada.",
 } as const;
+
+/**
+ * Notice the Statistics Canada Open Licence asks for on a product adapted from its data: the Canadian metro
+ * codes and names come from the 2021 Census Geographic Attribute File. Shown in the README, DATA-LICENSE.md
+ * and the landing page (meta.json's `licences` has no field for it in v1).
+ */
+export const STATCAN_NOTICE =
+  "Adapted from Statistics Canada, Geographic Attribute File (catalogue no. 92-151-X), 2021 Census. This does not constitute an endorsement by Statistics Canada of this product.";

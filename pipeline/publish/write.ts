@@ -2,7 +2,7 @@
 // (separately) the committed yearly summary CSVs. Every JSON file is validated against its published schema
 // and written from the parsed value, so only schema fields leave the pipeline. Output is deterministic:
 // keys sorted at every level, entries in a fixed order, and no clock but the model's builtAt.
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { isUnprofiledId, type OwnerResult, type YearPlans } from "../aggregate/accumulate";
@@ -53,6 +53,14 @@ const LANDING_PAGE = new URL("../../site-static/index.html", import.meta.url);
 const CSV_HEADER = "id,name,region,filings,headline";
 /** The only keys a published breakdown cell may carry: counts and pay, never the sub-counts of a total. */
 const CELL_KEYS = new Set(["role", "place", "filings", "workers", "pay", "lmias", "positions"]);
+/** A build is written into `<outDir>/<STAGING_PREFIX><random>` and swapped in only when complete. */
+const STAGING_PREFIX = ".site-staging-";
+/** Text that must never reach a published string: contact details and the names of personal source columns. */
+const PERSONAL_TEXT: [RegExp, string][] = [
+  [/[\w.+-]+@[\w-]+\.[\w.-]+/, "an email address"],
+  [/\b[A-Z]\d[A-Z] ?\d[A-Z]\d\b/i, "a Canadian postal code"],
+  [/EMPLOYER_POC|EMP_POC|PREPARER_|DECL_PREP_|ATTY_AG_|LAWFIRM_/, "a contact or preparer column name"],
+];
 
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const has = (r: Record<string, string>, k: string) => Object.prototype.hasOwnProperty.call(r, k);
@@ -84,13 +92,16 @@ const plannedYears = (sel: YearSelection): number[] =>
 const sortedOwners = (model: SiteModel): [string, OwnerResult][] =>
   [...model.owners].sort((a, b) => cmp(a[0], b[0]));
 const sortedProfiles = (model: SiteModel): Profile[] => [...model.profiles.values()].sort((a, b) => cmp(a.id, b.id));
+const sumOf = (r: Partial<Record<string, number>>) => Object.values(r).reduce<number>((a, n) => a + (n ?? 0), 0);
 
 /**
  * The last gate before publishing re-checks what the aggregation guarantees, so a regression there fails the
  * build instead of leaking: every cell and total counts at least SUB_MIN filings (LMIAs in Canada); cells
  * carry counts and pay only; a total's sub-counts (denied, withdrawn, hire types, wage levels, streams) are
- * absent or at least SUB_MIN (a shown zero would let an absent value mean "1 or 2"); a month is 0 or at least
- * SUB_MIN; pay comes from at least PAY_MIN salaries.
+ * absent or at least SUB_MIN (a shown zero would let an absent value mean "1 or 2"); shown wage levels add up
+ * to filings and shown streams to positions exactly (a shortfall means one member was hidden while others were
+ * shown, which the whole-group rule forbids); a month is 0 or at least SUB_MIN; pay comes from at least PAY_MIN
+ * salaries. Messages name the owner, program and year but never a withheld value.
  */
 function checkBlocks(id: string, s: Sponsorship): void {
   for (const program of PROGRAMS) {
@@ -109,6 +120,12 @@ function checkBlocks(id: string, s: Sponsorship): void {
       const subs = [t.denied, t.withdrawn, t.newHires, t.changeEmployer, t.continuing];
       subs.push(...Object.values(t.levels ?? {}), ...Object.values(t.streams ?? {}));
       if (subs.some((n) => n !== undefined && n < SUB_MIN)) fail("a sub-count on the total under 3");
+      if (t.levels && Object.keys(t.levels).length && sumOf(t.levels) !== t.filings) {
+        fail("the wage levels shown do not add up to filings");
+      }
+      if (t.streams && Object.keys(t.streams).length && sumOf(t.streams) !== t.positions) {
+        fail("the streams shown do not add up to positions");
+      }
     }
   }
 }
@@ -125,6 +142,35 @@ function checkModel(model: SiteModel): void {
     if (!isUnprofiledId(id) && !model.profiles.has(id)) throw new Error(`owner ${id} has no generated id and no profile`);
     checkBlocks(id, o.sponsorship);
   }
+}
+
+/** Throws when `text` holds personal data, naming `where` but never echoing the text. */
+function scanText(where: string, text: string): void {
+  for (const [pattern, what] of PERSONAL_TEXT) {
+    if (pattern.test(text)) throw new Error(`${where} contains ${what}; not published`);
+  }
+}
+
+/** Every string inside a JSON-like value, keys included. */
+function stringsIn(value: unknown, out: string[] = []): string[] {
+  if (typeof value === "string") out.push(value);
+  else if (Array.isArray(value)) for (const v of value) stringsIn(v, out);
+  else if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) {
+      out.push(k);
+      stringsIn(v, out);
+    }
+  }
+  return out;
+}
+
+/** Scans the free text the site publishes: owner names, other names and regions, profile text, warnings. */
+function checkText(model: SiteModel): void {
+  for (const [id, o] of model.owners) {
+    for (const text of [o.name, ...o.also, o.region ?? ""]) scanText(`owner ${id}`, text);
+  }
+  for (const p of model.profiles.values()) for (const text of stringsIn(p)) scanText(`profile ${p.id}`, text);
+  model.warnings.forEach((w, i) => scanText(`warning ${i + 1}`, w));
 }
 
 /** The name shown for an owner: the profile name for a profiled company, else the most frequent filed name. */
@@ -269,7 +315,8 @@ const csvField = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}
 /**
  * `<program>-<year>.csv` for every planned year (complete and partial): one row per owner whose block for
  * that year is not tooFew, sorted by id. `filings` is the published filings (LCA, PERM) or LMIAs; `headline`
- * is the published headline, empty when a part of it is withheld. LF line endings, trailing newline.
+ * is the published headline, empty when a part of it is withheld. LF line endings, trailing newline. Each
+ * file is scanned for personal text before it is returned.
  */
 export function summaryCsvs(model: SiteModel): Record<string, string> {
   checkModel(model);
@@ -286,7 +333,9 @@ export function summaryCsvs(model: SiteModel): Record<string, string> {
         const row = [id, displayName(model, id, o), o.region ?? "", String(filings), headline === null ? "" : String(headline)];
         lines.push(row.map(csvField).join(","));
       }
-      out[`${program}-${year}.csv`] = `${lines.join("\n")}\n`;
+      const name = `${program}-${year}.csv`;
+      out[name] = `${lines.join("\n")}\n`;
+      scanText(name, out[name]);
     }
   }
   return out;
@@ -295,16 +344,60 @@ export function summaryCsvs(model: SiteModel): Record<string, string> {
 // ---- The site -----------------------------------------------------------------------------------------
 
 /**
- * Writes the site under `outDir` and lists what it wrote, sorted by path. The `data/v1` tree is replaced
- * whole, so no file from an earlier build survives; anything else in `outDir` is left alone. The model is
- * checked before anything is removed. Each file is validated as it is written, so after a throw the tree
- * may be partial and must not be deployed.
+ * Writes the site under `outDir` and lists what it wrote, sorted by path. The model is checked (ids, the
+ * privacy gate, the text scan) first. Every file is then written into a fresh staging directory inside
+ * `outDir`, meta.json last as the completion marker, and only a complete tree replaces `data/v1` and
+ * `index.html`: the old tree is renamed away, the new one renamed in, and the old one removed. On any throw
+ * the staging directory is removed and the previous site is left exactly as it was. Nothing else in `outDir`
+ * is touched, so no file from an earlier build survives in `data/v1`.
  */
 export async function writeSite(outDir: string, model: SiteModel): Promise<WrittenFile[]> {
   checkModel(model);
+  checkText(model);
   const landing = await readFile(LANDING_PAGE);
-  await rm(path.join(outDir, ...V1.split("/")), { recursive: true, force: true });
+  await mkdir(outDir, { recursive: true });
+  // A run killed mid-write leaves its staging directory behind. It holds no live file: at most the previous
+  // tree, if the run died between the two renames in swapIn, and this build replaces that tree anyway.
+  for (const name of await readdir(outDir)) {
+    if (name.startsWith(STAGING_PREFIX)) await rm(path.join(outDir, name), { recursive: true, force: true });
+  }
+  const stage = await mkdtemp(path.join(outDir, STAGING_PREFIX));
+  try {
+    const written = await writeTree(stage, model, landing);
+    await swapIn(outDir, stage);
+    return written;
+  } finally {
+    await rm(stage, { recursive: true, force: true });
+  }
+}
 
+const exists = (p: string) =>
+  lstat(p).then(
+    () => true,
+    (e: NodeJS.ErrnoException) => {
+      if (e.code === "ENOENT") return false;
+      throw e;
+    },
+  );
+
+/** Moves a complete staged tree into place. The old `data/v1` goes into the staging directory, which the caller removes. */
+async function swapIn(outDir: string, stage: string): Promise<void> {
+  const live = path.join(outDir, ...V1.split("/"));
+  const old = path.join(stage, "previous-v1");
+  await mkdir(path.dirname(live), { recursive: true });
+  const hadLive = await exists(live);
+  if (hadLive) await rename(live, old);
+  try {
+    await rename(path.join(stage, ...V1.split("/")), live);
+  } catch (e) {
+    if (hadLive) await rename(old, live);
+    throw e;
+  }
+  await rename(path.join(stage, "index.html"), path.join(outDir, "index.html"));
+}
+
+/** Writes every file under `root` at its published path; meta.json goes last. */
+async function writeTree(root: string, model: SiteModel, landing: Buffer): Promise<WrittenFile[]> {
   const written: WrittenFile[] = [];
   const seen = new Set<string>();
   const made = new Set<string>();
@@ -312,7 +405,7 @@ export async function writeSite(outDir: string, model: SiteModel): Promise<Writt
     if (seen.has(rel)) throw new Error(`${rel} would be written twice`);
     seen.add(rel);
     const buf = typeof content === "string" ? Buffer.from(content, "utf8") : content;
-    const full = path.join(outDir, ...rel.split("/"));
+    const full = path.join(root, ...rel.split("/"));
     const dir = path.dirname(full);
     if (!made.has(dir)) {
       await mkdir(dir, { recursive: true });
@@ -324,7 +417,6 @@ export async function writeSite(outDir: string, model: SiteModel): Promise<Writt
   const json = (rel: string, value: unknown) => emit(rel, `${stableStringify(value)}\n`);
 
   await emit("index.html", landing);
-  await json(`${V1}/meta.json`, metaFile(model));
   await json(`${V1}/report.json`, Report.parse(model.report));
   await json(`${V1}/schema/profile.json`, profileJsonSchema());
 
@@ -369,5 +461,7 @@ export async function writeSite(outDir: string, model: SiteModel): Promise<Writt
 
   for (const [rel, file] of reverseFiles(model)) await json(rel, file);
 
+  // The completion marker: a tree without meta.json was never finished.
+  await json(`${V1}/meta.json`, metaFile(model));
   return written.sort((a, b) => cmp(a.path, b.path));
 }

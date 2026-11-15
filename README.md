@@ -53,7 +53,11 @@ This repository also builds a public company dataset: which US and Canadian empl
 | `report.json` | The largest sponsors without a profile, and possible matches for existing profiles. |
 | `schema/profile.json` | The JSON Schema of a profile file. |
 
-A profiled company's id is its website domain, such as `google.com`. Other employers get a short id computed from public data (`us-` or `ca-` and 10 hexadecimal characters), the same in every build. The files never show the tax ID (FEIN) of an employer without a profile. A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in this repository: id, name, region, filings and headline) is committed after each good build, so changes show in the history.
+The shard is the first letter of the name after `normalizeName` (in `pipeline/normalize/names.ts`): accents removed, upper-cased, punctuation dropped and a leading "THE" removed. A name that then starts with anything other than A to Z, such as a digit or a non-Latin letter, is in `index/0.json`.
+
+A profiled company's id is its website domain, such as `google.com`. Any other employer's id is `us-` or `ca-` and 10 hexadecimal characters, the same in every build. A `us-` id is a short hash of the employer's FEIN (its federal tax ID), which is public in the DOL files; a filing without a FEIN is hashed from the normalised name and state instead. A `ca-` id is a hash of the normalised name and province. The hash keeps URLs short but does not hide the FEIN, so the published files simply never show the FEIN of an employer without a profile.
+
+A yearly per-employer summary (`data/summary/<lca, perm or lmia>-<year>.csv` in this repository: id, name, region, filings and headline) is committed after each good build, so changes show in the history. Its `headline` is empty whenever a part of the headline is withheld, which only happens for LCA, where the headline adds two counts. A part that is a true zero is treated the same way, so an empty cell never reveals a small number.
 
 ### Reading the numbers
 
@@ -63,7 +67,7 @@ A profiled company's id is its website domain, such as `google.com`. Other emplo
 - Pay (median and quartiles, rounded to the nearest 1,000) needs at least 10 salaries.
 - Breakdowns by role and place show filing counts and pay only: filings (and workers for LCA) and pay in the US, LMIAs and positions in Canada. Detailed counts (denials, withdrawals, hire types, wage levels, program streams) are per employer, on `total`.
 - Breakdown cells do not add up to the total: the difference is filings in groups too small to show.
-- A place key is a metro area (`cbsa:<code>` in the US, `cma:<code>` in Canada) or a state or province (`US-CA`, `CA-ON`; `US` or `CA` alone when it is unknown). A state or province key in a breakdown means "elsewhere in this region", outside the metro areas listed for that role. Role `all` in a breakdown means roles too small to show on their own in that place; `all` on the total means everything. `meta.json` has a label for every key.
+- A place key is a metro area (`cbsa:<code>` in the US, `cma:<code>` in Canada) or a state or province (`US-CA`, `CA-ON`; `US` or `CA` alone when it is unknown). A state or province key in a breakdown means "elsewhere in this region", outside the metro areas listed for that role. Role `all` in a breakdown means roles too small to show on their own in that place; `all` on the total means everything. `meta.json` has a label for every other key; `all` has no label in `meta.json`.
 - Connecticut worksites are placed at state level only.
 - PERM starts at fiscal year 2025, the first year whose file uses the layout of the new form (ETA-9089); older files use a legacy layout.
 - LMIA counts include positions that employers later cancelled.
@@ -85,6 +89,8 @@ The same words are stored in `meta.json`, so every consumer shows them:
 - Company profiles: CC BY 4.0.
 - US-derived tables: US government work, public domain.
 - Canada-derived tables: Contains information licensed under the Open Government Licence – Canada.
+- Canadian metro areas: Adapted from Statistics Canada, Geographic Attribute File (catalogue no. 92-151-X), 2021 Census. This does not constitute an endorsement by Statistics Canada of this product.
+- US metro areas: US government works (OMB delineations and Census Bureau files), public domain.
 - Code: MIT.
 
 Details are in [DATA-LICENSE.md](DATA-LICENSE.md).

@@ -9,7 +9,7 @@ import { headlineFor, publishedHeadline } from "../../pipeline/aggregate/trend";
 import { buildEntityMap, ownerForCa, ownerForUs } from "../../pipeline/match/entities";
 import { buildReport } from "../../pipeline/match/report";
 import { caEmployerId, normalizeName, usEmployerId } from "../../pipeline/normalize/names";
-import { CAVEATS, LICENCES } from "../../pipeline/publish/copy";
+import { CAVEATS, LICENCES, STATCAN_NOTICE } from "../../pipeline/publish/copy";
 import { summaryCsvs, writeSite, type SiteModel, type WrittenFile } from "../../pipeline/publish/write";
 import { profileJsonSchema, ProfileSchema, type Profile } from "../../pipeline/schema/profile";
 import {
@@ -243,6 +243,19 @@ function listFiles(dir: string, prefix = ""): string[] {
   }
   return out.sort();
 }
+
+/** Every file and directory under `dir` (directories end with "/"), sorted. */
+function listEntries(dir: string, prefix = ""): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(path.join(dir, prefix))) {
+    const rel = prefix ? `${prefix}/${name}` : name;
+    if (statSync(path.join(dir, rel)).isDirectory()) out.push(`${rel}/`, ...listEntries(dir, rel));
+    else out.push(rel);
+  }
+  return out.sort();
+}
+/** Every file's bytes by path, for byte-for-byte comparison of whole trees. */
+const snapshot = (dir: string) => new Map(listFiles(dir).map((f) => [f, readFileSync(path.join(dir, f)).toString("base64")]));
 
 let out = "";
 let written: WrittenFile[] = [];
@@ -588,6 +601,56 @@ describe("decision 7: JSON format, file list and determinism", () => {
     expect(readFileSync(path.join(d, "keep.txt"), "utf8")).toBe("mine");
     expect(files.map((w) => w.path)).not.toContain("keep.txt");
   });
+  it("removes stale files on a successful second run and leaves no staging directory", async () => {
+    const d = tempDir();
+    await writeSite(d, model);
+    writeFileSync(path.join(d, "data", "v1", "employers", "us", "zzz.json"), "{}");
+    writeFileSync(path.join(d, "data", "v1", "stale.json"), "{}");
+    const files = await writeSite(d, model);
+    expect(listFiles(d)).toEqual(files.map((w) => w.path));
+    expect(readdirSync(d).sort()).toEqual(["data", "index.html"]);
+    expect(readdirSync(path.join(d, "data"))).toEqual(["v1"]);
+    expect(snapshot(d)).toEqual(snapshot(out));
+  });
+  it("clears a staging directory left by a killed run", async () => {
+    const d = tempDir();
+    mkdirSync(path.join(d, ".site-staging-dead12", "data", "v1"), { recursive: true });
+    writeFileSync(path.join(d, ".site-staging-dead12", "data", "v1", "meta.json"), "{}");
+    await writeSite(d, model);
+    expect(readdirSync(d).sort()).toEqual(["data", "index.html"]);
+  });
+  it("leaves the previous tree byte-identical, with no staging directory, when a later step throws", async () => {
+    const breaks: [string, (m: SiteModel) => void, RegExp][] = [
+      [
+        "a role id that cannot be a file name (reverse step)",
+        (m) => {
+          const b = m.owners.get(ACME_ID)!.sponsorship.lca!.find((x) => x.year === 2025)!;
+          if ("tooFew" in b) throw new Error("unexpected tooFew");
+          b.cells.find((c) => c.role === "software-engineer")!.role = "Bad Role";
+        },
+        /Bad Role/,
+      ],
+      [
+        "an invalid country (index step)",
+        (m) => {
+          m.owners.get(ACME_ID)!.countries = ["XX" as "US"];
+        },
+        /XX|Invalid/,
+      ],
+    ];
+    for (const [what, breakIt, message] of breaks) {
+      const d = tempDir();
+      await writeSite(d, model);
+      writeFileSync(path.join(d, "keep.txt"), "mine");
+      const files = snapshot(d);
+      const entries = listEntries(d);
+      const bad = buildModel();
+      breakIt(bad);
+      await expect(writeSite(d, bad), what).rejects.toThrow(message);
+      expect(listEntries(d), what).toEqual(entries);
+      expect(snapshot(d), what).toEqual(files);
+    }
+  });
   it("writes the report and the profile JSON schema", () => {
     expect(readJson("data/v1/report.json")).toStrictEqual(JSON.parse(JSON.stringify(model.report)));
     expect(readJson("data/v1/schema/profile.json")).toStrictEqual(JSON.parse(JSON.stringify(profileJsonSchema())));
@@ -629,6 +692,9 @@ describe("decision 7: JSON format, file list and determinism", () => {
       ["a month of 1 or 2", (o) => Object.assign(lcaBlock(o), { months: [0, 13, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0] })],
       ["pay from under 10 salaries", (o) => Object.assign(lcaBlock(o).cells[0], { pay: { n: 9, p25: 1, median: 2, p75: 3 } })],
       ["a cell under 3 filings", (o) => Object.assign(lcaBlock(o).cells[0], { filings: 2 })],
+      // ACME files 14 certified LCAs, all at level II: a shown group short of 14 means a hidden member.
+      ["wage levels short of filings", (o) => Object.assign(lcaBlock(o).total, { levels: { II: 11 } })],
+      ["wage levels over filings", (o) => Object.assign(lcaBlock(o).total, { levels: { I: 3, II: 14 } })],
     ];
     for (const [what, breakIt] of breaks) {
       const bad = buildModel();
@@ -644,11 +710,86 @@ describe("decision 7: JSON format, file list and determinism", () => {
     if ("tooFew" in maple) throw new Error("unexpected tooFew");
     maple.total.streams = { "Global Talent Stream": 6, "High Wage": 2 };
     await expect(writeSite(tempDir(), streams)).rejects.toThrow(MAPLE_ID);
+    // MAPLE has 8 positions in 2025: a shown stream group of 5 hides 3 positions.
+    maple.total.streams = { "Global Talent Stream": 5 };
+    await expect(writeSite(tempDir(), streams)).rejects.toThrow(/MAPLE|ca-.*streams/);
+    expect(() => summaryCsvs(streams)).toThrow(MAPLE_ID);
+  });
+  it("accepts a wholly withheld group and groups that add up exactly", async () => {
+    const ok = buildModel();
+    const b = ok.owners.get(ACME_ID)!.sponsorship.lca!.find((x) => x.year === 2025)!;
+    if ("tooFew" in b) throw new Error("unexpected tooFew");
+    b.total.levels = {};
+    const maple = ok.owners.get(MAPLE_ID)!.sponsorship.lmia!.find((x) => x.year === 2025)!;
+    if ("tooFew" in maple) throw new Error("unexpected tooFew");
+    maple.total.streams = { "Global Talent Stream": 5, "High Wage": 3 };
+    await expect(writeSite(tempDir(), ok)).resolves.toBeInstanceOf(Array);
+    const g = readJson("data/v1/companies/google.com.json").sponsorship.lca.find((x: { year: number }) => x.year === 2025);
+    expect(g.total.levels).toStrictEqual({ II: 15 });
+    expect(g.total.filings).toBe(15);
   });
   it("refuses an owner with a profile-style id and no profile", async () => {
     const bad = buildModel();
     bad.owners.set("unknown.com", model.owners.get(ACME_ID)!);
     await expect(writeSite(tempDir(), bad)).rejects.toThrow(/unknown\.com/);
+  });
+});
+
+describe("fix round 1: text scan before writing", () => {
+  const SECRET = "jane.doe@acme-robotics.com";
+  const cases: [string, (m: SiteModel) => void, RegExp][] = [
+    ["an email in an owner name", (m) => (m.owners.get(ACME_ID)!.name = `ACME ROBOTICS INC ${SECRET}`), new RegExp(`owner ${ACME_ID} contains an email address`)],
+    ["a postal code in also", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE SOFTWARE LTD V6B 1A1"), /contains a Canadian postal code/],
+    ["a lower-case postal code without a space", (m) => m.owners.get(MAPLE_ID)!.also.push("maple v6b1a1"), /contains a Canadian postal code/],
+    [
+      "an email deep in profile text",
+      (m) =>
+        m.profiles.set("quiet.test", {
+          ...quiet,
+          mission: {
+            value: { en: `Write to ${SECRET} to apply.` },
+            kind: "official",
+            sources: [{ url: "https://quiet.test/about", seen: "2026-01-01" }],
+            checked: "2026-01-01",
+          },
+        }),
+      /profile quiet\.test contains an email address/,
+    ],
+    ["a contact column name in profile other names", (m) => m.profiles.set("quiet.test", { ...quiet, otherNames: ["EMPLOYER_POC_EMAIL"] }), /profile quiet\.test contains a contact or preparer column name/],
+    ...["EMPLOYER_POC", "EMP_POC", "PREPARER_", "DECL_PREP_", "ATTY_AG_", "LAWFIRM_"].map(
+      (field): [string, (m: SiteModel) => void, RegExp] => [
+        `${field} in a warning`,
+        (m) => m.warnings.push(`unexpected column ${field}NAME`),
+        /warning 2 contains a contact or preparer column name/,
+      ],
+    ),
+  ];
+  it("refuses personal text before touching the output, without echoing it", async () => {
+    for (const [what, breakIt, message] of cases) {
+      const bad = buildModel();
+      breakIt(bad);
+      const d = tempDir();
+      writeFileSync(path.join(d, "keep.txt"), "mine");
+      const err = await writeSite(d, bad).then(
+        () => null,
+        (e: Error) => e,
+      );
+      expect(err, what).toBeInstanceOf(Error);
+      expect(err!.message, what).toMatch(message);
+      expect(err!.message, what).not.toContain(SECRET);
+      expect(listEntries(d), what).toEqual(["keep.txt"]);
+    }
+  });
+  it("scans every summary CSV", () => {
+    const bad = buildModel();
+    bad.owners.get(ACME_ID)!.name = `ACME ROBOTICS INC ${SECRET}`;
+    expect(() => summaryCsvs(bad)).toThrow(/lca-2024\.csv contains an email address/);
+    const postal = buildModel();
+    postal.owners.get(MAPLE_ID)!.region = "CA-BC V6B 1A1";
+    expect(() => summaryCsvs(postal)).toThrow(/lmia-2024\.csv contains a Canadian postal code/);
+  });
+  it("accepts the clean model", () => {
+    expect(() => summaryCsvs(model)).not.toThrow();
   });
 });
 
@@ -733,6 +874,22 @@ describe("decision 9: copy, landing page and docs", () => {
     expect(readme).toContain("https://github.com/hjun-escape/job-hunt-hq/issues/new?template=request-company.yml");
     expect(readme).toContain("(CONTRIBUTING.md)");
     expect(readme).toContain("(DATA-LICENSE.md)");
+  });
+  it("carries the Statistics Canada notice verbatim in the README, DATA-LICENSE.md and the page", () => {
+    for (const f of ["README.md", "DATA-LICENSE.md", "site-static/index.html"]) {
+      expect(readFileSync(path.join(ROOT, f), "utf8"), f).toContain(STATCAN_NOTICE);
+    }
+    const licence = readFileSync(path.join(ROOT, "DATA-LICENSE.md"), "utf8");
+    expect(licence).toContain("Statistics Canada Open Licence");
+    expect(licence).toContain("data/reference/ca-csd-cma.csv");
+  });
+  it("explains the README points raised in review", () => {
+    const readme = readFileSync(path.join(ROOT, "README.md"), "utf8");
+    expect(readme).toContain("pipeline/normalize/names.ts");
+    expect(readme).toMatch(/`all` has no label in `meta\.json`/);
+    expect(readme).toMatch(/short hash of the employer's FEIN/);
+    expect(readme).not.toContain("computed from public data");
+    expect(readme).toMatch(/true zero/);
   });
   it("keeps em dashes out of the docs and the page", () => {
     const EM_DASH = String.fromCodePoint(0x2014);
