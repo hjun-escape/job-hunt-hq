@@ -215,7 +215,33 @@ function groupSection(flags: Flag[], kinds: FlagKind[]): string[] {
   return out;
 }
 
-export function issueBody(flags: Flag[], report: Report | null, reportState: "unpublished" | "error" = "unpublished"): string {
+/**
+ * The `warnings` of the live meta.json (R45: staleness warnings, accepted totals changes and the like), or null
+ * when it cannot be read: a 404 (nothing published yet), any other status, a network error, or a file without a
+ * list of strings there.
+ */
+export async function liveWarnings(url: string, fetchFn: (url: string) => Promise<Response>): Promise<string[] | null> {
+  try {
+    const res = await fetchFn(url);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { warnings?: unknown };
+    const w = body?.warnings;
+    return Array.isArray(w) && w.every((x) => typeof x === "string") ? w : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The weekly issue. `buildWarnings` is the live meta.json's warnings, each shown as a code span; null when they
+ * could not be read.
+ */
+export function issueBody(
+  flags: Flag[],
+  report: Report | null,
+  reportState: "unpublished" | "error" = "unpublished",
+  buildWarnings: string[] | null = null,
+): string {
   const lines: string[] = ["# Weekly source re-check", ""];
   for (const s of SECTIONS) {
     lines.push(`## ${s.title}`, "", ...groupSection(flags, s.kinds), "");
@@ -235,5 +261,9 @@ export function issueBody(flags: Flag[], report: Report | null, reportState: "un
     const props = [...report.proposals].sort((a, b) => cmp(a.profile, b.profile) || cmp(a.id, b.id));
     for (const r of props) lines.push(`- [${r.profile}](${REPO_BLOB}/${r.profile}.yaml): ${codeSpan(r.name)} (${r.id}): ${r.headline}`);
   }
+  lines.push("", "## Build warnings", "");
+  if (buildWarnings === null) lines.push("Not available yet (the dataset has not been published).");
+  else if (buildWarnings.length === 0) lines.push("None this week.");
+  else for (const w of buildWarnings) lines.push(`- ${codeSpan(w)}`);
   return lines.join("\n") + "\n";
 }

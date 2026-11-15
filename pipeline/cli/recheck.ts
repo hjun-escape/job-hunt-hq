@@ -1,11 +1,12 @@
 // Usage: npm run dataset:recheck -- --issue-body recheck.md [--report <url>]
 // Re-fetches every page cited by an official fact, compares text fingerprints with data/fingerprints.json,
-// rewrites that file (URLs no longer cited are dropped) and writes the weekly issue body. Never prints page text.
+// rewrites that file (URLs no longer cited are dropped) and writes the weekly issue body. With --report, it also
+// reads meta.json beside report.json for the issue's "Build warnings" (R45). Never prints page text.
 import { readFile, writeFile } from "node:fs/promises";
 import { loadProfiles } from "../profiles/load";
 import { politeFetch } from "../http";
 import { Report } from "../schema/published";
-import { issueBody, recheck, serializeStore, type Fetcher, type FingerprintStore } from "../check/recheck";
+import { issueBody, liveWarnings, recheck, serializeStore, type Fetcher, type FingerprintStore } from "../check/recheck";
 
 const STORE_PATH = "data/fingerprints.json";
 
@@ -47,8 +48,10 @@ async function main(): Promise<void> {
 
   let report: Report | null = null;
   let state: "unpublished" | "error" = "unpublished";
+  let buildWarnings: string[] | null = null;
   const reportUrl = arg("--report");
   if (reportUrl) {
+    buildWarnings = await liveWarnings(new URL("meta.json", reportUrl).href, (u) => politeFetch(u));
     try {
       const res = await politeFetch(reportUrl);
       if (res.status === 404) state = "unpublished";
@@ -58,7 +61,7 @@ async function main(): Promise<void> {
       state = "error";
     }
   }
-  await writeFile(out, issueBody(result.flags, report, state));
+  await writeFile(out, issueBody(result.flags, report, state, buildWarnings));
 
   const counts: Record<string, number> = {};
   for (const f of result.flags) counts[f.kind] = (counts[f.kind] ?? 0) + 1;

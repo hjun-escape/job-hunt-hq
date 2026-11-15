@@ -167,10 +167,13 @@ export function screenNames(owners: Map<string, OwnerResult>): {
   return { kept, dropped, problems };
 }
 
-// ---- Staleness (R44) ------------------------------------------------------------------------------------
+// ---- Staleness (R45, superseding R44) ------------------------------------------------------------------
 
-/** A source whose newest selected quarter ended more than this many days before the build is stale. */
-export const STALE_DAYS = 150;
+/**
+ * A source whose newest selected quarter ended more than this many days before the build is stale. LMIA gets
+ * longer: ESDC usually posts a quarter 4 to 5 months after it ends.
+ */
+export const STALE_DAYS: Record<DataSource, number> = { lca: 150, perm: 150, lmia: 240 };
 const DAY_MS = 86_400_000;
 
 /** The last day of a quarter: federal fiscal (October to September) for LCA and PERM, calendar for LMIA. */
@@ -181,10 +184,11 @@ function quarterEnd(source: DataSource, year: number, quarter: number): Date {
 }
 
 /**
- * One problem line per source whose newest selected quarter (the partial year's last quarter, else the latest
- * complete year's fourth) ended more than STALE_DAYS before `today`, comparing UTC dates. A source that stops
- * advancing has usually moved its files, and the probe then finds only old ones. A source with nothing selected
- * is left to the "no files" problem.
+ * One warning line per source whose newest selected quarter (the partial year's last quarter, else the latest
+ * complete year's fourth) ended more than STALE_DAYS[source] before `today`, comparing UTC dates. The source is
+ * late, or it moved its files and the probe finds only old ones. It is a warning, never a problem: a late source
+ * must not block fresh data from the others. It reaches meta.json and the weekly re-check issue. A source with
+ * nothing selected is left to the "no files" problem.
  */
 export function staleness(years: YearPlans, today: Date): string[] {
   const todayMs = Date.parse(today.toISOString().slice(0, 10));
@@ -198,9 +202,9 @@ export function staleness(years: YearPlans, today: Date): string[] {
         : null;
     if (newest === null) continue;
     const end = quarterEnd(s, newest.year, newest.quarter);
-    if ((todayMs - end.getTime()) / DAY_MS > STALE_DAYS) {
+    if ((todayMs - end.getTime()) / DAY_MS > STALE_DAYS[s]) {
       const date = end.toISOString().slice(0, 10);
-      lines.push(`${s} data looks stale: newest quarter ended ${date}; the source may have moved its files`);
+      lines.push(`${s} data looks stale: newest quarter ended ${date}; the source may be late or may have moved its files`);
     }
   }
   return lines;
@@ -463,9 +467,9 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     warnings.push(`owner ${id} is not published: a name it filed under looks like a postal code`);
   }
 
-  // 5. Staleness (R44), then totals against the live build, before the site so an accepted change is recorded
-  // in meta.json. The build goes on after a stale source, so one report lists every problem.
-  problems.push(...staleness(years, today));
+  // 5. Staleness warnings (R45), then totals against the live build, both before the site so meta.json records
+  // the stale sources and any accepted change.
+  warnings.push(...staleness(years, today));
   if (opts.liveMetaUrl) {
     const live = await readLiveMeta(opts.liveMetaUrl, opts.fetchFn);
     if (!live.ok) problems.push(live.problem);

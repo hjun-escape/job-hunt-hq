@@ -30,7 +30,7 @@ const root = mkdtempSync(path.join(tmpdir(), "build-test-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 // Within 150 days of each fixture source's newest quarter (LCA FY2026 Q1 and LMIA 2025 Q4 end 2025-12-31,
-// PERM FY2025 Q4 ends 2025-09-30), so the staleness alarm (R44) stays quiet.
+// PERM FY2025 Q4 ends 2025-09-30), so no staleness warning (R45) is added.
 const TODAY = new Date("2026-02-15T00:00:00.000Z");
 let n = 0;
 const fresh = (label: string) => path.join(root, `${label}-${++n}`);
@@ -555,20 +555,22 @@ describe("runBuild end to end", () => {
     expect(existsSync(path.join(data2, "summary"))).toBe(false);
   }, 60_000);
 
-  it("fails, naming each stale source and its newest quarter's end, when the files stop advancing (R44)", async () => {
+  it("warns, in meta.json too, naming each stale source and its newest quarter's end, and still passes (R45)", async () => {
     const data2 = makeDataDir(fresh("data"));
     const out2 = fresh("out");
     const r10 = await runBuild({ cacheDir, outDir: out2, dataDir: data2, today: new Date("2026-03-01T12:00:00.000Z") });
-    expect(r10.ok).toBe(false);
-    expect(r10.problems).toEqual([
-      "perm data looks stale: newest quarter ended 2025-09-30; the source may have moved its files",
-    ]);
-    expect(existsSync(path.join(data2, "summary"))).toBe(false);
+    expect(r10.problems).toEqual([]);
+    expect(r10.ok).toBe(true);
+    const perm = "perm data looks stale: newest quarter ended 2025-09-30; the source may be late or may have moved its files";
+    expect(r10.warnings.filter((w) => w.includes("stale"))).toEqual([perm]);
+    expect((readJson(out2, "data/v1/meta.json") as Meta).warnings).toContain(perm);
+    expect(existsSync(path.join(data2, "summary", "lca-2025.csv"))).toBe(true);
     const late = await runBuild({ cacheDir, outDir: fresh("out"), dataDir: makeDataDir(fresh("data")), today: new Date("2026-11-14T00:00:00.000Z") });
-    expect(late.problems).toEqual([
-      "lca data looks stale: newest quarter ended 2025-12-31; the source may have moved its files",
-      "perm data looks stale: newest quarter ended 2025-09-30; the source may have moved its files",
-      "lmia data looks stale: newest quarter ended 2025-12-31; the source may have moved its files",
+    expect(late.ok).toBe(true);
+    expect(late.warnings.filter((w) => w.includes("stale"))).toEqual([
+      "lca data looks stale: newest quarter ended 2025-12-31; the source may be late or may have moved its files",
+      perm,
+      "lmia data looks stale: newest quarter ended 2025-12-31; the source may be late or may have moved its files",
     ]);
   }, 60_000);
 
@@ -579,18 +581,21 @@ describe("runBuild end to end", () => {
   });
 });
 
-describe("staleness (R44)", () => {
+describe("staleness (R45)", () => {
   const years = {
     lca: { complete: [2024, 2025], partial: { year: 2026, through: 2 as const } },
     perm: { complete: [2025, 2026] },
     lmia: { complete: [2024, 2025], partial: { year: 2026, through: 1 as const } },
   };
-  it("uses the newest selected quarter: the partial year's last quarter, else the latest complete year's Q4", () => {
+  it("uses the newest selected quarter, and 150 days for LCA and PERM but 240 for LMIA", () => {
     // LCA FY2026 Q2 ends 2026-03-31, PERM FY2026 Q4 2026-09-30, LMIA 2026 Q1 (calendar) 2026-03-31.
     expect(staleness(years, new Date("2026-08-28T23:00:00Z"))).toEqual([]); // 150 days after 2026-03-31
-    expect(staleness(years, new Date("2026-08-29T00:00:00Z"))).toEqual([
-      "lca data looks stale: newest quarter ended 2026-03-31; the source may have moved its files",
-      "lmia data looks stale: newest quarter ended 2026-03-31; the source may have moved its files",
+    const lca = "lca data looks stale: newest quarter ended 2026-03-31; the source may be late or may have moved its files";
+    expect(staleness(years, new Date("2026-08-29T00:00:00Z"))).toEqual([lca]);
+    expect(staleness(years, new Date("2026-11-26T12:00:00Z"))).toEqual([lca]); // LMIA: 240 days
+    expect(staleness(years, new Date("2026-11-27T00:00:00Z"))).toEqual([
+      lca,
+      "lmia data looks stale: newest quarter ended 2026-03-31; the source may be late or may have moved its files",
     ]);
   });
   it("ends fiscal quarters on 31 December, 31 March, 30 June and 30 September", () => {
@@ -598,7 +603,7 @@ describe("staleness (R44)", () => {
     expect(at(1)).toContain("ended 2025-12-31");
     expect(at(3)).toContain("ended 2026-06-30");
   });
-  it("says nothing for a source with no selected year (the build already fails for that)", () => {
+  it("says nothing for a source with no selected year (the build fails for that already)", () => {
     expect(staleness({ ...years, lca: { complete: [] } }, new Date("2026-04-01"))).toEqual([]);
   });
 });

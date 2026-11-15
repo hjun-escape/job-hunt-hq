@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { extractText, fingerprint, MIN_TEXT } from "../../pipeline/check/text";
-import { codeSpan, recheck, issueBody, serializeStore, type FingerprintStore } from "../../pipeline/check/recheck";
+import { codeSpan, liveWarnings, recheck, issueBody, serializeStore, type FingerprintStore } from "../../pipeline/check/recheck";
 import type { Profile } from "../../pipeline/schema/profile";
 
 const URL_A = "https://example.com/about";
@@ -245,6 +245,7 @@ describe("issueBody", () => {
     "Not re-confirmed in 12 months",
     "Largest sponsors without a profile",
     "Possible matches to add",
+    "Build warnings",
   ];
   it("lists the headings in order, empty sections say None this week.", () => {
     const body = issueBody([], null);
@@ -300,6 +301,25 @@ describe("issueBody", () => {
     expect(codeSpan("a`b")).toBe("``a`b``");
     expect(codeSpan("`edge")).toBe("`` `edge ``");
     expect(codeSpan("two\nlines")).toBe("`two lines`");
+  });
+
+  it("ends with the live build's warnings, escaped, or says there are none or that they are not available", () => {
+    const listed = issueBody([], null, "unpublished", ["lmia data looks stale: newest quarter ended 2026-06-30; the source may be late or may have moved its files", "see @someone"]);
+    expect(listed).toMatch(/## Build warnings\n\n- `lmia data looks stale: newest quarter ended 2026-06-30; [^`]*`\n- `see @someone`\n$/);
+    expect(issueBody([], null, "unpublished", [])).toMatch(/## Build warnings\n\nNone this week\.\n$/);
+    expect(issueBody([], null, "error", null)).toMatch(/## Build warnings\n\nNot available yet \(the dataset has not been published\)\.\n$/);
+    expect(issueBody([], null)).toMatch(/## Build warnings\n\nNot available yet \(the dataset has not been published\)\.\n$/);
+  });
+
+  it("reads the live meta.json's warnings, and gives null on a 404, an error or a bad file", async () => {
+    const meta = (warnings: unknown) => ({ ok: true, status: 200, json: async () => ({ warnings }) }) as unknown as Response;
+    expect(await liveWarnings("https://x.invalid/meta.json", async () => meta(["a", "b"]))).toEqual(["a", "b"]);
+    expect(await liveWarnings("https://x.invalid/meta.json", async () => meta([]))).toEqual([]);
+    expect(await liveWarnings("https://x.invalid/meta.json", async () => new Response("", { status: 404 }))).toBeNull();
+    expect(await liveWarnings("https://x.invalid/meta.json", async () => new Response("", { status: 503 }))).toBeNull();
+    expect(await liveWarnings("https://x.invalid/meta.json", async () => { throw new Error("down"); })).toBeNull();
+    expect(await liveWarnings("https://x.invalid/meta.json", async () => new Response("<html>", { status: 200 }))).toBeNull();
+    expect(await liveWarnings("https://x.invalid/meta.json", async () => meta([1, 2]))).toBeNull();
   });
 
   it("says why the report is missing", () => {
