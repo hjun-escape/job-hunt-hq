@@ -46,6 +46,8 @@ jobs:
         run: npm run dataset:download
       - name: Save download cache
         if: always() && hashFiles('.cache/dataset/manifest.json') != ''
+        # A cache-service outage must not fail an otherwise good build.
+        continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .cache/dataset
@@ -126,7 +128,8 @@ jobs:
 
   report:
     needs: [build, deploy, summaries]
-    if: always() && contains(needs.*.result, 'failure')
+    # A timed-out or cancelled job reports too, not only a failed one.
+    if: always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -152,12 +155,12 @@ jobs:
               cat report/build-problems.md
             else
               echo "No problems report was written. Job results: build $BUILD_RESULT, deploy $DEPLOY_RESULT, summaries $SUMMARIES_RESULT."
-              if [ "$BUILD_RESULT" = "failure" ]; then
-                echo "The build job failed before the build step wrote build-problems.md (for example a download, install or timeout failure)."
-              elif [ "$DEPLOY_RESULT" = "failure" ]; then
-                echo "The build passed but the Pages deploy failed. The live site is unchanged."
-              elif [ "$SUMMARIES_RESULT" = "failure" ]; then
-                echo "The site was deployed but committing data/summary to master failed. The live site is fine."
+              if [ "$BUILD_RESULT" = "failure" ] || [ "$BUILD_RESULT" = "cancelled" ]; then
+                echo "The build job stopped ($BUILD_RESULT) before the build step wrote build-problems.md, for example a download or install failure, a timeout, or a cancelled run. The live site is unchanged."
+              elif [ "$DEPLOY_RESULT" = "failure" ] || [ "$DEPLOY_RESULT" = "cancelled" ]; then
+                echo "The build passed but the Pages deploy did not finish ($DEPLOY_RESULT). The live site is unchanged."
+              elif [ "$SUMMARIES_RESULT" = "failure" ] || [ "$SUMMARIES_RESULT" = "cancelled" ]; then
+                echo "The site was deployed but committing data/summary to master did not finish ($SUMMARIES_RESULT). The live site is fine."
               fi
             fi
             echo
