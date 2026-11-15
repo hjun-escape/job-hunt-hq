@@ -128,13 +128,8 @@ function withoutProfessionalEntity(tokens: string[]): string[] {
 
 const PUNCT_EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
-/**
- * "strong": a professional suffix (MD, DDS, CPA ...) in the last three words, almost always a person's practice.
- * "weak": two or three plain alphabetic words with no organisation or corporate word, which also fits many companies.
- * For the weak test a trailing professional-entity suffix (PC, PA, PLLC, PSC, APC, SC; dots and commas ignored)
- * is dropped first, so "Jane Smith, P.C." is weak (R42) while "Smith Dental Care PLLC" keeps its organisation word.
- */
-export function personNameSignal(raw: string): "strong" | "weak" | null {
+/** Upper-cased words of a filed name: whitespace and commas split, edge punctuation and dots dropped. */
+function wordsOf(raw: string): string[] {
   const tokens = raw
     .toUpperCase()
     .split(/[\s,]+/)
@@ -142,13 +137,36 @@ export function personNameSignal(raw: string): "strong" | "weak" | null {
     .filter(Boolean);
   const n = tokens.length;
   if (n > 2 && tokens[n - 2] === "N" && tokens[n - 1] === "A") tokens.splice(n - 2, 2, "NA");
+  return tokens;
+}
+
+/** The weak test: two or three alphabetic words (initials included), none a corporate token or organisation word. */
+function plainPersonWords(words: string[]): boolean {
+  if (words.length < 2 || words.length > 3) return false;
+  if (words.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return false;
+  return words.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t));
+}
+
+/** " AND " or " & " between words, any case: the joiner of two names. */
+const JOINER = /\s+(?:AND|&)\s+/i;
+
+/**
+ * "strong": a professional suffix (MD, DDS, CPA ...) in the last three words, almost always a person's practice.
+ * "weak": two or three plain alphabetic words with no organisation or corporate word, which also fits many companies.
+ * For the weak test a trailing professional-entity suffix (PC, PA, PLLC, PSC, APC, SC; dots and commas ignored)
+ * is dropped first, so "Jane Smith, P.C." is weak (R42) while "Smith Dental Care PLLC" keeps its organisation word.
+ * A name joined by AND or & (R47) is weak only when it has exactly two sides and each side passes the weak test on
+ * its own ("John Doe and Jane Roe"); one word a side ("Johnson & Johnson") or any corporate or organisation word
+ * gives null.
+ */
+export function personNameSignal(raw: string): "strong" | "weak" | null {
+  const tokens = wordsOf(raw);
   if (tokens.slice(-3).some((t) => PROFESSIONAL_SUFFIXES.has(t))) return "strong";
+  const sides = raw.split(JOINER);
+  if (sides.length > 1) return sides.length === 2 && sides.every((side) => plainPersonWords(wordsOf(side))) ? "weak" : null;
   // A suffix that would leave one word ("Surname PSC") is kept, so such a name is tested as before.
   const stripped = withoutProfessionalEntity(tokens);
-  const words = stripped.length >= 2 ? stripped : tokens;
-  if (words.length < 2 || words.length > 3) return null;
-  if (words.some((t) => CORPORATE_TOKENS.has(t) || ORGANISATION_WORDS.has(t))) return null;
-  return words.every((t) => /^\p{L}+(?:['\u2019-]\p{L}+)*$/u.test(t)) ? "weak" : null;
+  return plainPersonWords(stripped.length >= 2 ? stripped : tokens) ? "weak" : null;
 }
 
 /** Filler typed into a trade-name field, compared upper-cased with edge punctuation trimmed. */

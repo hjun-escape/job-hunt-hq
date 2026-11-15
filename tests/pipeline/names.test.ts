@@ -142,7 +142,7 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
   it("keeps the weak signal when a two- or three-word name ends in PC, PA, PLLC, PSC, APC or SC", () => {
     for (const n of [
       "Jane Smith, P.C.", "John A. Doe PLLC", "JANE SMITH PA", "Jane Smith, P. C.", "Mary Lee APC", "John Doe PSC",
-      "Jane Roe, S.C.", "Jane Smith,P.C.", "Kim & Lee PA",
+      "Jane Roe, S.C.", "Jane Smith,P.C.",
     ]) {
       expect(personNameSignal(n), n).toBe("weak");
     }
@@ -167,6 +167,29 @@ describe("professional-entity suffixes on a person's name (R42)", () => {
     expect(personNameSignal("JANE DOE MD PC")).toBe("strong");
     expect(personNameSignal("John Smith DDS, PLLC")).toBe("strong");
     expect(personNameSignal("Dr. Jane Doe, DDS")).toBe("strong");
+  });
+});
+
+describe("two people named together (R47)", () => {
+  it("is weak when each side of one AND or & is a two- or three-word person-like name", () => {
+    for (const n of ["John Doe and Jane Roe", "JOHN A DOE & JANE ROE", "John A. Doe And Jane Roe", "Kim Lee & Ann Park"]) {
+      expect(personNameSignal(n), n).toBe("weak");
+    }
+  });
+  it("is null for company names joined the same way", () => {
+    for (const n of [
+      "Johnson & Johnson", "Procter & Gamble", "Ernst & Young LLP", "Smith and Jones Dental", "Bed Bath & Beyond",
+      "John Doe and Jane Roe LLC", "John Doe and Jane Roe and Sam Poe",
+      // Under R42 this two-surname firm was weak; R47 judges each side, and one word per side is a company name.
+      "Kim & Lee PA",
+    ]) {
+      expect(personNameSignal(n), n).toBeNull();
+    }
+  });
+  it("leaves the strong rule first, and names without a joiner as they were", () => {
+    expect(personNameSignal("KIM & LEE CPA LLP")).toBe("strong");
+    expect(personNameSignal("John A. Smith")).toBe("weak");
+    expect(personNameSignal("AT&T SERVICES INC")).toBeNull();
   });
 });
 
