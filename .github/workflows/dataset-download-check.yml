@@ -1,0 +1,25 @@
+name: dataset-download-check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/company-dataset]
+    paths:
+      - .github/workflows/dataset-download-check.yml
+      - pipeline/sources.ts
+      - pipeline/http.ts
+      - pipeline/cli/download.ts
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run dataset:download -- --only lca
+      - name: Print manifest
+        run: cat .cache/dataset/manifest.json
