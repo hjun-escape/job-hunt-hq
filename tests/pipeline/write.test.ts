@@ -802,6 +802,31 @@ describe("fix round 1: text scan before writing", () => {
     ["an email in an owner name", (m) => (m.owners.get(ACME_ID)!.name = `ACME ROBOTICS INC ${SECRET}`), new RegExp(`owner ${ACME_ID} contains an email address`)],
     ["a postal code in also", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE SOFTWARE LTD V6B 1A1"), /contains what looks like a postal code/],
     ["a postal code without a space", (m) => m.owners.get(MAPLE_ID)!.also.push("MAPLE M5V1J2"), /contains what looks like a postal code/],
+    ["a lower-case postal code in an owner name", (m) => (m.owners.get(MAPLE_ID)!.name = "MAPLE SOFTWARE LTD m5v 1j2"), new RegExp(`owner ${MAPLE_ID} contains what looks like a postal code`)],
+    [
+      "a user name and password in a profile source URL",
+      (m) =>
+        m.profiles.set("quiet.test", {
+          ...quiet,
+          mission: {
+            value: { en: "We make tools." },
+            kind: "reported",
+            sources: [{ url: "https://jane:pw@example.com/x", seen: "2026-01-01" }],
+            checked: "2026-01-01",
+          },
+        }),
+      /profile quiet\.test \(mission\.sources\[0\]\.url\) contains a user name or password in a URL/,
+    ],
+    [
+      "an email in a profile link's query",
+      (m) => m.profiles.set("quiet.test", { ...quiet, links: [{ label: "Apply", url: `https://example.com/?contact=${SECRET}` }] }),
+      /profile quiet\.test \(links\[0\]\.url\) contains an email address/,
+    ],
+    [
+      "an email-shaped image path in a profile link",
+      (m) => m.profiles.set("quiet.test", { ...quiet, links: [{ label: "Logo", url: "https://example.com/logo@2x.png" }] }),
+      /profile quiet\.test \(links\[0\]\.url\) contains an email address/,
+    ],
     [
       "a postal code in profile text",
       (m) =>
@@ -866,22 +891,23 @@ describe("fix round 1: text scan before writing", () => {
   it("accepts the clean model", () => {
     expect(() => summaryCsvs(model)).not.toThrow();
   });
-  it("skips URL fields and lower-case look-alikes", async () => {
-    const ok = buildModel();
-    ok.profiles.set("quiet.test", {
-      ...quiet,
-      mission: {
-        value: { en: "We make tools; promo code a1b2c3." },
-        kind: "reported",
-        sources: [{ url: "https://bit.ly/A1B2C3", seen: "2026-01-01" }],
-        checked: "2026-01-01",
-      },
-      links: [{ label: "Blind", url: "https://bit.ly/A1B2C3" }],
-      otherNames: ["https://bit.ly/A1B2C3"],
-    });
-    ok.owners.get(MAPLE_ID)!.also.push("maple v6b1a1");
-    await expect(writeSite(tempDir(), ok)).resolves.toBeInstanceOf(Array);
-    expect(() => summaryCsvs(ok)).not.toThrow();
+  it("lets short links whose path looks like a postal code through, in either case", async () => {
+    for (const url of ["https://bit.ly/a1b2c3", "https://bit.ly/A1B2C3"]) {
+      const ok = buildModel();
+      ok.profiles.set("quiet.test", {
+        ...quiet,
+        mission: {
+          value: { en: "We make tools." },
+          kind: "reported",
+          sources: [{ url, seen: "2026-01-01" }],
+          checked: "2026-01-01",
+        },
+        links: [{ label: "Blind", url }],
+        otherNames: [url],
+      });
+      await expect(writeSite(tempDir(), ok), url).resolves.toBeInstanceOf(Array);
+      expect(() => summaryCsvs(ok), url).not.toThrow();
+    }
   });
 });
 

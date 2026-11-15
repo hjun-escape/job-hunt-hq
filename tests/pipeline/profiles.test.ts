@@ -109,25 +109,41 @@ describe("personal text scan", () => {
       { file: "zeta.test.yaml", path: "applicationRules[0].value.en", message: "contains a contact or preparer column name" },
     ]);
   });
-  it("skips URLs and lower-case look-alikes", () => {
-    const r = check({
-      mission: fact("We build tools; use code a1b2c3 at checkout.", "https://bit.ly/a1b2c3", "reported"),
-      links: [{ label: "Blind", url: "https://bit.ly/a1b2c3" }],
-    });
-    expect(r.problems).toEqual([]);
-    expect(r.profiles).toHaveLength(1);
+  it("lets short links whose path looks like a postal code through, in either case", () => {
+    for (const url of ["https://bit.ly/a1b2c3", "https://bit.ly/A1B2C3"]) {
+      const r = check({
+        mission: fact("We build tools.", url, "reported"),
+        links: [{ label: "Blind", url }],
+        otherNames: [url],
+      });
+      expect(r.problems, url).toEqual([]);
+      expect(r.profiles, url).toHaveLength(1);
+    }
   });
-  it("skips URLs that the postal pattern would otherwise catch", () => {
-    // Upper case, so each would be a hit if the scan read it as text.
-    const r = check({
-      mission: fact("We build tools.", "https://bit.ly/A1B2C3", "reported"),
-      links: [{ label: "Blind", url: "https://bit.ly/A1B2C3" }],
-      otherNames: ["https://bit.ly/A1B2C3"],
-    });
-    expect(r.problems).toEqual([]);
-    expect(check({ otherNames: ["see bit.ly/A1B2C3"] }).problems).toEqual([
-      { file: "zeta.test.yaml", path: "otherNames[0]", message: "contains what looks like a postal code" },
-    ]);
+  it("still scans URLs: user names, passwords and email-shaped text are refused", () => {
+    const cases: [string, string][] = [
+      ["https://jane:pw@zeta.test/x", "contains a user name or password in a URL"],
+      ["https://zeta.test/?contact=jane@doe.example", "contains an email address"],
+      ["https://zeta.test/?contact=jane%40doe.example", "contains an email address"],
+      ["https://zeta.test/apply#jane@doe.example", "contains an email address"],
+      ["https://zeta.test/logo@2x.png", "contains an email address"],
+      ["https://zeta.test/export?f=EMPLOYER_POC_EMAIL", "contains a contact or preparer column name"],
+    ];
+    for (const [url, message] of cases) {
+      expect(check({ mission: fact("We build tools.", url, "reported") }).problems, url).toEqual([
+        { file: "zeta.test.yaml", path: "mission.sources[0].url", message },
+      ]);
+      expect(check({ links: [{ label: "Page", url }] }).problems, url).toEqual([
+        { file: "zeta.test.yaml", path: "links[0].url", message },
+      ]);
+    }
+  });
+  it("catches postal codes in text in any case, and a short link written as text", () => {
+    for (const text of ["Our office is at m5v 1j2.", "Our office is at M5V1J2.", "see bit.ly/a1b2c3"]) {
+      expect(check({ otherNames: [text] }).problems, text).toEqual([
+        { file: "zeta.test.yaml", path: "otherNames[0]", message: "contains what looks like a postal code" },
+      ]);
+    }
   });
 });
 

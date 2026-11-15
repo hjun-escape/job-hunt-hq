@@ -151,8 +151,8 @@ function scanText(where: string, text: string): void {
 }
 
 /**
- * Scans the free text the site publishes: owner names, other names and regions, profile text (URL fields
- * skipped, as in profile validation) and warnings.
+ * Scans the strings the site publishes, with the same rules as profile validation: owner names, other names
+ * and regions, every profile string (URLs included) and warnings.
  */
 function checkText(model: SiteModel): void {
   for (const [id, o] of model.owners) {
