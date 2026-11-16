@@ -1,0 +1,86 @@
+id: hootsuite.com
+name: Hootsuite
+countries: [CA]
+wikidata: Q2749075
+entities:
+  caNames:
+    - name: Hootsuite Inc
+      province: BC
+basics:
+  industry:
+    value: Social media management software
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q2749075
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Vancouver, British Columbia
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q2749075
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Step Up
+      - One Team
+      - Customer Obsessed
+      - Go Fast, Be Agile
+      - Play to Win
+      - Neighbours & Allies
+    summary:
+      en: >-
+        Hootsuite's six guiding principles ask staff to go beyond what is expected, trust and back each other,
+        focus hard on customer success, choose speed and simplicity over perfection, build a profitable company
+        for all its stakeholders, and give back to their communities.
+  kind: official
+  sources:
+    - url: https://careers.hootsuite.com/
+      seen: "2026-11-15"
+    - url: https://www.hootsuite.com/about
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Hootsuite says it may use AI tools to source and screen candidates and to summarise interviews and
+        interviewer feedback, but people make every final hiring decision. Its job postings disclose this.
+    kind: official
+    sources:
+      - url: https://careers.hootsuite.com/privacy-policy
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        Technical roles may include automated tests. Machine-scored multiple-choice results can be checked by
+        a person if you ask, and coding tasks and whiteboard sessions are always run and assessed by people
+        before anyone advances.
+    kind: official
+    sources:
+      - url: https://careers.hootsuite.com/privacy-policy
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Hootsuite does not publish fixed interview stages. Its careers pages mention phone, video or in-person
+      interviews, assessments and coding exercises for technical roles, and background checks where a role
+      needs one. Each posting says whether the job is in-office, hybrid or remote.
+  kind: official
+  sources:
+    - url: https://careers.hootsuite.com/privacy-policy
+      seen: "2026-11-15"
+    - url: https://careers.hootsuite.com/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+links:
+  - label: Hootsuite Careers
+    url: https://careers.hootsuite.com/
+  - label: Hootsuite open roles
+    url: https://careers.hootsuite.com/jobs/search
+  - label: Hootsuite reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Hootsuite-Reviews-E617216.htm
+  - label: Hootsuite on Blind
+    url: https://www.teamblind.com/company/Hootsuite

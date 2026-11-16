@@ -1,0 +1,175 @@
+id: anthropic.com
+name: Anthropic
+countries: [US, CA, KR]
+wikidata: Q116758847
+entities:
+  usFeins: ["861696045"]
+basics:
+  industry:
+    value: Artificial intelligence
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q116758847
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 5,300 employees (2026)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q116758847
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: San Francisco, California
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q116758847
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      Anthropic, a public benefit corporation, gives the same aim as both its mission and its legal purpose:
+      building and maintaining advanced AI responsibly, so that it serves humanity's long-term good.
+    ko: >-
+      공익 기업(PBC)인 Anthropic은 미션이자 법적 목적으로 같은 목표를 내세운다. 첨단 AI를 책임 있게 만들고
+      관리해 인류의 장기적 이익에 도움이 되게 하는 것이다.
+  kind: official
+  sources:
+    - url: https://www.anthropic.com/company
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Act for the global good
+      - Hold light and shade
+      - Be good to our users
+      - Ignite a race to the top on safety
+      - Do the simple thing that works
+      - Be helpful, honest, and harmless
+      - Put the mission first
+    summary:
+      en: >-
+        Anthropic's seven values ask staff to act for humanity's long-term good, weigh AI's risks and benefits
+        together, treat users and everyone affected with care, push the industry towards safer AI, prefer simple
+        empirical fixes, be honest and kind, and put the mission first.
+      ko: >-
+        Anthropic의 일곱 가지 가치는 인류의 장기적 이익을 위한 행동, AI의 위험과 이점을 함께 따지기, 사용자와
+        영향을 받는 모든 사람을 배려하기, 업계 전체의 안전 경쟁 이끌기, 단순하고 실증적인 해법 선호, 정직과 친절,
+        미션 우선을 강조한다.
+  kind: official
+  sources:
+    - url: https://www.anthropic.com/company
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        If you are not selected, you can reapply after 12 months, or sooner if your experience or skills
+        change materially.
+      ko: 불합격한 경우 12개월 뒤에 다시 지원할 수 있으며, 경력이나 역량이 크게 달라졌다면 그보다 일찍 지원해도 된다.
+    kind: official
+    sources:
+      - url: https://www.anthropic.com/careers
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: Anthropic says it sponsors visas and green cards for eligible roles.
+      ko: Anthropic은 해당되는 직무에 대해 비자와 영주권을 지원한다고 밝힌다.
+    kind: official
+    sources:
+      - url: https://www.anthropic.com/careers
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        You may use Claude to polish an application you drafted yourself and to prepare, but not to invent
+        experience. Take-home tasks are done without Claude, and live interviews without any AI help, unless
+        Anthropic says otherwise.
+      ko: >-
+        직접 쓴 지원서를 다듬거나 면접을 준비할 때는 Claude를 써도 되지만, 없는 경험을 지어내서는 안 된다.
+        Anthropic이 따로 허용하지 않는 한 과제는 Claude 없이, 실시간 면접은 AI 도움 없이 치러야 한다.
+    kind: official
+    sources:
+      - url: https://www.anthropic.com/candidate-ai-guidance
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        Genuine Anthropic recruiters write only from @anthropic.com addresses, and none will ask you to pay
+        anything or share bank details before you start. If in doubt, check openings on anthropic.com/careers
+        rather than clicking links.
+      ko: >-
+        진짜 Anthropic 리크루터는 @anthropic.com 주소만 쓰며, 입사 전에 돈을 내거나 은행 정보를 알려 달라고 하지
+        않는다. 의심스러우면 링크를 누르지 말고 anthropic.com/careers에서 공고를 직접 확인하면 된다.
+    kind: official
+    sources:
+      - url: https://www.anthropic.com/careers
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      All interviews run on Google Meet. Technical roles use live coding in tools such as Colab or
+      CodeSignal, where you may look things up; other interviews are conversational. Anthropic gives no
+      feedback on resumes or interviews and lets you take your time on an offer.
+    ko: >-
+      모든 면접은 Google Meet로 진행된다. 기술 직군은 Colab이나 CodeSignal 같은 도구로 실시간 코딩을 하며 필요한
+      것을 찾아봐도 되고, 비기술 직군 면접은 대화 형식이다. 서류나 면접에 대한 피드백은 주지 않으며, 오퍼 결정에는
+      충분한 시간을 준다.
+  kind: official
+  sources:
+    - url: https://www.anthropic.com/careers
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: onsite
+      wait:
+        en: >-
+          Most report about 12 months after a failed loop, as the official rule says; one candidate's two
+          earlier attempts got no reply. Reports vary, though: another, who reapplied to a different part of
+          the company 7 months after an onsite, was contacted and sent a coding test.
+        ko: >-
+          최종 면접 탈락 후에는 공식 규칙대로 약 12개월이라는 보고가 많고, 1년이 되기 전에 두 번 지원했지만 답을
+          받지 못했다는 지원자도 있다. 다만 보고는 엇갈린다. 최종 면접 탈락 7개월 뒤 다른 조직에 지원해 리크루터
+          연락과 코딩 테스트를 받은 사례도 있다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/anthropic-cooldown-period-reduction-possible-k7hswy4m
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/reinterview-with-anthropic-lbyd8mma
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/openaianthropic-axe05hi0
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      after: phone
+      wait:
+        en: >-
+          Two candidates, in separate 2026 threads, say their recruiter told them a phone or recruiter-screen
+          rejection covered only that role, not others. Another commenter says any rejection starts a
+          company-wide cooldown. It is unclear, so ask your recruiter.
+        ko: >-
+          두 지원자가 2026년의 서로 다른 스레드에서, 전화 또는 리크루터 스크리닝 불합격이 다른 직무가 아닌 해당
+          직무에만 해당한다는 말을 리크루터에게 들었다고 전한다. 반면 불합격 한 번이면 회사 전체에 대기 기간이
+          걸린다는 댓글도 있다. 분명하지 않으니 리크루터에게 확인하는 것이 좋다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/anthropic-cooldown-per-role-ambiguous-recruiter-language-nasf0o13
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/anthropic-interview-process-ev780yr4
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/is-the-anthropic-hiring-process-team-specific-77akk4iw
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: Anthropic Careers
+    url: https://www.anthropic.com/careers
+  - label: Anthropic AI guidance for candidates
+    url: https://www.anthropic.com/candidate-ai-guidance
+  - label: Anthropic reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Anthropic-Reviews-E8109027.htm
+  - label: Anthropic on Blind
+    url: https://www.teamblind.com/company/Anthropic

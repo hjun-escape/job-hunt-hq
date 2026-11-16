@@ -1,0 +1,116 @@
+id: stripe.com
+name: Stripe
+countries: [US, CA]
+wikidata: Q7624104
+entities:
+  usFeins: ["270465600", "800948598"]
+  usNames:
+    - Stripe Payments Company
+  caNames:
+    - name: Stripe Payments, Canada Ltd.
+      province: "ON"
+basics:
+  industry:
+    value: Financial services and payments
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q7624104
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 8,000 employees (2022)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q7624104
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: South San Francisco, California, with a second HQ in Dublin, Ireland
+    kind: official
+    sources:
+      - url: https://stripe.com/careers/search
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      Stripe states its mission as increasing economic growth, which it pursues on three fronts: software that
+      makes it cheaper and easier for businesses to start and expand, published ideas, and infrastructure for
+      AI-driven commerce.
+  kind: official
+  sources:
+    - url: https://stripe.com/careers
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Users first
+      - Create with craft and beauty
+      - Move with urgency and focus
+      - Collaborate egolessly
+      - Stay curious
+      - Obsess over talent
+    summary:
+      en: >-
+        Stripe's six operating principles put users first and ask staff to do careful, polished work, move
+        fast on what matters most, work as one team without ego, keep learning, and help hire and grow strong
+        people.
+  kind: official
+  sources:
+    - url: https://stripe.com/careers/compatibility
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Real contact from a Stripe recruiter comes through LinkedIn or an @stripe.com address. At no stage will
+        they ask you to pay, or to share financial details or account logins.
+    kind: official
+    sources:
+      - url: https://stripe.com/careers
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Three parts in most cases: a recruiter screen, a technical or skills test, and interviews with your
+      future team. Stripe aims for speed and clear feedback at every step, but timing depends on role, level
+      and location; some processes finish in weeks.
+  kind: official
+  sources:
+    - url: https://stripe.com/careers
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: any
+      wait:
+        en: >-
+          No rule is published. Three separate threads give about 12 months, two of them from Stripe-badged
+          accounts, one adding that it depends on country, level and the reason. Others, among them two
+          Stripe-badged replies from 2021, say 6 months, and one says 9. Ask your recruiter.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/stripe-interview-cool-off-period-yipklxys
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/confusing-stripe-interview-uthjyyvg
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/stripe-phone-screen-zfbdnkpx
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/cool-off-period-to-reapply-at-stripe-c7vzbrvh
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/re-applying-to-stripe-referrals-oevw1pdf
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/really-stripe-mdq5afbd
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: Stripe Careers
+    url: https://stripe.com/careers
+  - label: Stripe operating principles
+    url: https://stripe.com/careers/compatibility
+  - label: Stripe reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Stripe-Reviews-E671932.htm
+  - label: Stripe on Blind
+    url: https://www.teamblind.com/company/Stripe

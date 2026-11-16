@@ -1,3 +1,9 @@
 node_modules
 dist
 .DS_Store
+.cache
+site
+build-problems.md
+recheck.md
+# Leftovers of a killed summary write (pipeline/build.ts writeSummaries); never commit them.
+data/.summary-staging-*

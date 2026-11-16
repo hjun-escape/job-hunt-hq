@@ -1,0 +1,10 @@
+id: kr-without-ko-example.com
+name: Example Co
+countries: [KR]
+entities: {}
+mission:
+  value: { en: A fictional mission. }
+  kind: official
+  sources:
+    - { url: "https://kr-without-ko-example.com/about", seen: "2026-01-10" }
+  checked: "2026-01-10"

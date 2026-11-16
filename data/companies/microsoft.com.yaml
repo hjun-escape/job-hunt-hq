@@ -1,0 +1,101 @@
+id: microsoft.com
+name: Microsoft
+countries: [US, CA, KR]
+wikidata: Q2283
+entities:
+  usFeins: ["911144442", "911590503"]
+  usNames:
+    - Microsoft Corporation
+    - Microsoft Caribbean, Inc.
+basics:
+  industry:
+    value: Software, technology and consumer electronics
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q2283
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 228,000 employees (2024)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q2283
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Redmond, Washington
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q2283
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      To give people and organisations everywhere the means to achieve more. Microsoft adds that, with
+      technology this powerful, the future it builds has to benefit everyone.
+    ko: >-
+      전 세계 사람과 조직이 더 많은 것을 이룰 수 있는 힘을 주는 것. Microsoft는 기술의 힘이 커진 만큼
+      모두에게 이로운 미래를 만들어야 한다고 덧붙인다.
+  kind: official
+  sources:
+    - url: https://www.microsoft.com/en-us/about
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Respect
+      - Integrity
+      - Accountability
+    summary:
+      en: >-
+        Microsoft names three corporate values for how it treats staff, customers and partners. Its hiring
+        pages say interviewers also look for a growth mindset.
+      ko: >-
+        Microsoft는 직원, 고객, 파트너를 대하는 방식으로 세 가지 기업 가치를 내세운다. 채용 페이지에서는 면접에서
+        성장 마인드셋도 본다고 밝힌다.
+  kind: official
+  sources:
+    - url: https://www.microsoft.com/en-us/about
+      seen: "2026-11-15"
+    - url: https://careers.microsoft.com/v2/global/en/hiring-tips.html
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Represent yourself honestly at every stage. AI may help you prepare, but in assessments and
+        interviews you must show your own skills without outside help unless you are told otherwise.
+      ko: >-
+        모든 단계에서 자신을 정직하게 소개해야 한다. 준비에는 AI를 써도 되지만, 평가와 면접에서는 따로 허용되지
+        않는 한 외부 도움 없이 본인의 실력을 보여야 한다.
+    kind: official
+    sources:
+      - url: https://careers.microsoft.com/v2/global/en/hiring-tips.html
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      After a resume review, some teams hold a brief screening call. Most interview rounds are 2 to 4
+      conversations of up to an hour with future teammates and partner colleagues, by phone, Teams or in
+      person. Some roles add coding, a portfolio or work samples.
+    ko: >-
+      서류 검토 후 일부 팀은 짧은 스크리닝 통화를 한다. 면접은 보통 함께 일할 팀원 및 협업 부서 동료와의
+      대화 2~4회로, 각각 최대 1시간이며 전화, Teams 또는 대면으로 진행된다. 직무에 따라 코딩, 포트폴리오,
+      작업 샘플이 추가된다.
+  kind: official
+  sources:
+    - url: https://careers.microsoft.com/v2/global/en/hiring-tips.html
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+links:
+  - label: Microsoft Careers, how we hire
+    url: https://careers.microsoft.com/v2/global/en/hiring-tips.html
+  - label: Microsoft interview tips
+    url: https://careers.microsoft.com/v2/global/en/hiring-tips/interview-tips.html
+  - label: Microsoft reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Microsoft-Reviews-E1651.htm
+  - label: Microsoft on Blind
+    url: https://www.teamblind.com/company/Microsoft

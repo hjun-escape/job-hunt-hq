@@ -1,0 +1,122 @@
+name: dataset-recheck
+
+on:
+  schedule:
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: dataset-recheck
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Re-check the cited sources
+        run: npm run dataset:recheck -- --issue-body recheck.md --report https://hjun-escape.github.io/job-hunt-hq/data/v1/report.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: fingerprints
+          path: data/fingerprints.json
+          if-no-files-found: error
+      - name: Open or update the weekly issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create dataset-weekly --color 0E8A16 --description "Weekly dataset source re-check" 2>/dev/null || true
+          number=$(gh issue list --label dataset-weekly --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file recheck.md
+            gh issue comment "$number" --body "Updated by this week's re-check: $RUN_URL"
+          else
+            gh issue create --title "Weekly source re-check" --label dataset-weekly --body-file recheck.md
+          fi
+
+  commit:
+    needs: recheck
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: fingerprints
+          path: data
+      - name: Commit source fingerprints
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/fingerprints.json
+          if git diff --cached --quiet; then
+            echo "data/fingerprints.json unchanged"
+            exit 0
+          fi
+          git commit -m "data: update source fingerprints"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:master; then
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt), rebasing"
+            git pull --rebase origin master
+          done
+          echo "could not push after 3 attempts"
+          exit 1
+
+  report:
+    needs: [recheck, commit]
+    # Any failed, timed-out or cancelled job files one issue, so a broken re-check is never silent.
+    if: always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the re-check failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RECHECK_RESULT: ${{ needs.recheck.result }}
+          COMMIT_RESULT: ${{ needs.commit.result }}
+        run: |
+          gh label create dataset-recheck-failed --color B60205 --description "Weekly dataset source re-check failed" 2>/dev/null || true
+          {
+            echo "# Source re-check failed"
+            echo
+            echo "Job results: recheck $RECHECK_RESULT, commit $COMMIT_RESULT."
+            if [ "$RECHECK_RESULT" = "failure" ] || [ "$RECHECK_RESULT" = "cancelled" ]; then
+              echo "The re-check did not finish ($RECHECK_RESULT), for example a profile problem, an install failure, a timeout or a cancelled run, so the weekly issue was not updated this week."
+            else
+              echo "The weekly issue was updated, but committing data/fingerprints.json to master did not finish ($COMMIT_RESULT), so next week compares with the old fingerprints."
+            fi
+            echo
+            echo "Run: $RUN_URL"
+          } > issue-body.md
+          number=$(gh issue list --label dataset-recheck-failed --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file issue-body.md
+            gh issue comment "$number" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --title "Source re-check failed" --label dataset-recheck-failed --body-file issue-body.md
+          fi

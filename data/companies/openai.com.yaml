@@ -1,0 +1,126 @@
+id: openai.com
+name: OpenAI
+countries: [US, CA, KR]
+wikidata: Q21708200
+entities:
+  usFeins: ["831960637", "853082781"]
+  usNames:
+    - OpenAI OpCo, LLC
+basics:
+  industry:
+    value: Artificial intelligence
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q21708200
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 4,500 employees (2026)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q21708200
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: San Francisco, California
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q21708200
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      OpenAI wants AGI, which it frames as AI broadly more capable than people, to benefit everyone. It is
+      developing its own AGI, aiming for it to be safe and to do good, though it would also call the mission a
+      success if its work helped another group reach that result.
+    ko: >-
+      OpenAI는 사람보다 전반적으로 뛰어난 AI, 즉 AGI가 모두에게 이익이 되기를 목표로 한다. AGI를 직접
+      개발하며 안전하고 이롭게 만들려 하지만, 자사의 작업이 다른 곳이 그 결과에 이르도록 도운
+      경우에도 미션을 이룬 것으로 보겠다고 한다.
+  kind: official
+  sources:
+    - url: https://openai.com/about/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Humanity first
+      - Act with humility
+      - Feel the AGI
+      - Ship joy
+    summary:
+      en: >-
+        OpenAI's four values stress benefiting people, staying humble and open to being wrong, treating AGI
+        with rigour and responsibility, and shipping products with optimism. Four operating principles add
+        finding a way, creativity over control, updating quickly and intense focus.
+      ko: >-
+        OpenAI의 네 가지 가치는 사람과 사회에 대한 기여, 틀릴 수 있음을 인정하는 겸손, AGI를 엄밀하고 책임 있게
+        다루는 태도, 낙관적으로 제품을 내놓는 것을 강조한다. 여기에 방법 찾기, 통제보다 창의성, 빠른 방향 수정,
+        강한 집중이라는 네 가지 운영 원칙이 더해진다.
+  kind: official
+  sources:
+    - url: https://openai.com/careers/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Whether AI tools are permitted depends on the interview format, and some rounds test what you can do
+        unaided. Check the prep materials for each round, and if they leave you in doubt, clear it with your
+        recruiter in advance.
+      ko: >-
+        AI 도구 허용 여부는 면접 형식에 따라 다르며, 도움 없이 혼자 푸는 능력을 보는 라운드도 있다. 라운드마다
+        준비 자료를 확인하고, 그래도 애매하면 미리 리크루터에게 물어보는 것이 좋다.
+    kind: official
+    sources:
+      - url: https://openai.com/interview-guide/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Resume review takes about a week, then an intro call and one or more skills assessments, such as pair
+      coding or a take-home. Final interviews are virtual by default: usually 4 to 6 hours with 4 to 6 people
+      over 1 or 2 days. A decision follows within a week.
+    ko: >-
+      서류 검토에 약 1주가 걸리고, 이어서 리크루터나 채용 매니저와 첫 통화를 한 뒤 페어 코딩, 과제, 기술 시험 같은
+      역량 평가를 한 번 이상 본다. 최종 면접은 기본적으로 화상이며, 보통 1~2일에 걸쳐 4~6명과 4~6시간 진행된다.
+      결과는 1주 안에 나온다.
+  kind: official
+  sources:
+    - url: https://openai.com/interview-guide/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: any
+      wait:
+        en: >-
+          No rule is published and reports conflict. About a year is the figure candidates give most often,
+          after a phone screen or a final round, and one was hired after reapplying about a year later. Others
+          say there is no cooldown. Ask your recruiter.
+        ko: >-
+          공개된 규칙이 없고 보고도 엇갈린다. 전화 면접이나 최종 면접 탈락 후 약 1년이라는 답이 가장 많고, 1년쯤
+          뒤 다시 지원해 합격한 사례도 있다. 대기 기간이 없다는 의견도 있으니 리크루터에게 확인하는 것이 좋다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/reapplying-to-openai-after-rejection-vv3patfo
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/does-openai-have-a-cool-off-period-opnxwdm7
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/openai-cooldown-u7ao2buv
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/does-openai-have-a-cooldown-period-jzgyvvnw
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: OpenAI Careers
+    url: https://openai.com/careers/
+  - label: OpenAI interview guide
+    url: https://openai.com/interview-guide/
+  - label: OpenAI reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/OpenAI-Reviews-E2210885.htm
+  - label: OpenAI on Blind
+    url: https://www.teamblind.com/company/OpenAI

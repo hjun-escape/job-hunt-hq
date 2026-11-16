@@ -1,0 +1,226 @@
+// @vitest-environment node
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import ExcelJS from "exceljs";
+import JSZip from "jszip";
+import { afterAll, describe, expect, it } from "vitest";
+import { loadCa, lmiaPeriodFromName, mapLmiaRow } from "../../pipeline/load/ca";
+import type { LoadContext } from "../../pipeline/load/us";
+import { buildEntityMap, ownerForCa } from "../../pipeline/match/entities";
+import { EXPECTED_COLUMNS } from "../../pipeline/sources";
+import type { CaApproval } from "../../pipeline/types";
+
+const dir = mkdtempSync(path.join(tmpdir(), "ca-load-test-"));
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+const nocSeen: string[] = [];
+const ctx: LoadContext = {
+  roles: {
+    us: () => "swe",
+    ca: (noc: string) => (nocSeen.push(noc), /^\s*(?:NOC\s*)?21231/.test(noc) ? "software-engineer" : "noc-unknown"),
+    label: (id: string) => id,
+    ids: ["software-engineer"],
+    defs: [],
+  },
+  places: {
+    us: () => ({ metro: null, region: "US" }),
+    ca: (city, province) => ({
+      metro: city === "Toronto" && province === "ON" ? "cma:505" : null,
+      region: province ? `CA-${province}` : "CA",
+    }),
+    label: (k: string) => k,
+  },
+};
+
+const p = { year: 2026, quarter: 2 } as const;
+const lmiaRow: Record<string, string> = {
+  "Province/Territory": "Ontario",
+  "Program Stream": "Global Talent",
+  Employer: "Shopify Inc.",
+  Address: "123 King St W, Toronto, ON M5V 1J2",
+  Occupation: "21231 - Software engineers and designers",
+  "Approved LMIAs": "2",
+  "Approved Positions": "3",
+};
+
+describe("mapLmiaRow", () => {
+  it("maps a row, keeping the stream as given", () => {
+    expect(mapLmiaRow(lmiaRow, ctx, p)).toEqual({
+      year: 2026, quarter: 2, employer: { name: "Shopify Inc.", province: "ON" }, stream: "Global Talent",
+      role: "software-engineer", place: { metro: "cma:505", region: "CA-ON" }, lmias: 2, positions: 3,
+    });
+  });
+
+  it("accepts NOC cell variants", () => {
+    for (const o of ["NOC 21231", "21231", "21231 - Software engineers and designers"]) {
+      expect(mapLmiaRow({ ...lmiaRow, Occupation: o }, ctx, p)!.role).toBe("software-engineer");
+    }
+  });
+
+  it("returns null for footnote rows and zero counts", () => {
+    const note = { "Province/Territory": "Note: positions include cancelled", Employer: "", Address: "", Occupation: "",
+      "Program Stream": "", "Approved LMIAs": "", "Approved Positions": "" };
+    expect(mapLmiaRow(note, ctx, p)).toBeNull();
+    expect(mapLmiaRow({ ...lmiaRow, "Approved LMIAs": "0", "Approved Positions": "0" }, ctx, p)).toBeNull();
+  });
+
+  it("falls back to the province column, English or French", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Address: "", "Province/Territory": "Québec" }, ctx, p)!.employer.province).toBe("QC");
+    expect(mapLmiaRow({ ...lmiaRow, Address: "", "Province/Territory": "Colombie-Britannique" }, ctx, p)!.employer.province).toBe("BC");
+    expect(mapLmiaRow({ ...lmiaRow, Address: "", "Province/Territory": "Newfoundland and Labrador" }, ctx, p)!.employer.province).toBe("NL");
+  });
+
+  it("prefers the address province over the column", () => {
+    expect(mapLmiaRow({ ...lmiaRow, "Province/Territory": "Alberta" }, ctx, p)!.employer.province).toBe("ON");
+  });
+
+  it("keeps a row with no province, using region CA and an empty province", () => {
+    const r = mapLmiaRow({ ...lmiaRow, Address: "10 Main St, Paris, France", "Province/Territory": "" }, ctx, p)!;
+    expect(r.employer.province).toBe("");
+    expect(r.place).toEqual({ metro: null, region: "CA" });
+  });
+
+  it("never outputs the street or postal code", () => {
+    const out = JSON.stringify(mapLmiaRow(lmiaRow, ctx, p));
+    expect(out).not.toContain("King St");
+    expect(out).not.toContain("M5V");
+    expect(out).not.toContain("123");
+  });
+
+  it("parses counts with commas and rejects bad counts", () => {
+    const r = mapLmiaRow({ ...lmiaRow, "Approved LMIAs": "1,200", "Approved Positions": "2,500" }, ctx, p)!;
+    expect([r.lmias, r.positions]).toEqual([1200, 2500]);
+    expect(() => mapLmiaRow({ ...lmiaRow, "Approved LMIAs": "abc" }, ctx, p)).not.toThrow();
+  });
+
+  it("trims the stream and employer", () => {
+    const r = mapLmiaRow({ ...lmiaRow, "Program Stream": " Low-wage ", Employer: "  Acme Ltd " }, ctx, p)!;
+    expect(r.stream).toBe("Low-wage");
+    expect(r.employer.name).toBe("Acme Ltd");
+  });
+});
+
+describe("filed-name cleaning (R34 emails, R35 FEIN-shaped numbers)", () => {
+  it("skips an employer name holding an email", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd hr@acme.example" }, ctx, p)).toBeNull();
+  });
+
+  it("removes FEIN-shaped numbers, Canadian 9-digit business numbers included, and trims what is left", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "ACME INC 12-3456789" }, ctx, p)!.employer.name).toBe("ACME INC");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd - 123456789" }, ctx, p)!.employer.name).toBe("Acme Ltd");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Acme Ltd 12_3456789" }, ctx, p)!.employer.name).toBe("Acme Ltd");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789 Ontario Holdings Inc." }, ctx, p)!.employer.name).toBe("Ontario Holdings Inc.");
+  });
+
+  it("keeps a numbered-company name whole, so distinct numbered companies stay distinct owners (R37)", () => {
+    const a = mapLmiaRow({ ...lmiaRow, Employer: "101234567 Saskatchewan Ltd.", Address: "", "Province/Territory": "Saskatchewan" }, ctx, p)!;
+    const b = mapLmiaRow({ ...lmiaRow, Employer: "101765432 Saskatchewan Ltd.", Address: "", "Province/Territory": "Saskatchewan" }, ctx, p)!;
+    expect(a.employer.name).toBe("101234567 Saskatchewan Ltd.");
+    expect(b.employer.name).toBe("101765432 Saskatchewan Ltd.");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789 Canada Inc." }, ctx, p)!.employer.name).toBe("123456789 Canada Inc.");
+    const none = buildEntityMap([]);
+    expect(ownerForCa(a.employer, none)).not.toBe(ownerForCa(b.employer, none));
+  });
+
+  it("leaves other numbered names alone", () => {
+    for (const name of ["1234567 Ontario Inc.", "9123-4567 Québec inc.", "12345678 Canada Inc."]) {
+      expect(mapLmiaRow({ ...lmiaRow, Employer: name }, ctx, p)!.employer.name, name).toBe(name);
+    }
+  });
+
+  it("strips an address appended to the employer name, never a numbered company's number (R46)", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "ACME LTD, 100 KING ST W, TORONTO" }, ctx, p)!.employer.name).toBe("ACME LTD");
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "1234567 Ontario Limited, 99 Bunting Road, St. Catharines, On" }, ctx, p)!.employer.name).toBe(
+      "1234567 Ontario Limited",
+    );
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "100 King St W, Toronto" }, ctx, p)).toBeNull();
+  });
+
+  it("flags only a two-person employer name as person-like, never the general 2-3 word rule (R48)", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "John Doe and Jane Roe" }, ctx, p)!.employer).toEqual({
+      name: "John Doe and Jane Roe", province: "ON", personLike: true,
+    });
+    for (const name of ["Jean Tremblay", "Maple Farms", "Johnson & Johnson Inc.", "Shopify Inc."]) {
+      expect(mapLmiaRow({ ...lmiaRow, Employer: name }, ctx, p)!.employer, name).not.toHaveProperty("personLike");
+    }
+  });
+
+  it("skips a private household unless a profile claims it, and flags the wider two-person names (R49)", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Jean Roy (Private Household)" }, ctx, p)).toBeNull();
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Residence of Jane Roe" }, ctx, p)).toBeNull();
+    const profiledCa = (e: CaApproval["employer"]) => e.name === "Residence of Jane Roe";
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Residence of Jane Roe" }, { ...ctx, profiledCa }, p)).not.toBeNull();
+    for (const name of ["Jean Tremblay et Marie Roy", "Ann Lee, Bo Kim and Cy Park", "John Doe / Jane Roe"]) {
+      expect(mapLmiaRow({ ...lmiaRow, Employer: name }, ctx, p)!.employer.personLike, name).toBe(true);
+    }
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "Household Finance Corporation" }, ctx, p)).not.toBeNull();
+  });
+
+  it("skips an employer name that was only a number", () => {
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "123456789" }, ctx, p)).toBeNull();
+    expect(mapLmiaRow({ ...lmiaRow, Employer: "12-3456789" }, ctx, p)).toBeNull();
+  });
+});
+
+describe("lmiaPeriodFromName", () => {
+  it("parses year-then-quarter and quarter-then-year forms", () => {
+    const q2 = { year: 2026, quarter: 2 };
+    for (const n of ["tfwp_2026q2_pos_en.xlsx", "TFWP_2026_Q2_x.xlsx", "Q2-2026.xlsx", "2026 Q2", "q2_2026", "2026Q2", "lmia_2026q2.xlsx"]) {
+      expect(lmiaPeriodFromName(n), n).toEqual(q2);
+    }
+  });
+
+  it("returns null without a period and ignores directory names", () => {
+    expect(lmiaPeriodFromName("positive.xlsx")).toBeNull();
+    expect(lmiaPeriodFromName("tfwp_2026q5.xlsx")).toBeNull();
+    expect(lmiaPeriodFromName("/data/2025q1/positive.xlsx")).toBeNull();
+    expect(lmiaPeriodFromName("/data/2025q1/tfwp_2024q3.xlsx")).toEqual({ year: 2024, quarter: 3 });
+  });
+});
+
+async function xlsx(name: string, rows: unknown[][]): Promise<string> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("S");
+  for (const r of rows) ws.addRow(r);
+  const file = path.join(dir, name);
+  await wb.xlsx.writeFile(file);
+  // Repack with workbook.xml, styles and shared strings ahead of the sheets (the order the streaming reader expects).
+  const src = await JSZip.loadAsync(readFileSync(file));
+  const names = Object.keys(src.files).filter((n) => !src.files[n].dir);
+  const rank = (n: string) => (n.startsWith("xl/worksheets/") ? 2 : n === "xl/styles.xml" || n === "xl/sharedStrings.xml" ? 1 : 0);
+  names.sort((a, b) => rank(a) - rank(b));
+  const out = new JSZip();
+  for (const n of names) out.file(n, await src.files[n].async("nodebuffer"));
+  writeFileSync(file, await out.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
+  return file;
+}
+
+describe("loadCa", () => {
+  it("reads a file with a title row and a footnote row, counting stats", async () => {
+    const h = EXPECTED_COLUMNS.lmia;
+    const cells = (r: Record<string, string>) => h.map((c) => r[c] ?? "");
+    const file = await xlsx("tfwp_2026q2_pos_en.xlsx", [
+      ["Positive LMIA employers, 2026 Q2"],
+      h,
+      cells(lmiaRow),
+      cells({ ...lmiaRow, Employer: "Bad Counts Ltd", "Approved LMIAs": "n/a" }),
+      cells({ ...lmiaRow, Employer: "Acme Ltd", Address: "", "Province/Territory": "Alberta", "Program Stream": "High-wage" }),
+      cells({ "Province/Territory": "Note: positions include cancelled" }),
+      cells({ ...lmiaRow, Employer: "jobs@acme.example" }),
+      cells({ ...lmiaRow, Employer: "123456789" }),
+      cells({ Employer: "Questions: lmia@example.gc.ca" }),
+      cells({ ...lmiaRow, Employer: "100 King St W, Toronto" }),
+      cells({ ...lmiaRow, Employer: "Private Household of Jean Roy" }),
+    ]);
+    const { rows, stats } = loadCa(file, p, ctx);
+    const got: CaApproval[] = [];
+    for await (const r of rows) got.push(r);
+    expect(got.map((r) => r.employer.name)).toEqual(["Shopify Inc.", "Acme Ltd"]);
+    expect(got[1].employer.province).toBe("AB");
+    expect(stats).toEqual({
+      read: 9, kept: 2, skippedPerson: 1, skippedInvalid: 4,
+      invalid: { counts: 1, "email in name": 1, "name was only a number": 1, "name was only an address": 1 }, tradeNamesBlanked: 0,
+    });
+  });
+});

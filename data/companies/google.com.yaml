@@ -1,0 +1,184 @@
+id: google.com
+name: Google
+countries: [US, CA, KR]
+officialHosts: [about.google]
+wikidata: Q95
+entities:
+  usFeins: ["770493581", "850532252"]
+  usNames:
+    - Google LLC
+    - Google Public Sector LLC
+basics:
+  industry:
+    value: Internet, software and technology
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q95
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 187,000 employees (2022)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q95
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Mountain View, California
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q95
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: To organise the information of the world so that anyone can reach it and put it to good use.
+    ko: 전 세계의 정보를 정리해 누구나 쉽게 찾고 유용하게 쓸 수 있도록 하는 것.
+  kind: official
+  sources:
+    - url: https://about.google/company-info/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Focus on the user and all else will follow
+      - It's best to do one thing really, really well
+      - Fast is better than slow
+      - Democracy on the web works
+      - You don't need to be at your desk to need an answer
+      - You can make money without doing evil
+      - There's always more information out there
+      - The need for information crosses all borders
+      - You can be serious without a suit
+      - Great just isn't good enough
+    summary:
+      en: >-
+        Google's ten-point philosophy: put users first, do one thing very well, favour speed, trust the
+        open web, serve people anywhere and on the move, earn money without doing harm, stay informal, and
+        keep raising the bar.
+      ko: >-
+        Google이 밝힌 열 가지 철학으로, 사용자 우선, 한 가지를 아주 잘하기, 속도, 열린 웹에 대한 신뢰,
+        어디서나 필요한 정보 제공, 해를 끼치지 않는 수익, 격식 없는 문화, 끊임없이 기준을 높이기를 강조한다.
+  kind: official
+  sources:
+    - url: https://about.google/company-info/philosophy/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: Google caps applications at three in any 30-day period, counted on a rolling basis.
+      ko: 어느 시점이든 직전 30일 동안 지원할 수 있는 직무는 최대 세 개다.
+    kind: official
+    sources:
+      - url: https://support.google.com/googlecareers/answer/6095391
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        After applying, you must wait 90 days before applying to the same job again. Google adds that
+        people reapplying for technical roles tend to do best after gaining 12 to 18 more months of
+        experience.
+      ko: >-
+        같은 직무에 다시 지원하려면 90일을 기다려야 한다. Google은 기술 직군 재지원자는 12~18개월의 경력을
+        더 쌓은 뒤 지원할 때 가장 좋은 결과를 낸다고 덧붙인다.
+    kind: official
+    sources:
+      - url: https://support.google.com/googlecareers/answer/6095391
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        A submitted application cannot be edited, withdrawn or deleted, so check it before you send it.
+        Only drafts can be deleted.
+      ko: 제출한 지원서는 수정, 철회, 삭제할 수 없으므로 보내기 전에 확인해야 한다. 삭제는 임시 저장본만 가능하다.
+    kind: official
+    sources:
+      - url: https://support.google.com/googlecareers/answer/6095391
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: AI tools may not be used during interviews.
+      ko: 면접 중에는 AI 도구를 사용할 수 없다.
+    kind: official
+    sources:
+      - url: https://www.google.com/about/careers/applications/how-we-hire/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      After an online application, Google may ask for its Hiring Assessment or a role test such as
+      coding, then one or two short recruiter calls and sometimes a small project. A panel of video or
+      in-person interviews scored on shared rubrics follows, then a group decision.
+    ko: >-
+      온라인 지원 후 Google Hiring Assessment나 코딩 같은 직무 평가를 볼 수 있고, 리크루터와 짧은 통화를
+      한두 번 하며 때로는 작은 과제를 낸다. 이어서 공통 기준으로 평가하는 화상 또는 대면 패널 면접을 보고,
+      여러 의견을 모아 결정한다.
+  kind: official
+  sources:
+    - url: https://www.google.com/about/careers/applications/how-we-hire/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: resume
+      wait:
+        en: >-
+          Candidates report no formal cooldown after a resume-only rejection, beyond Google's published
+          limits of three applications per 30 days and 90 days before reapplying to the same job.
+        ko: >-
+          서류 단계에서 떨어진 경우 별도의 대기 기간은 없다는 보고가 많다. 다만 30일에 세 건, 같은 직무는
+          90일 후 재지원이라는 공식 제한은 그대로 적용된다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/google-is-there-a-cooldown-period-after-the-application-is-rejected-no-phone-screen-vaihdlyd
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/google-rejected-in-24-hours-krqvptj7
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      after: phone
+      wait:
+        en: >-
+          Reports vary. About 6 months is the figure candidates give most often after a failed phone screen,
+          but some say their recruiter quoted 12 months or more. Ask your recruiter which applies.
+        ko: >-
+          보고가 엇갈린다. 전화 면접 탈락 후 약 6개월이라는 답이 가장 많지만, 리크루터에게 12개월 이상이라고
+          들었다는 지원자도 있다. 담당 리크루터에게 확인하는 것이 좋다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/failed-google-phone-screen-cool-down-period-krnttfp2
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/Google-Phone-Screen-Cooldown-X0XJr3OS
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/google-phone-screen-reject-waupoa28
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      after: onsite
+      wait:
+        en: >-
+          Most candidates report about 12 months before Google will interview them again for a similar role
+          after a failed onsite. Some mention 6 to 9 months after a close result.
+        ko: >-
+          최종 면접에서 떨어지면 비슷한 직무로 다시 면접을 보기까지 약 12개월이라는 보고가 가장 많다. 결과가
+          근소했던 경우 6~9개월이라는 사례도 일부 있다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/google-onsite-cooloff-period-kicgqbwg
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/post-google-onsite-cooling-period-wuyoq5kc
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/google-cool-off-period-bmxrjx6p
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: Google Careers
+    url: https://www.google.com/about/careers/applications/
+  - label: Google Careers Help, applying for a job
+    url: https://support.google.com/googlecareers/answer/6095391
+  - label: Google reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Google-Reviews-E9079.htm
+  - label: Google on Blind
+    url: https://www.teamblind.com/company/Google

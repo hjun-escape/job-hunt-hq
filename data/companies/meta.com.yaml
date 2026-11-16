@@ -1,0 +1,129 @@
+id: meta.com
+name: Meta
+otherNames: [Facebook]
+countries: [US, CA, KR]
+officialHosts: [metacareers.com]
+wikidata: Q380
+entities:
+  usFeins: ["201665019", "274444984"]
+  usNames:
+    - Meta Platforms, Inc.
+    - Meta Payments Inc.
+    - Meta Payments Inc. (formerly known as Facebook Payments, Inc)
+basics:
+  industry:
+    value: Information technology
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q380
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Menlo Park, California
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q380
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      Meta says its mission is to shape where human connection goes next and to build the technology that
+      enables it, which today means its social apps plus mixed reality and AI.
+    ko: >-
+      Meta는 사람 사이 연결이 앞으로 나아갈 모습을 만들고 이를 뒷받침할 기술을 개발하는 것을 미션으로 삼는다.
+      지금은 소셜 앱에 더해 혼합현실과 AI가 그 중심에 있다.
+  kind: official
+  sources:
+    - url: https://www.meta.com/about/company-info/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Move fast
+      - Build awesome things
+      - Be direct and respect your colleagues
+      - Focus on long-term impact
+      - Live in the future
+      - Meta, Metamates, me
+    summary:
+      en: >-
+        Meta's six values stress urgency, ambitious and lasting work, candid but respectful debate,
+        adopting new products early with a preference for in-person work, and treating the company as
+        your own.
+      ko: >-
+        Meta의 여섯 가지 가치는 빠른 실행, 야심 차고 오래가는 성과, 솔직하지만 존중하는 토론, 대면 근무를
+        중시하며 새 제품을 먼저 써 보는 태도, 회사를 내 것처럼 여기는 주인의식을 강조한다.
+  kind: official
+  sources:
+    - url: https://www.metacareers.com/culture
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        Many Meta technical interviews include an AI assistant inside CoderPad, with a choice of models, and
+        candidates are expected to use it. Only tools inside the interview environment are permitted; outside
+        AI or help is not.
+      ko: >-
+        Meta의 많은 기술 면접에는 CoderPad 안에 AI 어시스턴트가 들어 있고(모델 선택 가능), 지원자는 이를
+        활용해야 한다. 면접 환경 안의 도구만 쓸 수 있으며, 외부 AI나 도움은 허용되지 않는다.
+    kind: official
+    sources:
+      - url: https://www.metacareers.com/hiring-process/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        You can apply to more than one role if you meet each role's minimum qualifications. The careers
+        site keeps one resume per applicant, so write it to cover every role you pursue.
+      ko: >-
+        각 직무의 최소 자격을 갖추면 여러 직무에 지원할 수 있다. 채용 사이트에는 지원자당 이력서를 하나만
+        둘 수 있으므로 지원하는 모든 직무에 맞게 작성해야 한다.
+    kind: official
+    sources:
+      - url: https://www.metacareers.com/hiring-process/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Most roles start with a recruiter call, or an online prescreen form for some roles. Phone or video
+      screening interviews follow, with coding or a case study for technical roles, then a full loop with
+      several employees. Meta says it usually takes 2 to 3 months.
+    ko: >-
+      대부분 리크루터 통화로 시작하며, 일부 직무는 온라인 사전 질문지를 쓴다. 이어서 전화나 화상 스크리닝
+      면접(기술 직군은 코딩이나 사례 과제 포함)을 거쳐 여러 직원과의 풀 루프 면접을 본다. 보통 2~3개월이
+      걸린다고 한다.
+  kind: official
+  sources:
+    - url: https://www.metacareers.com/hiring-process/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: onsite
+      wait:
+        en: >-
+          Candidates most often report about 6 months after a failed full loop before reapplying for a
+          similar role. Some report a year or more, for example after a weak design round.
+        ko: >-
+          풀 루프 면접에서 떨어진 뒤 비슷한 직무에 다시 지원하기까지 약 6개월이라는 보고가 가장 많다. 설계
+          면접 결과가 나빴던 경우 등에는 1년 이상이라는 사례도 있다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/meta-cool-off-confusion-4srebkjz
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/meta-cooldown-period-hnnztnll
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: Meta Careers
+    url: https://www.metacareers.com/
+  - label: Meta hiring process
+    url: https://www.metacareers.com/hiring-process/
+  - label: Meta reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/Meta-Reviews-E40772.htm
+  - label: Meta on Blind
+    url: https://www.teamblind.com/company/Meta

@@ -1,0 +1,122 @@
+id: daangn.com
+name: Daangn
+otherNames:
+  - 당근
+  - 당근마켓
+  - Karrot
+countries: [KR]
+wikidata: Q109458271
+entities: {}
+basics:
+  industry:
+    value: Hyperlocal community app and secondhand marketplace
+    kind: official
+    sources:
+      - url: https://about.daangn.com/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Seoul, South Korea
+    kind: official
+    sources:
+      - url: https://careers.daangn.com/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+mission:
+  value:
+    en: >-
+      To connect everything local and bring out the hidden value of each neighbourhood. Starting from
+      secondhand trades between neighbours, Daangn links local trading, groups, shop promotion and payments in
+      one community.
+    ko: >-
+      동네 안의 사람과 가게, 거래를 하나로 이어 동네가 품은 가치를 다시 살려내는 것. 이웃 간 중고 직거래에서
+      출발해 모임, 가게 홍보, 결제까지 지역 생활 전반을 잇는 커뮤니티를 만들고 있다.
+  kind: official
+  sources:
+    - url: https://about.daangn.com/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+values:
+  value:
+    names:
+      - 빌더십
+      - 신뢰와 충돌
+      - 유저 임팩트
+      - 실행력
+      - 공개와 공유
+    summary:
+      en: >-
+        Builder-ship, trust and conflict, user impact, execution, and openness and sharing. Small teams cross
+        role lines to solve problems, argue openly but commit once a call is made, judge work by its effect on
+        users, ship small and test fast, and keep the reasons for decisions public.
+      ko: >-
+        소수정예 팀이 깊이 몰입하는 방식이다. 직무의 경계를 넘어 문제를 직접 풀고, 서로 믿기에 반대 의견도
+        거리낌 없이 내되 결정되면 한 방향으로 움직인다. 사용자 삶에 준 변화로 성과를 보고, 작게 내놓아 빠르게
+        검증하며, 결정의 이유와 맥락을 모두에게 공개한다.
+  kind: official
+  sources:
+    - url: https://careers.daangn.com/culture/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        If you are rejected after the resume, video or job interview stage, you can reapply to the same posting
+        6 months after the final result, and to other postings right away. After a failed culture-fit
+        interview, you must wait 1 year to apply to any posting.
+      ko: >-
+        서류, 화상, 직무 인터뷰에서 떨어지면 같은 공고는 최종 결과 안내일로부터 6개월 뒤에, 다른 공고는 바로
+        다시 지원할 수 있다. 컬처핏 인터뷰에서 떨어지면 모든 공고에 1년 동안 지원할 수 없다.
+    kind: official
+    sources:
+      - url: https://careers.daangn.com/faq/%EC%A7%80%EC%9B%90-%EA%B4%80%EB%A0%A8/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        You may apply to several postings at once; each runs as its own process with its own reviewers. A
+        submitted application is hard to change, so check it first. There are no age or education limits.
+      ko: >-
+        여러 공고에 동시에 지원할 수 있고, 공고마다 평가자와 기준이 달라 절차도 따로 진행된다. 제출한 지원서는
+        고치기 어려우니 미리 꼼꼼히 확인해야 한다. 나이와 학력 제한은 없다.
+    kind: official
+    sources:
+      - url: https://careers.daangn.com/faq/%EC%A7%80%EC%9B%90-%EA%B4%80%EB%A0%A8/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        Foreign nationals may apply for any role, provided they already hold a work visa or can readily
+        obtain one. The process itself is conducted in Korean.
+      ko: >-
+        외국인도 모든 포지션에 지원할 수 있지만, 일할 수 있는 비자를 이미 갖고 있거나 무리 없이 받을 수 있어야
+        한다. 채용 과정은 한국어로 이루어진다.
+    kind: official
+    sources:
+      - url: https://careers.daangn.com/faq/%EC%A7%80%EC%9B%90-%EA%B4%80%EB%A0%A8/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      For full-time roles: resume review, a video interview, a take-home task due within 5 or 7 days, a job
+      interview, then a culture-fit interview (with a reference check if you agree) and pay talks. Everyone
+      hears back, resumes within 7 business days, but no feedback is given.
+    ko: >-
+      정규직은 보통 서류, 화상 인터뷰, 5일 또는 7일 안에 내는 과제, 직무 인터뷰, 컬처핏 인터뷰(동의 시 레퍼런스 체크),
+      처우 협의 순서다. 합격 여부와 상관없이 결과를 모두 알려 주며 서류는 7영업일 안에 안내하지만, 불합격
+      사유에 대한 피드백은 주지 않는다.
+  kind: official
+  sources:
+    - url: https://careers.daangn.com/faq/%EC%A0%84%ED%98%95-%EA%B4%80%EB%A0%A8/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+links:
+  - label: Daangn Careers (Korean)
+    url: https://careers.daangn.com/
+  - label: Daangn Careers FAQ (Korean)
+    url: https://careers.daangn.com/faq/%EC%A7%80%EC%9B%90-%EA%B4%80%EB%A0%A8/
+  - label: Daangn team culture (Korean)
+    url: https://careers.daangn.com/culture/
+  - label: Daangn on Blind (Korea)
+    url: https://www.teamblind.com/kr/company/%EB%8B%B9%EA%B7%BC%EB%A7%88%EC%BC%93

@@ -1,0 +1,132 @@
+id: nvidia.com
+name: NVIDIA
+countries: [US, CA, KR]
+wikidata: Q182477
+entities:
+  usFeins: ["943177549"]
+  usNames:
+    - NVIDIA Corporation
+basics:
+  industry:
+    value: Semiconductors
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q182477
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  size:
+    value: About 42,000 employees (2026)
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q182477
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  hq:
+    value: Santa Clara, California
+    kind: reported
+    sources:
+      - url: https://www.wikidata.org/wiki/Q182477
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+values:
+  value:
+    names:
+      - Innovation
+      - Intellectual Honesty
+      - Speed and Agility
+      - Excellence and Determination
+      - One Team
+    summary:
+      en: >-
+        NVIDIA's five core values, set out in its Code of Conduct, ask staff to take bold risks and learn
+        fast, admit and share mistakes, adapt quickly, hold a very high bar through long efforts, and put the
+        company ahead of their own team.
+      ko: >-
+        NVIDIA 행동 강령에 담긴 다섯 가지 핵심 가치로, 과감하게 시도하고 빨리 배우기, 실수를 솔직히 인정하고
+        공유하기, 변화에 빠르게 적응하기, 오래 걸리는 일에도 높은 기준 지키기, 자기 팀보다 회사 전체를 먼저
+        생각하기를 강조한다.
+  kind: official
+  sources:
+    - url: https://images.nvidia.com/aem-dam/en-zz/Solutions/about-us/NVIDIA-Code-of-Conduct-External.pdf
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+applicationRules:
+  - value:
+      en: >-
+        There is no official cap on applications, but NVIDIA recommends applying only to the three to five
+        roles that best match your interests and experience.
+      ko: 지원 수에 공식 제한은 없지만, NVIDIA는 관심사와 경력에 가장 잘 맞는 3~5개 직무에만 지원하라고 권한다.
+    kind: official
+    sources:
+      - url: https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: >-
+        Bringing in an outside tool NVIDIA has not approved, ChatGPT for example, during an interview ends
+        your candidacy.
+      ko: 면접 중에 NVIDIA가 허용하지 않은 ChatGPT 같은 외부 도구를 쓰면 지원 자격을 잃는다.
+    kind: official
+    sources:
+      - url: https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+  - value:
+      en: To be considered for an offer, you first need an onsite interview in person at an NVIDIA office.
+      ko: 오퍼를 검토받으려면 먼저 NVIDIA 사무실에서 대면 면접을 봐야 한다.
+    kind: official
+    sources:
+      - url: https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+hiringProcess:
+  value:
+    en: >-
+      Apply online or with LinkedIn; selected candidates usually hear back within a couple of weeks.
+      Interviews of 30 to 60 minutes follow by phone, video and in person with the hiring manager, team and
+      other groups, often with coding for technical roles. Decisions take a few weeks.
+    ko: >-
+      웹사이트나 LinkedIn 프로필로 지원하며, 선발되면 보통 2주 안에 연락을 받는다. 이후 채용 매니저, 팀원,
+      다른 부서 직원과 전화, 화상, 대면으로 30~60분씩 면접을 보고, 기술 직군은 코딩 과제를 풀기도 한다.
+      결과는 몇 주 안에 나온다.
+  kind: official
+  sources:
+    - url: https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/
+      seen: "2026-11-15"
+  checked: "2026-11-15"
+reapplyWait:
+  - value:
+      after: any
+      wait:
+        en: >-
+          Most report no company-wide cooldown after a phone or onsite rejection, and some were interviewed
+          by other teams soon after. One commenter says the system blocks reapplying to the same requisition;
+          another mentions 12 months. A team that remembers you may want new experience.
+        ko: >-
+          전화 면접이나 최종 면접에서 떨어져도 회사 전체에 걸친 대기 기간은 없다는 보고가 대부분이며, 곧바로
+          다른 팀과 면접을 본 사례도 있다. 같은 공고 번호에는 시스템상 다시 지원할 수 없다는 댓글이 하나 있고,
+          12개월이라는 답도 하나 있다. 같은 팀에 다시 지원한다면 그동안 쌓은 새 경력을 보여 주는 것이 좋다.
+    kind: reported
+    sources:
+      - url: https://www.teamblind.com/post/nvidia-cool-down-period-xmvywc6r
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/nvidia-cool-off-yb7aouou
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/nvidia-cool-off-for-swe-positions-dbj01pgo
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/cooldown-period-at-nvidia-8xj5mwwh
+        seen: "2026-11-15"
+      - url: https://www.teamblind.com/post/nvidia-reapply-cooldown-tqoivryd
+        seen: "2026-11-15"
+    checked: "2026-11-15"
+links:
+  - label: NVIDIA Careers
+    url: https://www.nvidia.com/en-us/about-nvidia/careers/
+  - label: NVIDIA, how we hire
+    url: https://www.nvidia.com/en-us/about-nvidia/careers/how-we-hire/
+  - label: NVIDIA open positions
+    url: https://jobs.nvidia.com/careers
+  - label: NVIDIA reviews on Glassdoor
+    url: https://www.glassdoor.com/Reviews/NVIDIA-Reviews-E7633.htm
+  - label: NVIDIA on Blind
+    url: https://www.teamblind.com/company/NVIDIA

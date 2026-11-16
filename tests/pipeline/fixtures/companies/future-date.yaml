@@ -1,0 +1,10 @@
+id: future-date-example.com
+name: Example Co
+countries: [US]
+entities: {}
+mission:
+  value: { en: A fictional mission. }
+  kind: official
+  sources:
+    - { url: "https://future-date-example.com/about", seen: "2099-01-01" }
+  checked: "2026-01-10"

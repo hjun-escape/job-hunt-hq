@@ -1,0 +1,570 @@
+province,csd,cma,title
+AB,Airdrie,825,Calgary
+AB,Alexander 134,835,Edmonton
+AB,Barons,810,Lethbridge
+AB,Beaumont,835,Edmonton
+AB,Beiseker,825,Calgary
+AB,Betula Beach,835,Edmonton
+AB,Bon Accord,835,Edmonton
+AB,Bruderheim,835,Edmonton
+AB,Calgary,825,Calgary
+AB,Calmar,835,Edmonton
+AB,Chestermere,825,Calgary
+AB,Coaldale,810,Lethbridge
+AB,Coalhurst,810,Lethbridge
+AB,Cochrane,825,Calgary
+AB,Crossfield,825,Calgary
+AB,Devon,835,Edmonton
+AB,Edmonton,835,Edmonton
+AB,Enoch Cree Nation,835,Edmonton
+AB,Fort Saskatchewan,835,Edmonton
+AB,Gibbons,835,Edmonton
+AB,Golden Days,835,Edmonton
+AB,Irricana,825,Calgary
+AB,Itaska Beach,835,Edmonton
+AB,Kapasiwin,835,Edmonton
+AB,Lakeview,835,Edmonton
+AB,Leduc,835,Edmonton
+AB,Leduc County,835,Edmonton
+AB,Legal,835,Edmonton
+AB,Lethbridge,810,Lethbridge
+AB,Lethbridge County,810,Lethbridge
+AB,Morinville,835,Edmonton
+AB,Nobleford,810,Lethbridge
+AB,Parkland County,835,Edmonton
+AB,Picture Butte,810,Lethbridge
+AB,Point Alison,835,Edmonton
+AB,Red Deer,830,Red Deer
+AB,Redwater,835,Edmonton
+AB,Rocky View County,825,Calgary
+AB,Seba Beach,835,Edmonton
+AB,Spring Lake,835,Edmonton
+AB,Spruce Grove,835,Edmonton
+AB,St. Albert,835,Edmonton
+AB,Stony Plain,835,Edmonton
+AB,Strathcona County,835,Edmonton
+AB,Sturgeon County,835,Edmonton
+AB,Sundance Beach,835,Edmonton
+AB,Thorsby,835,Edmonton
+AB,Tsuu T'ina Nation 145,825,Calgary
+AB,Wabamun 133A,835,Edmonton
+AB,Wabamun 133B,835,Edmonton
+AB,Warburg,835,Edmonton
+BC,Abbotsford,932,Abbotsford - Mission
+BC,Aitchelitch 9,930,Chilliwack
+BC,Anmore,933,Vancouver
+BC,Barnston Island 3,933,Vancouver
+BC,Becher Bay 1,935,Victoria
+BC,Belcarra,933,Vancouver
+BC,Bowen Island,933,Vancouver
+BC,Burnaby,933,Vancouver
+BC,Burrard Inlet 3,933,Vancouver
+BC,Capilano 5,933,Vancouver
+BC,Central Okanagan,915,Kelowna
+BC,Central Okanagan West,915,Kelowna
+BC,Central Saanich,935,Victoria
+BC,Chase,925,Kamloops
+BC,Cheam 1,930,Chilliwack
+BC,Chilliwack,930,Chilliwack
+BC,Cole Bay 3,935,Victoria
+BC,Colwood,935,Victoria
+BC,Coquitlam,933,Vancouver
+BC,Coquitlam 1,933,Vancouver
+BC,Coquitlam 2,933,Vancouver
+BC,Delta,933,Vancouver
+BC,Duck Lake 7,915,Kelowna
+BC,East Saanich 2,935,Victoria
+BC,Esquimalt,935,Victoria
+BC,Fraser Valley D,930,Chilliwack
+BC,Fraser Valley E,930,Chilliwack
+BC,Fraser Valley H,930,Chilliwack
+BC,Harrison Hot Springs,930,Chilliwack
+BC,Highlands,935,Victoria
+BC,Juan de Fuca (Part 1),935,Victoria
+BC,Kamloops,925,Kamloops
+BC,Kamloops 1,925,Kamloops
+BC,Katzie 1,933,Vancouver
+BC,Katzie 2,933,Vancouver
+BC,Kelowna,915,Kelowna
+BC,Kent,930,Chilliwack
+BC,Kwawkwawapilt 6,930,Chilliwack
+BC,Lake Country,915,Kelowna
+BC,Langford,935,Victoria
+BC,Langley,933,Vancouver
+BC,Langley 2,932,Abbotsford - Mission
+BC,Lantzville,938,Nanaimo
+BC,Lions Bay,933,Vancouver
+BC,Logan Lake,925,Kamloops
+BC,Maple Ridge,933,Vancouver
+BC,Matsqui 4,933,Vancouver
+BC,Matsqui Main 2,932,Abbotsford - Mission
+BC,McMillan Island 6,933,Vancouver
+BC,Metchosin,935,Victoria
+BC,Metro Vancouver A,933,Vancouver
+BC,Mission,932,Abbotsford - Mission
+BC,Mission 1,933,Vancouver
+BC,Musqueam 2,933,Vancouver
+BC,Musqueam 4,933,Vancouver
+BC,Nanaimo,938,Nanaimo
+BC,Nanaimo A,938,Nanaimo
+BC,Nanaimo C,938,Nanaimo
+BC,Nanaimo River,938,Nanaimo
+BC,Nanaimo Town 1,938,Nanaimo
+BC,Nanoose,938,Nanaimo
+BC,New Songhees 1A,935,Victoria
+BC,New Westminster,933,Vancouver
+BC,North Saanich,935,Victoria
+BC,North Vancouver,933,Vancouver
+BC,Oak Bay,935,Victoria
+BC,Peachland,915,Kelowna
+BC,Pitt Meadows,933,Vancouver
+BC,Popkum 1,930,Chilliwack
+BC,Port Coquitlam,933,Vancouver
+BC,Port Moody,933,Vancouver
+BC,Richmond,933,Vancouver
+BC,Saanich,935,Victoria
+BC,Sahhaltkum 4,925,Kamloops
+BC,Schelowat 1,930,Chilliwack
+BC,Scowlitz 1,930,Chilliwack
+BC,Seabird Island,930,Chilliwack
+BC,Semiahmoo,933,Vancouver
+BC,Seymour Creek 2,933,Vancouver
+BC,Sidney,935,Victoria
+BC,Skowkale,930,Chilliwack
+BC,Skwah 4,930,Chilliwack
+BC,Skwali 3,930,Chilliwack
+BC,Skway 5,930,Chilliwack
+BC,Sooke,935,Victoria
+BC,Soowahlie 14,930,Chilliwack
+BC,South Saanich 1,935,Victoria
+BC,Squiaala,930,Chilliwack
+BC,Sun Peaks Mountain,925,Kamloops
+BC,Surrey,933,Vancouver
+BC,T'Sou-ke,935,Victoria
+BC,Thompson-Nicola J (Copper Desert Country),925,Kamloops
+BC,Thompson-Nicola P (Rivers and the Peaks),925,Kamloops
+BC,Tsawwassen,933,Vancouver
+BC,Tseatah 2,930,Chilliwack
+BC,Tsinstikeptum 10,915,Kelowna
+BC,Tsinstikeptum 9,915,Kelowna
+BC,Tzeachten 13,930,Chilliwack
+BC,Union Bay 4,935,Victoria
+BC,Upper Sumas 6,932,Abbotsford - Mission
+BC,Vancouver,933,Vancouver
+BC,Victoria,935,Victoria
+BC,View Royal,935,Victoria
+BC,West Kelowna,915,Kelowna
+BC,West Vancouver,933,Vancouver
+BC,Whispering Pines 4,925,Kamloops
+BC,White Rock,933,Vancouver
+BC,Whonnock 1,933,Vancouver
+BC,Yakweakwioose 12,930,Chilliwack
+MB,Brokenhead 4,602,Winnipeg
+MB,East St. Paul,602,Winnipeg
+MB,Headingley,602,Winnipeg
+MB,Macdonald,602,Winnipeg
+MB,Niverville,602,Winnipeg
+MB,Ritchot,602,Winnipeg
+MB,Rosser,602,Winnipeg
+MB,Springfield,602,Winnipeg
+MB,St. Clements,602,Winnipeg
+MB,St. François Xavier,602,Winnipeg
+MB,Taché,602,Winnipeg
+MB,West St. Paul,602,Winnipeg
+MB,Winnipeg,602,Winnipeg
+NB,Bright,320,Fredericton
+NB,Coverdale,305,Moncton
+NB,Devon 30,320,Fredericton
+NB,Dieppe,305,Moncton
+NB,Dorchester,305,Moncton
+NB,Douglas,320,Fredericton
+NB,Elgin,305,Moncton
+NB,Fort Folly 1,305,Moncton
+NB,Fredericton,320,Fredericton
+NB,Gladstone,320,Fredericton
+NB,Grand Bay-Westfield,310,Saint John
+NB,Greenwich,310,Saint John
+NB,Hampton,310,Saint John
+NB,Hanwell,320,Fredericton
+NB,Harvey,320,Fredericton
+NB,Hillsborough,305,Moncton
+NB,Hopewell,305,Moncton
+NB,Kingsclear,320,Fredericton
+NB,Kingsclear 6,320,Fredericton
+NB,Kingston,310,Saint John
+NB,Lepreau,310,Saint John
+NB,Lincoln,320,Fredericton
+NB,Manners Sutton,320,Fredericton
+NB,Maugerville,320,Fredericton
+NB,Memramcook,305,Moncton
+NB,Moncton,305,Moncton
+NB,Musquash,310,Saint John
+NB,New Maryland,320,Fredericton
+NB,Norton,310,Saint John
+NB,Petersville,310,Saint John
+NB,Prince William,320,Fredericton
+NB,Queensbury,320,Fredericton
+NB,Quispamsis,310,Saint John
+NB,Riverview,305,Moncton
+NB,Rothesay,310,Saint John
+NB,Saint John,310,Saint John
+NB,Saint Martins,310,Saint John
+NB,Saint Marys,320,Fredericton
+NB,Saint-Paul,305,Moncton
+NB,Salisbury,305,Moncton
+NB,Simonds,310,Saint John
+NB,St. Martins,310,Saint John
+NB,Tracy,320,Fredericton
+NB,Upham,310,Saint John
+NB,Westfield,310,Saint John
+NL,Bauline,001,St. John's
+NL,Bay Bulls,001,St. John's
+NL,Conception Bay South,001,St. John's
+NL,Flatrock,001,St. John's
+NL,Holyrood,001,St. John's
+NL,Logy Bay-Middle Cove-Outer Cove,001,St. John's
+NL,Mount Pearl,001,St. John's
+NL,Paradise,001,St. John's
+NL,Petty Harbour-Maddox Cove,001,St. John's
+NL,Portugal Cove-St. Philip's,001,St. John's
+NL,Pouch Cove,001,St. John's
+NL,St. John's,001,St. John's
+NL,Torbay,001,St. John's
+NL,Witless Bay,001,St. John's
+NS,Beaver Lake 17,205,Halifax
+NS,Cole Harbour 30,205,Halifax
+NS,East Hants,205,Halifax
+NS,Halifax,205,Halifax
+NS,Indian Brook 14,205,Halifax
+NS,Sheet Harbour 36,205,Halifax
+NS,Wallace Hills 14A,205,Halifax
+ON,Adelaide-Metcalfe,555,London
+ON,Ajax,535,Toronto
+ON,Amherstburg,559,Windsor
+ON,Arnprior,505,Ottawa - Gatineau
+ON,Aurora,535,Toronto
+ON,Barrie,568,Barrie
+ON,Beckwith,505,Ottawa - Gatineau
+ON,Belleville,522,Belleville - Quinte West
+ON,Bradford West Gwillimbury,535,Toronto
+ON,Brampton,535,Toronto
+ON,Brant,543,Brantford
+ON,Brantford,543,Brantford
+ON,Burlington,537,Hamilton
+ON,Caledon,535,Toronto
+ON,Cambridge,541,Kitchener - Cambridge - Waterloo
+ON,Carleton Place,505,Ottawa - Gatineau
+ON,Cavan Monaghan,529,Peterborough
+ON,Central Elgin,555,London
+ON,Chippewas of Georgina Island First Nation,535,Toronto
+ON,Clarence-Rockland,505,Ottawa - Gatineau
+ON,Clarington,532,Oshawa
+ON,Conmee,595,Thunder Bay
+ON,Curve Lake First Nation 35,529,Peterborough
+ON,Douro-Dummer,529,Peterborough
+ON,East Gwillimbury,535,Toronto
+ON,Essex,559,Windsor
+ON,Fort Erie,539,St. Catharines - Niagara
+ON,Fort William 52,595,Thunder Bay
+ON,Frontenac Islands,521,Kingston
+ON,Georgina,535,Toronto
+ON,Gillies,595,Thunder Bay
+ON,Greater Sudbury / Grand Sudbury,580,Greater Sudbury / Grand Sudbury
+ON,Grimsby,537,Hamilton
+ON,Guelph,550,Guelph
+ON,Guelph/Eramosa,550,Guelph
+ON,Halton Hills,535,Toronto
+ON,Hamilton,537,Hamilton
+ON,Hiawatha First Nation,529,Peterborough
+ON,Innisfil,568,Barrie
+ON,King,535,Toronto
+ON,Kingston,521,Kingston
+ON,Kingsville,559,Windsor
+ON,Kitchener,541,Kitchener - Cambridge - Waterloo
+ON,LaSalle,559,Windsor
+ON,Lakeshore,559,Windsor
+ON,Leamington,559,Windsor
+ON,Lincoln,539,St. Catharines - Niagara
+ON,London,555,London
+ON,Loyalist,521,Kingston
+ON,Markham,535,Toronto
+ON,Markstay-Warren,580,Greater Sudbury / Grand Sudbury
+ON,McNab/Braeside,505,Ottawa - Gatineau
+ON,Middlesex Centre,555,London
+ON,Milton,535,Toronto
+ON,Mississauga,535,Toronto
+ON,Mississippi Mills,505,Ottawa - Gatineau
+ON,Mono,535,Toronto
+ON,Neebing,595,Thunder Bay
+ON,New Tecumseth,535,Toronto
+ON,Newmarket,535,Toronto
+ON,Niagara Falls,539,St. Catharines - Niagara
+ON,Niagara-on-the-Lake,539,St. Catharines - Niagara
+ON,North Dumfries,541,Kitchener - Cambridge - Waterloo
+ON,North Grenville,505,Ottawa - Gatineau
+ON,O'Connor,595,Thunder Bay
+ON,Oakville,535,Toronto
+ON,Oliver Paipoonge,595,Thunder Bay
+ON,Orangeville,535,Toronto
+ON,Oshawa,532,Oshawa
+ON,Otonabee-South Monaghan,529,Peterborough
+ON,Ottawa,505,Ottawa - Gatineau
+ON,Pelham,539,St. Catharines - Niagara
+ON,Peterborough,529,Peterborough
+ON,Pickering,535,Toronto
+ON,Port Colborne,539,St. Catharines - Niagara
+ON,Puslinch,550,Guelph
+ON,Quinte West,522,Belleville - Quinte West
+ON,Richmond Hill,535,Toronto
+ON,Russell,505,Ottawa - Gatineau
+ON,Selwyn,529,Peterborough
+ON,Shuniah,595,Thunder Bay
+ON,Six Nations (Part) 40,543,Brantford
+ON,South Frontenac,521,Kingston
+ON,Southwold,555,London
+ON,Springwater,568,Barrie
+ON,St. Catharines,539,St. Catharines - Niagara
+ON,St. Thomas,555,London
+ON,St.-Charles,580,Greater Sudbury / Grand Sudbury
+ON,Stirling-Rawdon,522,Belleville - Quinte West
+ON,Strathroy-Caradoc,555,London
+ON,Tecumseh,559,Windsor
+ON,Thames Centre,555,London
+ON,Thorold,539,St. Catharines - Niagara
+ON,Thunder Bay,595,Thunder Bay
+ON,Toronto,535,Toronto
+ON,Tyendinaga,522,Belleville - Quinte West
+ON,Uxbridge,535,Toronto
+ON,Vaughan,535,Toronto
+ON,Wahnapitei 11,580,Greater Sudbury / Grand Sudbury
+ON,Wainfleet,539,St. Catharines - Niagara
+ON,Waterloo,541,Kitchener - Cambridge - Waterloo
+ON,Welland,539,St. Catharines - Niagara
+ON,Whitby,532,Oshawa
+ON,Whitchurch-Stouffville,535,Toronto
+ON,Whitefish Lake 6,580,Greater Sudbury / Grand Sudbury
+ON,Wilmot,541,Kitchener - Cambridge - Waterloo
+ON,Windsor,559,Windsor
+ON,Woolwich,541,Kitchener - Cambridge - Waterloo
+QC,Ascot Corner,433,Sherbrooke
+QC,Baie-D'Urfé,462,Montréal
+QC,Beaconsfield,462,Montréal
+QC,Beauharnois,462,Montréal
+QC,Beaumont,421,Québec
+QC,Beloeil,462,Montréal
+QC,Blainville,462,Montréal
+QC,Bois-des-Filion,462,Montréal
+QC,Boisbriand,462,Montréal
+QC,Boischatel,421,Québec
+QC,Boucherville,462,Montréal
+QC,Bowman,505,Ottawa - Gatineau
+QC,Brossard,462,Montréal
+QC,Bécancour,442,Trois-Rivières
+QC,Bégin,408,Saguenay
+QC,Candiac,462,Montréal
+QC,Cantley,505,Ottawa - Gatineau
+QC,Carignan,462,Montréal
+QC,Chambly,462,Montréal
+QC,Champlain,442,Trois-Rivières
+QC,Charlemagne,462,Montréal
+QC,Chelsea,505,Ottawa - Gatineau
+QC,Château-Richer,421,Québec
+QC,Châteauguay,462,Montréal
+QC,Compton,433,Sherbrooke
+QC,Coteau-du-Lac,462,Montréal
+QC,Côte-Saint-Luc,462,Montréal
+QC,Delson,462,Montréal
+QC,Denholm,505,Ottawa - Gatineau
+QC,Deux-Montagnes,462,Montréal
+QC,Dollard-Des Ormeaux,462,Montréal
+QC,Dorval,462,Montréal
+QC,Drummondville,447,Drummondville
+QC,Ferland-et-Boilleau,408,Saguenay
+QC,Fossambault-sur-le-Lac,421,Québec
+QC,Gatineau,505,Ottawa - Gatineau
+QC,Gore,462,Montréal
+QC,Hampstead,462,Montréal
+QC,Hatley,433,Sherbrooke
+QC,Hudson,462,Montréal
+QC,Kahnawake,462,Montréal
+QC,Kanesatake,462,Montréal
+QC,Kirkland,462,Montréal
+QC,L'Ancienne-Lorette,421,Québec
+QC,L'Ange-Gardien,421,Québec
+QC,L'Ange-Gardien,505,Ottawa - Gatineau
+QC,L'Assomption,462,Montréal
+QC,L'Avenir,447,Drummondville
+QC,L'Épiphanie,462,Montréal
+QC,L'Île-Cadieux,462,Montréal
+QC,L'Île-Dorval,462,Montréal
+QC,L'Île-Perrot,462,Montréal
+QC,La Prairie,462,Montréal
+QC,La Pêche,505,Ottawa - Gatineau
+QC,Lac-Beauport,421,Québec
+QC,Lac-Delage,421,Québec
+QC,Lac-Saint-Joseph,421,Québec
+QC,Larouche,408,Saguenay
+QC,Laval,462,Montréal
+QC,Lavaltrie,462,Montréal
+QC,Lefebvre,447,Drummondville
+QC,Les Coteaux,462,Montréal
+QC,Les Cèdres,462,Montréal
+QC,Lochaber,505,Ottawa - Gatineau
+QC,Lochaber-Partie-Ouest,505,Ottawa - Gatineau
+QC,Longueuil,462,Montréal
+QC,Lorraine,462,Montréal
+QC,Léry,462,Montréal
+QC,Lévis,421,Québec
+QC,Magog,433,Sherbrooke
+QC,Mascouche,462,Montréal
+QC,Mayo,505,Ottawa - Gatineau
+QC,McMasterville,462,Montréal
+QC,Mercier,462,Montréal
+QC,Mirabel,462,Montréal
+QC,Mont-Royal,462,Montréal
+QC,Mont-Saint-Hilaire,462,Montréal
+QC,Montréal,462,Montréal
+QC,Montréal-Est,462,Montréal
+QC,Montréal-Ouest,462,Montréal
+QC,Mulgrave-et-Derry,505,Ottawa - Gatineau
+QC,Neuville,421,Québec
+QC,North Hatley,433,Sherbrooke
+QC,Notre-Dame-de-l'Île-Perrot,462,Montréal
+QC,Notre-Dame-de-la-Salette,505,Ottawa - Gatineau
+QC,Notre-Dame-des-Anges,421,Québec
+QC,Notre-Dame-du-Bon-Conseil,447,Drummondville
+QC,Oka,462,Montréal
+QC,Orford,433,Sherbrooke
+QC,Otterburn Park,462,Montréal
+QC,Pincourt,462,Montréal
+QC,Pointe-Calumet,462,Montréal
+QC,Pointe-Claire,462,Montréal
+QC,Pointe-des-Cascades,462,Montréal
+QC,Pontiac,505,Ottawa - Gatineau
+QC,Québec,421,Québec
+QC,Repentigny,462,Montréal
+QC,Richelieu,462,Montréal
+QC,Rosemère,462,Montréal
+QC,Saguenay,408,Saguenay
+QC,Saint-Amable,462,Montréal
+QC,Saint-Antoine-de-Tilly,421,Québec
+QC,Saint-Apollinaire,421,Québec
+QC,Saint-Augustin-de-Desmaures,421,Québec
+QC,Saint-Basile-le-Grand,462,Montréal
+QC,Saint-Bonaventure,447,Drummondville
+QC,Saint-Bruno-de-Montarville,462,Montréal
+QC,Saint-Charles-de-Bourget,408,Saguenay
+QC,Saint-Colomban,462,Montréal
+QC,Saint-Constant,462,Montréal
+QC,Saint-Cyrille-de-Wendover,447,Drummondville
+QC,Saint-David-de-Falardeau,408,Saguenay
+QC,Saint-Denis-de-Brompton,433,Sherbrooke
+QC,Saint-Edmond-de-Grantham,447,Drummondville
+QC,Saint-Eustache,462,Montréal
+QC,Saint-François-de-l'Île-d'Orléans,421,Québec
+QC,Saint-Fulgence,408,Saguenay
+QC,Saint-Félix-d'Otis,408,Saguenay
+QC,Saint-Gabriel-de-Valcartier,421,Québec
+QC,Saint-Germain-de-Grantham,447,Drummondville
+QC,Saint-Henri,421,Québec
+QC,Saint-Honoré,408,Saguenay
+QC,Saint-Isidore,462,Montréal
+QC,Saint-Jean-de-l'Île-d'Orléans,421,Québec
+QC,Saint-Jean-sur-Richelieu,462,Montréal
+QC,Saint-Joseph-du-Lac,462,Montréal
+QC,Saint-Jérôme,462,Montréal
+QC,Saint-Lambert,462,Montréal
+QC,Saint-Lambert-de-Lauzon,421,Québec
+QC,Saint-Laurent-de-l'Île-d'Orléans,421,Québec
+QC,Saint-Lazare,462,Montréal
+QC,Saint-Lin--Laurentides,462,Montréal
+QC,Saint-Luc-de-Vincennes,442,Trois-Rivières
+QC,Saint-Lucien,447,Drummondville
+QC,Saint-Majorique-de-Grantham,447,Drummondville
+QC,Saint-Mathias-sur-Richelieu,462,Montréal
+QC,Saint-Mathieu,462,Montréal
+QC,Saint-Mathieu-de-Beloeil,462,Montréal
+QC,Saint-Maurice,442,Trois-Rivières
+QC,Saint-Philippe,462,Montréal
+QC,Saint-Pierre-de-l'Île-d'Orléans,421,Québec
+QC,Saint-Placide,462,Montréal
+QC,Saint-Roch-de-l'Achigan,462,Montréal
+QC,Saint-Sulpice,462,Montréal
+QC,Saint-Zotique,462,Montréal
+QC,Sainte-Anne-de-Bellevue,462,Montréal
+QC,Sainte-Anne-des-Plaines,462,Montréal
+QC,Sainte-Brigitte-de-Laval,421,Québec
+QC,Sainte-Catherine,462,Montréal
+QC,Sainte-Catherine-de-la-Jacques-Cartier,421,Québec
+QC,Sainte-Famille-de-l'Île-d'Orléans,421,Québec
+QC,Sainte-Julie,462,Montréal
+QC,Sainte-Marthe-sur-le-Lac,462,Montréal
+QC,Sainte-Pétronille,421,Québec
+QC,Sainte-Rose-du-Nord,408,Saguenay
+QC,Sainte-Thérèse,462,Montréal
+QC,Senneville,462,Montréal
+QC,Shannon,421,Québec
+QC,Sherbrooke,433,Sherbrooke
+QC,Stoke,433,Sherbrooke
+QC,Stoneham-et-Tewkesbury,421,Québec
+QC,Terrasse-Vaudreuil,462,Montréal
+QC,Terrebonne,462,Montréal
+QC,Thurso,505,Ottawa - Gatineau
+QC,Trois-Rivières,442,Trois-Rivières
+QC,Val-Joli,433,Sherbrooke
+QC,Val-des-Bois,505,Ottawa - Gatineau
+QC,Val-des-Monts,505,Ottawa - Gatineau
+QC,Varennes,462,Montréal
+QC,Vaudreuil-Dorion,462,Montréal
+QC,Vaudreuil-sur-le-Lac,462,Montréal
+QC,Verchères,462,Montréal
+QC,Waterville,433,Sherbrooke
+QC,Wendake,421,Québec
+QC,Westmount,462,Montréal
+QC,Wickham,447,Drummondville
+QC,Wôlinak,442,Trois-Rivières
+QC,Yamachiche,442,Trois-Rivières
+SK,Aberdeen,725,Saskatoon
+SK,Aberdeen No. 373,725,Saskatoon
+SK,Allan,725,Saskatoon
+SK,Asquith,725,Saskatoon
+SK,Balgonie,705,Regina
+SK,Belle Plaine,705,Regina
+SK,Blucher No. 343,725,Saskatoon
+SK,Bradwell,725,Saskatoon
+SK,Buena Vista,705,Regina
+SK,Clavet,725,Saskatoon
+SK,Colonsay,725,Saskatoon
+SK,Colonsay No. 342,725,Saskatoon
+SK,Corman Park No. 344,725,Saskatoon
+SK,Craven,705,Regina
+SK,Dalmeny,725,Saskatoon
+SK,Delisle,725,Saskatoon
+SK,Disley,705,Regina
+SK,Dundurn,725,Saskatoon
+SK,Dundurn No. 314,725,Saskatoon
+SK,Edenwold,705,Regina
+SK,Edenwold No. 158,705,Regina
+SK,Grand Coulee,705,Regina
+SK,Lajord No. 128,705,Regina
+SK,Langham,725,Saskatoon
+SK,Lumsden,705,Regina
+SK,Lumsden Beach,705,Regina
+SK,Lumsden No. 189,705,Regina
+SK,Martensville,725,Saskatoon
+SK,Meacham,725,Saskatoon
+SK,Osler,725,Saskatoon
+SK,Pense,705,Regina
+SK,Pense No. 160,705,Regina
+SK,Pilot Butte,705,Regina
+SK,Regina,705,Regina
+SK,Regina Beach,705,Regina
+SK,Saskatoon,725,Saskatoon
+SK,Sherwood No. 159,705,Regina
+SK,Shields,725,Saskatoon
+SK,Thode,725,Saskatoon
+SK,Vanscoy,725,Saskatoon
+SK,Vanscoy No. 345,725,Saskatoon
+SK,Warman,725,Saskatoon
+SK,White City,705,Regina
+SK,Whitecap,725,Saskatoon

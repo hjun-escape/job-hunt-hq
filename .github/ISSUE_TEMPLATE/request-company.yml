@@ -1,0 +1,25 @@
+name: Request a company
+description: Ask for a company profile to be added to the dataset.
+title: "Request: "
+labels: [company-request]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Company name
+    validations:
+      required: true
+  - type: input
+    id: website
+    attributes:
+      label: Website
+      description: The company's main website, for example https://example.com
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why should it be added?
+      description: Optional. For example, you are applying there or many people ask about it.
+    validations:
+      required: false
