@@ -40,10 +40,10 @@ mission:
   kind: official
   sources:
     - url: https://www.shopify.com/careers
-      seen: "2026-11-15"
+      seen: "2026-11-18"
     - url: https://www.shopify.com/careers/candidate-guide/are-you-ready
-      seen: "2026-11-15"
-  checked: "2026-11-15"
+      seen: "2026-11-18"
+  checked: "2026-11-18"
 values:
   value:
     names:
@@ -60,8 +60,8 @@ values:
   kind: official
   sources:
     - url: https://www.shopify.com/careers/candidate-guide/world-view
-      seen: "2026-11-15"
-  checked: "2026-11-15"
+      seen: "2026-11-18"
+  checked: "2026-11-18"
 applicationRules:
   - value:
       en: >-
@@ -71,10 +71,10 @@ applicationRules:
     kind: official
     sources:
       - url: https://www.shopify.com/careers/candidate-guide/are-you-ready
-        seen: "2026-11-15"
+        seen: "2026-11-18"
       - url: https://www.shopify.com/careers/candidate-guide/ai-usage
-        seen: "2026-11-15"
-    checked: "2026-11-15"
+        seen: "2026-11-18"
+    checked: "2026-11-18"
   - value:
       en: >-
         Besides the usual application, Shopify offers an alternative route for builders: skip the resume and
@@ -82,10 +82,10 @@ applicationRules:
     kind: official
     sources:
       - url: https://www.shopify.com/careers
-        seen: "2026-11-15"
+        seen: "2026-11-18"
       - url: https://www.shopify.com/careers/extraordinary
-        seen: "2026-11-15"
-    checked: "2026-11-15"
+        seen: "2026-11-18"
+    checked: "2026-11-18"
 hiringProcess:
   value:
     en: >-
@@ -95,10 +95,10 @@ hiringProcess:
   kind: official
   sources:
     - url: https://shopify.engineering/nail-your-technical-shopify-interview
-      seen: "2026-11-15"
+      seen: "2026-11-18"
     - url: https://www.shopify.com/careers/candidate-guide/are-you-ready
-      seen: "2026-11-15"
-  checked: "2026-11-15"
+      seen: "2026-11-18"
+  checked: "2026-11-18"
 links:
   - label: Shopify Careers
     url: https://www.shopify.com/careers
