@@ -105,13 +105,12 @@ describe("useSample", () => {
   it("lifts the rate limit on its own when the window ends", async () => {
     vi.useFakeTimers();
     try {
-      const limited = createFakeSample({ error: { code: "rate_limited", message: "" } });
+      // Stream without timers so the hook's own lift-timer is the only fake timer. Draining with
+      // runAllTimersAsync() would also fire that timer: React 19 runs the effect that schedules it
+      // inside act() rather than when act() returns, so the window would end before the first expect.
+      const limited = createFakeSample({ error: { code: "rate_limited", message: "" }, pace: () => Promise.resolve() });
       const { result } = renderHook(() => useSample(limited));
-      await act(async () => {
-        const p = result.current.run("q");
-        await vi.runAllTimersAsync();
-        await p;
-      });
+      await act(async () => { await result.current.run("q"); });
       expect(result.current.rateLimited).toBe(true);
       await act(async () => { await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS + 10); });
       expect(result.current.rateLimited).toBe(false);

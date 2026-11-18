@@ -4,6 +4,15 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # react-dom and the two type packages peer-depend on matching react majors, so a lone bump
+      # fails `npm ci` with ERESOLVE (see #5). Keep all four in one PR.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
   - package-ecosystem: github-actions
     directory: /
     schedule:
