@@ -40,8 +40,8 @@ mission:
   kind: official
   sources:
     - url: https://stripe.com/careers
-      seen: "2026-11-15"
-  checked: "2026-11-15"
+      seen: "2026-11-18"
+  checked: "2026-11-18"
 values:
   value:
     names:
@@ -59,8 +59,8 @@ values:
   kind: official
   sources:
     - url: https://stripe.com/careers/compatibility
-      seen: "2026-11-15"
-  checked: "2026-11-15"
+      seen: "2026-11-18"
+  checked: "2026-11-18"
 applicationRules:
   - value:
       en: >-
@@ -69,8 +69,8 @@ applicationRules:
     kind: official
     sources:
       - url: https://stripe.com/careers
-        seen: "2026-11-15"
-    checked: "2026-11-15"
+        seen: "2026-11-18"
+    checked: "2026-11-18"
 hiringProcess:
   value:
     en: >-
@@ -80,8 +80,8 @@ hiringProcess:
   kind: official
   sources:
     - url: https://stripe.com/careers
-      seen: "2026-11-15"
-  checked: "2026-11-15"
+      seen: "2026-11-18"
+  checked: "2026-11-18"
 reapplyWait:
   - value:
       after: any
