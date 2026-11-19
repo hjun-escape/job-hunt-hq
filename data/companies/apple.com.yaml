@@ -48,8 +48,8 @@ values:
   kind: official
   sources:
     - url: https://www.apple.com/
-      seen: "2026-11-15"
-  checked: "2026-11-15"
+      seen: "2026-11-18"
+  checked: "2026-11-18"
 links:
   - label: Jobs at Apple
     url: https://jobs.apple.com/
