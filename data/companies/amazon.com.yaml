@@ -71,7 +71,7 @@ mission:
       끊임없이 새로운 것을 만들어 고객의 일상을 더 낫고 간편하게 하겠다는 것이다.
   kind: official
   sources:
-    - url: https://www.aboutamazon.com/about-us
+    - url: https://www.aboutamazon.com/about-us#:~:text=Amazon%E2%80%99s%20mission%20is,AI%20services%2C%20and%20more
       seen: "2026-11-15"
   checked: "2026-11-15"
 values:

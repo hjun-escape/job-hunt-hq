@@ -12,14 +12,14 @@ basics:
     value: Hyperlocal community app and secondhand marketplace
     kind: official
     sources:
-      - url: https://about.daangn.com/
+      - url: https://about.daangn.com/#:~:text=%EB%A1%9C%EC%BB%AC%EC%9D%98%20%EB%AA%A8%EB%93%A0%20%EA%B2%83%EC%9D%84%20%EC%97%B0%EA%B2%B0%ED%95%B4,%ED%95%98%EB%82%98%EB%A1%9C%20%EC%97%B0%EA%B2%B0%ED%95%98%EA%B3%A0%20%EC%9E%88%EC%8A%B5%EB%8B%88%EB%8B%A4
         seen: "2026-11-15"
     checked: "2026-11-15"
   hq:
     value: Seoul, South Korea
     kind: official
     sources:
-      - url: https://careers.daangn.com/
+      - url: https://careers.daangn.com/#:~:text=%EC%A3%BC%EC%86%8C%3A%20%EC%84%9C%EC%9A%B8%ED%8A%B9%EB%B3%84%EC%8B%9C
         seen: "2026-11-15"
     checked: "2026-11-15"
 mission:
@@ -33,7 +33,7 @@ mission:
       출발해 모임, 가게 홍보, 결제까지 지역 생활 전반을 잇는 커뮤니티를 만들고 있다.
   kind: official
   sources:
-    - url: https://about.daangn.com/
+    - url: https://about.daangn.com/#:~:text=%EB%A1%9C%EC%BB%AC%EC%9D%98%20%EB%AA%A8%EB%93%A0%20%EA%B2%83%EC%9D%84%20%EC%97%B0%EA%B2%B0%ED%95%B4,%ED%95%98%EB%82%98%EB%A1%9C%20%EC%97%B0%EA%B2%B0%ED%95%98%EA%B3%A0%20%EC%9E%88%EC%8A%B5%EB%8B%88%EB%8B%A4
       seen: "2026-11-15"
   checked: "2026-11-15"
 values:
