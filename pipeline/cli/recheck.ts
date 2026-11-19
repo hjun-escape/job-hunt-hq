@@ -1,7 +1,9 @@
-// Usage: npm run dataset:recheck -- --issue-body recheck.md [--report <url>]
+// Usage: npm run dataset:recheck -- --issue-body recheck.md [--report <url>] [--store <file>]
 // Re-fetches every page cited by an official fact, compares text fingerprints with data/fingerprints.json,
 // rewrites that file (URLs no longer cited are dropped) and writes the weekly issue body. With --report, it also
-// reads meta.json beside report.json for the issue's "Build warnings" (R45). Never prints page text.
+// reads meta.json beside report.json for the issue's "Build warnings" (R45). --store reads and writes another
+// file instead, for a local dry run: only the workflow's US runner writes data/fingerprints.json, because a
+// fetch from elsewhere can get a regional page (/en-ca/, /ca/) and re-baseline it. Never prints page text.
 import { readFile, writeFile } from "node:fs/promises";
 import { loadProfiles } from "../profiles/load";
 import { politeFetch } from "../http";
@@ -16,7 +18,7 @@ import {
   type FingerprintStore,
 } from "../check/recheck";
 
-const STORE_PATH = "data/fingerprints.json";
+const DEFAULT_STORE = "data/fingerprints.json";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -35,9 +37,9 @@ const fetcher: Fetcher = async (url) => {
   return { status: res.status, finalUrl: res.url || url, body: res.ok ? await res.text() : "" };
 };
 
-async function readStore(): Promise<FingerprintStore> {
+async function readStore(path: string): Promise<FingerprintStore> {
   try {
-    return JSON.parse(await readFile(STORE_PATH, "utf8")) as FingerprintStore;
+    return JSON.parse(await readFile(path, "utf8")) as FingerprintStore;
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
     throw e;
@@ -46,13 +48,14 @@ async function readStore(): Promise<FingerprintStore> {
 
 async function main(): Promise<void> {
   const out = arg("--issue-body");
-  if (!out) throw new Error("usage: dataset:recheck --issue-body <file> [--report <url>]");
+  if (!out) throw new Error("usage: dataset:recheck --issue-body <file> [--report <url>] [--store <file>]");
+  const storePath = arg("--store") ?? DEFAULT_STORE;
   const today = new Date();
   const { profiles, problems } = await loadProfiles("data/companies", today);
   if (problems.length > 0) throw new Error(`${problems.length} profile problems; run npm run dataset:validate`);
 
-  const result = await recheck(profiles, await readStore(), fetcher, today);
-  await writeFile(STORE_PATH, serializeStore(result.store));
+  const result = await recheck(profiles, await readStore(storePath), fetcher, today);
+  await writeFile(storePath, serializeStore(result.store));
 
   let report: Report | null = null;
   let state: "unpublished" | "error" = "unpublished";

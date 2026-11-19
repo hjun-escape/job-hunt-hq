@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { extractText, fingerprint, MIN_TEXT } from "../../pipeline/check/text";
+import { extractText, fingerprint, MIN_TEXT, passageText, textFragment } from "../../pipeline/check/text";
 import { codeSpan, liveWarnings, recheck, issueBody, serializeStore, type FingerprintStore } from "../../pipeline/check/recheck";
 import type { Profile } from "../../pipeline/schema/profile";
 
@@ -43,6 +43,71 @@ describe("extractText", () => {
   it("fingerprints deterministically", () => {
     expect(fingerprint("a")).toMatch(/^[0-9a-f]{64}$/);
     expect(fingerprint("a")).toBe(fingerprint("a"));
+  });
+  it("keeps nav, header and footer with { chrome: true }, still dropping scripts", () => {
+    const page = "<header>H</header><nav>N</nav><p>Body</p><footer>Our values <script>x()</script></footer>";
+    expect(extractText(page)).toBe("Body");
+    expect(extractText(page, { chrome: true })).toBe("H N Body Our values");
+  });
+});
+
+describe("textFragment", () => {
+  const P = (start: string, end = "", prefix = "", suffix = "") => ({ prefix, start, end, suffix });
+  it("is empty for a URL without a text fragment, or with an ordinary anchor", () => {
+    expect(textFragment("https://a.example/x")).toEqual([]);
+    expect(textFragment("https://a.example/x#team")).toEqual([]);
+  });
+  it("reads start and end, percent-decoded, the way a browser's Copy link to highlight writes them", () => {
+    expect(textFragment("https://a.example/#:~:text=Apple%20Values,About%20Apple")).toEqual([P("Apple Values", "About Apple")]);
+    expect(textFragment("https://a.example/#:~:text=%EC%A3%BC%EC%86%8C%3A%20%EC%84%9C%EC%9A%B8")).toEqual([P("주소: 서울")]);
+  });
+  it("reads prefix and suffix, several text directives, and skips other directives", () => {
+    expect(textFragment("https://a.example/#top:~:text=the-,mission,-statement&foo=1&text=a%2Cb,c")).toEqual([
+      P("mission", "", "the", "statement"),
+      P("a,b", "c"),
+    ]);
+  });
+  it("throws on a malformed one", () => {
+    for (const bad of [
+      "https://a.example/#:~:text=",
+      "https://a.example/#:~:text=a,b,c",
+      "https://a.example/#:~:text=pre-,",
+      "https://a.example/#:~:text=%E0%A4%A",
+      "https://a.example/#:~:text=two words",
+    ]) {
+      expect(() => textFragment(bad), bad).toThrow();
+    }
+  });
+});
+
+describe("passageText", () => {
+  const text = "Menu About Apple Values Apple Values Accessibility Privacy About Apple Newsroom About Apple";
+  it("is the text from the start phrase through the first end phrase after it", () => {
+    expect(passageText(text, textFragment("https://a.example/#:~:text=Apple%20Values,About%20Apple"))).toBe(
+      "applevaluesapplevaluesaccessibilityprivacyaboutapple",
+    );
+  });
+  it("is the phrase itself when there is no end, so it only checks the phrase is still there", () => {
+    expect(passageText(text, textFragment("https://a.example/#:~:text=Newsroom"))).toBe("newsroom");
+  });
+  it("ignores whitespace, case and typographic quotes and dashes", () => {
+    const page = "Amazon’s  mission is to make customers’ lives better — every day.";
+    expect(passageText(page, textFragment("https://a.example/#:~:text=amazon's%20mission,EVERY%20DAY"))).toBe(
+      "amazon'smissionistomakecustomers'livesbetter-everyday",
+    );
+  });
+  it("uses prefix and suffix to pick the occurrence", () => {
+    expect(passageText("a x 1 b x 2", textFragment("https://a.example/#:~:text=x,2"))).toBe("x1bx2");
+    expect(passageText("a x 1 b x 2", textFragment("https://a.example/#:~:text=b-,x,2"))).toBe("x2");
+    expect(passageText("a 1 b a 2 b 3", textFragment("https://a.example/#:~:text=a,b,-3"))).toBe("a1ba2b");
+    expect(passageText("x 1 x 2", textFragment("https://a.example/#:~:text=x,-2"))).toBe("x");
+    expect(passageText("x 1 x 2", textFragment("https://a.example/#:~:text=x,-3"))).toBeUndefined();
+  });
+  it("joins several passages and is undefined when any start or end is missing", () => {
+    expect(passageText("a b c d", [...textFragment("https://a.example/#:~:text=a&text=c,d")])).toBe("a\ncd");
+    expect(passageText(text, textFragment("https://a.example/#:~:text=Apple%20Values,Careers"))).toBeUndefined();
+    expect(passageText(text, textFragment("https://a.example/#:~:text=Ethics"))).toBeUndefined();
+    expect(passageText("end before start", textFragment("https://a.example/#:~:text=start,end"))).toBeUndefined();
   });
 });
 
@@ -156,6 +221,75 @@ describe("recheck", () => {
   });
 });
 
+describe("sources whose URL highlights a passage (#:~:text=)", () => {
+  const MISSION = "We exist to make widgets simple for everyone.";
+  const AT_MISSION = `${URL_A}#:~:text=We%20exist,everyone.`;
+  const AT_VALUES = `${URL_A}#:~:text=Our%20values,Contact`;
+  const body = (mission: string, news: string, values = "Craft Care") =>
+    `<html><body><main><p>${LONG}</p><p>${mission}</p><ul><li>${news}</li></ul></main>` +
+    `<footer>Our values ${values} Contact us</footer></body></html>`;
+  const cites = (...urls: string[]) =>
+    profile({ mission: undefined, applicationRules: urls.map((u) => fact(t("r"), "official", u)) });
+
+  it("fingerprints only the passage, so dated news elsewhere on the page is not a change", async () => {
+    const first = await recheck([cites(AT_MISSION)], {}, page(body(MISSION, "Nov. 16 news")), today);
+    expect(first.flags).toEqual([]);
+    expect(Object.keys(first.store)).toEqual([AT_MISSION]);
+    const news = await recheck([cites(AT_MISSION)], first.store, page(body(MISSION, "Nov. 17 news")), today);
+    expect(news.flags).toEqual([]);
+    const reworded = await recheck([cites(AT_MISSION)], first.store, page(body("We exist to make widgets cheap for everyone.", "x")), today);
+    expect(reworded.flags).toEqual([{ company: "example.com", url: AT_MISSION, kind: "changed", facts: ["applicationRules[0]"] }]);
+  });
+
+  it("reads a passage in the footer, which the whole-page text leaves out", async () => {
+    const [before, after] = [body(MISSION, "x", "Craft Care"), body(MISSION, "x", "Craft Speed")];
+    expect(extractText(before)).toBe(extractText(after));
+    const first = await recheck([cites(AT_VALUES)], {}, page(before), today);
+    const r = await recheck([cites(AT_VALUES)], first.store, page(after), today);
+    expect(r.flags.map((f) => [f.kind, f.url])).toEqual([["changed", AT_VALUES]]);
+  });
+
+  it("flags a missing passage every week it is missing, keeping the last real hash", async () => {
+    const first = await recheck([cites(AT_MISSION)], {}, page(body(MISSION, "x")), today);
+    const real = first.store[AT_MISSION].hash;
+    const gone = await recheck([cites(AT_MISSION)], first.store, page(body("We merged with Acme.", "x")), today);
+    expect(gone.flags).toEqual([{ company: "example.com", url: AT_MISSION, kind: "passage", facts: ["applicationRules[0]"] }]);
+    expect(gone.store[AT_MISSION]).toEqual({ hash: "manual", lastHash: real, status: 200, checked: "2026-11-14" });
+    const still = await recheck([cites(AT_MISSION)], gone.store, page(body("We merged with Acme.", "x")), today);
+    expect(still.flags.map((f) => f.kind)).toEqual(["passage"]);
+    const back = await recheck([cites(AT_MISSION)], still.store, page(body(MISSION, "y")), today);
+    expect(back.flags).toEqual([]);
+    expect(back.store[AT_MISSION]).toEqual({ hash: real, status: 200, checked: "2026-11-14" });
+    // A malformed fragment (dataset:validate refuses it first) is a missing passage, not a crash.
+    const bad = await recheck([cites(`${URL_A}#:~:text=a,b,c`)], {}, page(body(MISSION, "x")), today);
+    expect(bad.flags.map((f) => f.kind)).toEqual(["passage"]);
+  });
+
+  it("is still manual when the whole page is too short to read", async () => {
+    const r = await recheck([cites(AT_MISSION)], {}, page(html("tiny")), today);
+    expect(r.flags.map((f) => f.kind)).toEqual(["manual"]);
+  });
+
+  it("fetches a page once, without its fragment, however many passages cite it; a bare URL keeps its whole-page hash", async () => {
+    const asked: string[] = [];
+    const html1 = body(MISSION, "x");
+    const fetcher = async (u: string) => { asked.push(u); return { status: 200, finalUrl: URL_A, body: html1 }; };
+    const r = await recheck([cites(AT_MISSION, AT_VALUES, URL_A)], {}, fetcher, today);
+    expect(asked).toEqual([URL_A]);
+    expect(Object.keys(r.store)).toEqual([URL_A, AT_VALUES, AT_MISSION]);
+    expect(r.store[URL_A].hash).toBe(fingerprint(extractText(html1)));
+    expect(new Set(Object.values(r.store).map((e) => e.hash)).size).toBe(3);
+  });
+
+  it("treats a URL that gains a passage as a first sight: no flag, and the bare URL's entry is dropped", async () => {
+    const old: FingerprintStore = { [URL_A]: { hash: "h-old", status: 200, checked: "2026-11-07", flaggedSince: "2026-11-07" } };
+    const r = await recheck([cites(AT_MISSION)], old, page(body(MISSION, "x")), today);
+    expect(r.flags).toEqual([]);
+    expect(Object.keys(r.store)).toEqual([AT_MISSION]);
+    expect(r.store[AT_MISSION]).not.toHaveProperty("flaggedSince");
+  });
+});
+
 describe("flags that stay listed until reviewed", () => {
   const week = (n: number) => new Date(Date.UTC(2026, 10, 14 + 7 * n));
   const prof = (missionChecked: string, rulesChecked: string) =>
@@ -239,6 +373,7 @@ describe("flags that stay listed until reviewed", () => {
 describe("issueBody", () => {
   const headings = [
     "Changed sources",
+    "Cited passage not found",
     "Moved or gone",
     "Flagged earlier and not yet reviewed",
     "Needs a manual check",
@@ -270,6 +405,13 @@ describe("issueBody", () => {
     expect(body).toContain("X Corp");
     expect(body).toContain("Y Inc");
     expect(body.indexOf("a.com.yaml")).toBeLessThan(body.indexOf("b.com.yaml"));
+  });
+  it("lists a missing passage in its own section, linking the URL with its fragment", () => {
+    const url = `${URL_A}#:~:text=Our%20values,Contact`;
+    const body = issueBody([{ company: "a.com", url, kind: "passage", facts: ["values"] }], null);
+    expect(body).toContain("## Cited passage not found\n\n- [a.com]");
+    expect(body).toContain(`[\`${url}\`](<${url}>): values`);
+    expect(body).toContain("## Changed sources\n\nNone this week.");
   });
   it("lists an unreviewed flag with the date it was first flagged", () => {
     const body = issueBody([{ company: "a.com", url: URL_A, kind: "unreviewed", facts: ["mission"], since: "2026-11-07" }], null);
