@@ -25,7 +25,10 @@ async function open() {
   );
   window.location.hash = "#/applications/app_1";
   render(<App capabilities={{ ...absentCapabilities(), db: Promise.resolve(db) }} />);
-  await screen.findByRole("dialog");
+  const dialog = await screen.findByRole("dialog");
+  // The drawer can be in the DOM before its focus-on-open effect has run. Wait for that focus, or a
+  // test that moves focus itself (the tab arrow-key test) can lose it to the effect landing later.
+  await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
   const stored = async () => (await db.doc("applications/app_1").get()).data() as unknown as Application | undefined;
   return { db, stored };
 }
