@@ -43,6 +43,8 @@ Each fact has a `kind`:
 
 Every fact needs at least one source link with the date you looked (`seen`), and a `checked` date for when you last confirmed it. Dates can't be in the future.
 
+If the page also carries news, promos or anything else that changes often, link to the exact passage instead: in Chrome or Edge, select it, right-click and choose **Copy link to highlight**. The weekly re-check then watches only that passage (see [the runbook](docs/dataset/RUNBOOK.md)).
+
 ## Writing rules
 
 - Summaries are at most 280 characters, in your own words.

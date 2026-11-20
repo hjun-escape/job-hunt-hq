@@ -148,6 +148,37 @@ describe("personal text scan", () => {
   });
 });
 
+describe("text fragments in source URLs", () => {
+  const check = (url: string) =>
+    validateProfiles(
+      [
+        {
+          file: "zeta.test.yaml",
+          profile: {
+            id: "zeta.test",
+            name: "Zeta",
+            countries: ["US"],
+            entities: {},
+            mission: { value: { en: "We build tools." }, kind: "official", sources: [{ url, seen: "2026-01-01" }], checked: "2026-01-01" },
+          },
+        },
+      ],
+      TODAY,
+    ).problems;
+
+  it("accepts a passage the way a browser's Copy link to highlight writes it", () => {
+    expect(check("https://zeta.test/about#:~:text=We%20build,tools.")).toEqual([]);
+    expect(check("https://zeta.test/about#:~:text=our-,mission,-is&text=Values")).toEqual([]);
+  });
+  it("refuses a malformed one, with the source path", () => {
+    for (const url of ["https://zeta.test/about#:~:text=", "https://zeta.test/about#:~:text=a,b,c", "https://zeta.test/about#:~:text=We build"]) {
+      expect(check(url), url).toEqual([
+        { file: "zeta.test.yaml", path: "mission.sources[0].url", message: "text fragment (#:~:text=) is malformed" },
+      ]);
+    }
+  });
+});
+
 describe("loadProfiles", () => {
   it("loads yaml files sorted by name", async () => {
     const r = await loadProfiles(DIR, TODAY);

@@ -1,4 +1,5 @@
 // Rules beyond the schema for hand-written company profiles.
+import { textFragment } from "../check/text";
 import { personalText, textFields } from "../check/text-scan";
 import { companyIdFromUrl, normalizeName } from "../normalize/names";
 import { ProfileSchema, type Profile } from "../schema/profile";
@@ -55,6 +56,11 @@ function checkProfile(file: string, p: Profile, today: string, problems: Problem
     if (fact.checked > today) add(`${path}.checked`, "date is in the future");
     fact.sources.forEach((s, i) => {
       if (s.seen > today) add(`${path}.sources[${i}].seen`, "date is in the future");
+      try {
+        textFragment(s.url); // the weekly re-check fingerprints only the passage a #:~:text= fragment names
+      } catch {
+        add(`${path}.sources[${i}].url`, "text fragment (#:~:text=) is malformed");
+      }
       if (fact.kind === "official" && !bases.some((b) => underHost(hostOf(s.url), b))) {
         add(`${path}.sources[${i}].url`, "official fact cites a host outside the company");
       }

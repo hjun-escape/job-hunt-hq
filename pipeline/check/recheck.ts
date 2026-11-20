@@ -1,10 +1,12 @@
 // Weekly re-check of the pages that profile facts cite. Pure logic: the fetcher is injected.
 import type { Profile } from "../schema/profile";
 import type { Report } from "../schema/published";
-import { extractText, fingerprint, MIN_TEXT } from "./text";
+import { extractText, fingerprint, MIN_TEXT, passageText, textFragment } from "./text";
 
 /**
- * One cited URL. `hash` is this week's text fingerprint, or "manual" when the page gave no usable text.
+ * One cited URL, keyed as the profile writes it. A URL with a text fragment (`#:~:text=`) is fingerprinted over
+ * that passage only; any other over the page's whole readable text. `hash` is this week's text fingerprint, or
+ * "manual" when the page gave no usable text or the passage was not found.
  * `lastHash` is the last real fingerprint, kept while `hash` is not it (a manual, short, blocked or gone week
  * never overwrites it), so a change across such a week is still caught. `flaggedSince` is the date of the first
  * changed, moved or gone flag not yet confirmed: the flag is listed every week until every fact citing the URL
@@ -12,8 +14,11 @@ import { extractText, fingerprint, MIN_TEXT } from "./text";
  */
 export type FingerprintEntry = { hash: string; status: number; checked: string; lastHash?: string; flaggedSince?: string };
 export type FingerprintStore = Record<string, FingerprintEntry>;
-/** "unreviewed": a changed, moved or gone flag from an earlier week whose facts have not been re-checked since. */
-export type FlagKind = "changed" | "gone" | "moved" | "manual" | "old" | "unreviewed";
+/**
+ * "unreviewed": a changed, moved or gone flag from an earlier week whose facts have not been re-checked since.
+ * "passage": the URL's text fragment names a passage the page no longer has (listed every week until fixed).
+ */
+export type FlagKind = "changed" | "gone" | "moved" | "manual" | "old" | "passage" | "unreviewed";
 /** `since` (unreviewed flags only) is the date the URL was first flagged. */
 export type Flag = { company: string; url: string; kind: FlagKind; facts: string[]; since?: string };
 /** status 0 means "not fetched" (robots.txt disallows). A fetcher that throws means the page was unreachable. */
@@ -65,6 +70,28 @@ function hostOf(u: string): string {
 
 const isMoved = (url: string, finalUrl: string) => hostOf(finalUrl) !== hostOf(url) || pathOf(finalUrl) !== pathOf(url);
 
+/** The URL without its fragment: what is fetched (a server never sees the fragment), once per run. */
+const pageOf = (url: string) => url.split("#")[0];
+
+/**
+ * This week's fingerprint of one cited URL: of its passages when it has a text fragment (read with page chrome
+ * kept, so a footer counts), else of the whole readable text. "manual" for a page with too little text, undefined
+ * when a passage is missing (or the fragment is malformed, which dataset:validate refuses first).
+ */
+function hashOf(url: string, body: string): string | undefined {
+  const text = extractText(body);
+  if (text.length < MIN_TEXT) return "manual";
+  let passages: ReturnType<typeof textFragment>;
+  try {
+    passages = textFragment(url);
+  } catch {
+    return undefined;
+  }
+  if (passages.length === 0) return fingerprint(text);
+  const cut = passageText(extractText(body, { chrome: true }), passages);
+  return cut === undefined ? undefined : fingerprint(cut);
+}
+
 /** An entry with `lastHash` only while it differs from `hash`. */
 function entryOf(hash: string, status: number, checked: string, lastHash: string | undefined): FingerprintEntry {
   return { hash, status, checked, ...(lastHash !== undefined && lastHash !== hash ? { lastHash } : {}) };
@@ -92,13 +119,15 @@ async function verdict(
     return { entry: entryOf(prev?.hash ?? "manual", res.status, today, lastReal), kinds: ["gone"] };
   }
   const ok = res.status >= 200 && res.status < 300;
-  let hash = "manual";
-  if (ok) {
-    const text = extractText(res.body);
-    if (text.length >= MIN_TEXT) hash = fingerprint(text);
-  }
+  const hash = ok ? hashOf(url, res.body) : "manual";
   const kinds: FlagKind[] = [];
   if (ok && res.finalUrl && isMoved(url, res.finalUrl)) kinds.push("moved");
+  if (hash === undefined) {
+    // The passage is gone: listed every week until the page or the URL's fragment is fixed. The last real
+    // fingerprint is kept, so a passage that comes back changed is still caught.
+    kinds.push("passage");
+    return { entry: entryOf("manual", res.status, today, lastReal), kinds };
+  }
   if (hash === "manual") {
     if (prev?.hash !== "manual") kinds.push("manual");
   } else if (lastReal !== undefined && lastReal !== hash) {
@@ -110,9 +139,10 @@ async function verdict(
 const PENDING: FlagKind[] = ["changed", "moved", "gone"];
 
 /**
- * Re-fetches every URL an official fact cites (each once, however many profiles cite it) and compares it with
- * the store. The returned store holds only URLs still cited. A changed, moved or gone URL stays flagged ("unreviewed",
- * in later weeks) until every official fact citing it has a checked date on or after the first flag's date.
+ * Re-fetches every URL an official fact cites (each page once, however many profiles or passages cite it) and
+ * compares it with the store. The returned store holds only URLs still cited. A changed, moved or gone URL stays
+ * flagged ("unreviewed", in later weeks) until every official fact citing it has a checked date on or after the
+ * first flag's date.
  * "old" flags any fact whose checked date is more than 365 days before today, comparing UTC dates.
  */
 export async function recheck(
@@ -136,10 +166,18 @@ export async function recheck(
     }
   }
 
+  const pages = new Map<string, ReturnType<Fetcher>>();
+  const load = async (page: string) => fetcher(page); // async, so a fetcher that throws at once still rejects
+  const fetchOnce: Fetcher = (url) => {
+    const page = pageOf(url);
+    if (!pages.has(page)) pages.set(page, load(page));
+    return pages.get(page)!;
+  };
+
   for (const url of [...citing.keys()].sort(cmp)) {
     const facts = citing.get(url)!;
     const prev = store[url];
-    const { entry, kinds } = await verdict(url, prev, fetcher, todayStr);
+    const { entry, kinds } = await verdict(url, prev, fetchOnce, todayStr);
     const fresh = kinds.some((k) => PENDING.includes(k));
     let since = fresh ? (prev?.flaggedSince ?? todayStr) : prev?.flaggedSince;
     if (since !== undefined && facts.every((f) => f.checked >= since!)) since = undefined;
@@ -189,7 +227,12 @@ function link(url: string): string {
 }
 
 const SECTIONS: { title: string; kinds: FlagKind[]; note: string }[] = [
-  { title: "Changed sources", kinds: ["changed"], note: "The readable text of the page differs from last week. Re-read it and update the fact if needed." },
+  { title: "Changed sources", kinds: ["changed"], note: "The readable text of the page (or of the passage its URL highlights) differs from last week. Re-read it and update the fact if needed." },
+  {
+    title: "Cited passage not found",
+    kinds: ["passage"],
+    note: "The URL highlights a passage (#:~:text=) the page no longer has. Re-read the page, update the fact if needed, and fix the URL.",
+  },
   { title: "Moved or gone", kinds: ["moved", "gone"], note: "The page redirects to a different host or path, or answers 404 or 410. Find the new address." },
   {
     title: "Flagged earlier and not yet reviewed",
