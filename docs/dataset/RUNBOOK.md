@@ -49,6 +49,26 @@ Two different employers (two FEINs, or two names without a FEIN) hashed to the s
 
 The build keeps the downloaded government files in the GitHub Actions cache (keys starting `dataset-`), and the download step skips any file it already has. If a source republished a file under the same name, or a cached file looks wrong, delete the cache and re-run the workflow: Actions tab, Management, Caches, delete every `dataset-` entry (or `gh cache list` then `gh cache delete <key>`). The next run downloads everything again, about 1.2 GB.
 
+## Failure drill
+
+Run this after any change to `dataset-build.yml` or to the build's checks, and otherwise about twice a year. It proves that a failing build stays off the live site and files an issue. Last run: 2026-11-18, passed.
+
+Before you start, make sure no issue labelled `dataset-build` is open, or the drill comments on that one instead of opening its own. Avoid Monday from 09:00 to 10:00 UTC: the drill shares the `dataset-build` concurrency group, so the scheduled run would wait behind it.
+
+1. Note the live build time: `curl -s https://hjun-escape.github.io/job-hunt-hq/data/v1/meta.json | jq -r .builtAt`
+2. On a branch from master, for example `drill/dataset-build-failure`, rename one entry in `EXPECTED_COLUMNS.lmia` in `pipeline/sources.ts`, for example `"Approved Positions"` to `"Approved Positions (drill)"`. Commit and push the branch.
+3. Run dataset-build on that branch: `gh workflow run dataset-build.yml --ref drill/dataset-build-failure`, or "Run workflow" in the Actions tab with the branch chosen.
+4. Check the result, about 12 minutes later (the LMIA files are read after LCA and PERM):
+   - `build` fails at the "Build dataset" step, and `deploy` and `summaries` are skipped;
+   - `report` opens "Dataset build failed", labelled `dataset-build`, which says the header row is missing `Approved Positions (drill)` and points to `EXPECTED_COLUMNS`;
+   - the live `builtAt` is unchanged, and master has no new commit.
+5. Clean up:
+   - Close the issue with a note that it was a drill.
+   - Delete the branch: `git push origin --delete drill/dataset-build-failure`.
+   - Delete the download cache the run saved under the branch, about 1.1 GB, so it does not crowd master's cache out of the 10 GB Actions cache limit: `gh cache list --ref refs/heads/drill/dataset-build-failure`, then `gh cache delete <id>`.
+
+If any check in step 4 fails, treat it as a bug in `dataset-build.yml`: a failing build must never deploy.
+
 ## Branch protection on master
 
 The `summaries` job (dataset-build) and the `commit` job (dataset-recheck) push straight to master as `github-actions[bot]`. If master ever gets branch protection or a ruleset, `github-actions[bot]` (GitHub Actions) must be allowed to push to it, or those two jobs fail every week. A failure there never touches the live site, but the summaries and the fingerprints stop being updated, and every week files a `dataset-build` or `dataset-recheck-failed` issue.
@@ -85,4 +105,9 @@ The tables in `data/reference/*.csv` are committed and refreshed by hand, rarely
 
 Budget from the spec: under an hour a week of human work at 100 profiles (reading the weekly issue and reviewing incoming pull requests). If the weekly issue regularly needs more, pause coverage growth until automation catches up.
 
-Measured build, locally: 426 seconds on a lightly loaded 10-core Mac, about 396 of them reading spreadsheets (LCA 325, PERM 65, LMIA 6), with peak memory around 2.4 to 2.9 GB. Under heavy load it took up to about 1,400 seconds. CI time has not been measured yet; it is recorded after the first live run. The job has a 60 minute timeout.
+Measured build, locally: 426 seconds on a lightly loaded 10-core Mac, about 396 of them reading spreadsheets (LCA 325, PERM 65, LMIA 6), with peak memory around 2.4 to 2.9 GB. Under heavy load it took up to about 1,400 seconds. Measured on GitHub's runners in the first live run (2026-11-16):
+- the `build` job took 11 minutes 26 seconds, covering download, build and checks;
+- `deploy` took 13 seconds and `summaries` 8 seconds;
+- the job has a 60 minute timeout.
+
+That week the scheduled run started about 10 hours after 09:00 UTC. GitHub delays scheduled runs when its runners are busy, so a late start on its own is not a problem.
